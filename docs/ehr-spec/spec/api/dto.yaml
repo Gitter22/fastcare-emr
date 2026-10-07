@@ -340,7 +340,7 @@ AppointmentDetail:
   allowedTransitions: "string[]"
 RescheduleRequest: {start: datetime, practitionerId: uuid?, locationId: uuid?, modality: Modality?, reason: text?, notify: bool?, version: int}
 ArriveRequest: {version: int, identityVerified: bool, coverageVerified: bool, consentsSigned: "ConsentType[]?", copayCollected: PaymentCreateRequest?}
-ArriveResult: {appointment: AppointmentView, encounterId: uuid, warnings: "string[]"}
+ArriveResult: {appointment: AppointmentView, encounterId: uuid, warnings: "string[]", paymentId: uuid?}
 RoomRequest: {roomId: uuid, version: int}
 CancelAppointmentRequest: {reason: text, reasonCode: patient|provider|weather|other, notify: bool, offerToWaitlist: bool?, version: int}
 EncounterDetail:

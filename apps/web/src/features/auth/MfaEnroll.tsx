@@ -11,7 +11,7 @@ import { PublicCard } from "@/shell/PublicCard";
 import { useLandAfterSignIn, type SignInState } from "./SignIn";
 
 const S = "auth.mfa-enroll";
-type Method = "TOTP" | "SMS";
+type Method = "TOTP" | "SMS" | "WEBAUTHN";
 
 /**
  * auth.mfa-enroll: first sign-in sets up a second factor before any session exists (INV-SEC-04). Recovery codes are
@@ -92,6 +92,11 @@ export function MfaEnrollPage() {
             options={[
               { value: "TOTP", label: "Authenticator app (recommended)" },
               { value: "SMS", label: "Text message" },
+              {
+                value: "WEBAUTHN" as Method,
+                label: "Security key · not available yet (OPEN-Q16)",
+                disabled: true,
+              },
             ]}
           />
           {method === "SMS" ? (

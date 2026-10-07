@@ -17,10 +17,15 @@ export function PatientLink({
   children?: React.ReactNode;
 }) {
   const label = children ?? <span className="font-semibold">{patient.name}</span>;
-  if (!isBuilt("chart.summary")) return <span data-testid={testId}>{label}</span>;
+  const target = isBuilt("chart.summary")
+    ? "chart.summary"
+    : isBuilt("chart.demographics")
+      ? "chart.demographics"
+      : null;
+  if (!target) return <span data-testid={testId}>{label}</span>;
   return (
     <Link
-      to={pathTo("chart.summary", { patientId: patient.id })}
+      to={pathTo(target, { patientId: patient.id })}
       data-testid={testId}
       className="underline-offset-4 hover:underline"
     >

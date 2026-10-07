@@ -42,7 +42,7 @@ export function Select<V extends string>({
 }) {
   return (
     <SelectPrimitive.Root
-      value={value || undefined}
+      value={value ?? ""}
       onValueChange={(v) => onValueChange(v as V)}
       disabled={disabled}
     >
@@ -157,12 +157,15 @@ export function RadioGroup<V extends string>({
       {options.map((o) => (
         <label
           key={o.value}
-          className="inline-flex cursor-pointer items-center gap-2 text-body text-ink"
+          className={cn(
+            "inline-flex items-center gap-2 text-body",
+            o.disabled ? "cursor-not-allowed text-ink-3" : "cursor-pointer text-ink",
+          )}
         >
           <RadioPrimitive.Item
             value={o.value}
             disabled={o.disabled}
-            className="grid size-[18px] place-items-center rounded-full border-[1.5px] border-ink-2 bg-surface hover:border-ink data-[state=checked]:border-pine-600"
+            className="grid size-[18px] place-items-center rounded-full border-[1.5px] border-ink-2 bg-surface hover:border-ink data-[state=checked]:border-pine-600 disabled:border-line-strong disabled:bg-surface-muted"
           >
             <RadioPrimitive.Indicator className="size-2.5 rounded-full bg-pine-600" />
           </RadioPrimitive.Item>

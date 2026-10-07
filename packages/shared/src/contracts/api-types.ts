@@ -423,6 +423,7 @@ export interface ArriveResult {
   appointment: AppointmentView;
   encounterId: string;
   warnings: Array<string>;
+  paymentId?: string;
 }
 
 export interface AssignRequest {

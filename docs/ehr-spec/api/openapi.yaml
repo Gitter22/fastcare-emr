@@ -36792,6 +36792,9 @@ components:
           type: array
           items:
             type: string
+        paymentId:
+          type: string
+          format: uuid
       required:
         - appointment
         - encounterId

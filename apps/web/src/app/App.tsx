@@ -2,7 +2,8 @@ import * as React from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
-import type { ScreenId } from "@agile-emr/shared";
+import { screens, type ScreenId } from "@agile-emr/shared";
+import { ChartLayout } from "@/shell/ChartLayout";
 import { ApiError } from "@/lib/api/client";
 import { TooltipProvider } from "@/components/ui/menu";
 import { AppShell } from "@/shell/AppShell";
@@ -22,6 +23,9 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/** Screens rendered inside the chart context (ADR-001, INV-ID-01 banner). */
+const CHART_PATTERNS = new Set(["chart-context", "chart-list", "encounter-workspace"]);
 
 for (const id of [...Object.keys(publicScreens), ...Object.keys(staffScreens)])
   builtScreens.add(id as ScreenId);
@@ -52,7 +56,15 @@ export function App() {
                       path={routeOf(id as ScreenId)}
                       element={
                         <ScreenGate id={id as ScreenId}>
-                          <Component />
+                          {CHART_PATTERNS.has(screens[id as ScreenId].pattern ?? "") ? (
+                            <ChartLayout
+                              compactNav={screens[id as ScreenId].pattern === "encounter-workspace"}
+                            >
+                              <Component />
+                            </ChartLayout>
+                          ) : (
+                            <Component />
+                          )}
                         </ScreenGate>
                       }
                     />

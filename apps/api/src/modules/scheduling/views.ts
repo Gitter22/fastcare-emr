@@ -102,7 +102,8 @@ export async function appointmentViews(tx: Tx, appts: Appointment[]): Promise<Ap
       ...(room ? { room: { id: room.id, name: room.name } } : {}),
       patient: toSummary(p),
       ...(a.reason ? { reason: a.reason } : {}),
-      ...(elig ? { eligibility: elig.status } : {}),
+      // No coverage = self-pay (field absent); coverage never checked = UNKNOWN, never shown as self-pay.
+      ...(cov ? { eligibility: elig?.status ?? "UNKNOWN" } : {}),
       ...(elig?.copay &&
       !paid.has(a.patientId) &&
       ["BOOKED", "CONFIRMED", "ARRIVED"].includes(a.status)

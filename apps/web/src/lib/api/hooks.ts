@@ -50,3 +50,36 @@ export function useApiMutation<Id extends OperationId>(
     onError: options.onError,
   });
 }
+
+/**
+ * Every page of a cursor-paged list operation ({data, nextCursor, hasMore}). For screens that must show the whole
+ * range (calendar, day lists); each page uses the API's maximum page size.
+ */
+export function useApiAll<Id extends OperationId>(
+  id: Id,
+  args: CallArgs<Id>,
+  options: { enabled?: boolean; refetchInterval?: number } = {},
+) {
+  return useQuery({
+    queryKey: [id, args, "all"],
+    enabled: options.enabled,
+    refetchInterval: options.refetchInterval,
+    queryFn: async ({ signal }) => {
+      type Page = { data: unknown[]; nextCursor?: string | null; hasMore: boolean };
+      const all: unknown[] = [];
+      let cursor: string | undefined;
+      for (let i = 0; i < 50; i++) {
+        const a = args as CallArgs<Id> & { query?: Record<string, unknown> };
+        const page = (await api(id, {
+          ...a,
+          query: { ...(a.query ?? {}), limit: 200, ...(cursor ? { cursor } : {}) },
+          signal,
+        } as CallArgs<Id>)) as unknown as Page;
+        all.push(...page.data);
+        if (!page.hasMore || !page.nextCursor) break;
+        cursor = page.nextCursor;
+      }
+      return all as ApiResponse<Id> extends { data: infer D } ? D : never;
+    },
+  });
+}

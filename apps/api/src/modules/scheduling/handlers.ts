@@ -61,6 +61,8 @@ export const schedulingHandlers: HandlerMap = {
       ? new Date(q.to.length === 10 ? dayRange(q.to, tz).end : q.to)
       : new Date(from.getTime() + 86_400_000);
     if (q.patientId) await requirePatient(ctx, q.patientId);
+    const limit = limitOf(q);
+    const offset = Number(q.cursor ?? 0) || 0;
     const rows = await ctx.db.appointment.findMany({
       where: {
         start: { gte: from, lt: to },
@@ -69,11 +71,17 @@ export const schedulingHandlers: HandlerMap = {
         ...(q.status?.length ? { status: { in: q.status as AppointmentStatus[] } } : {}),
         ...(q.patientId ? { patientId: q.patientId } : {}),
       },
-      orderBy: [{ start: "asc" }, { practitionerId: "asc" }],
-      take: limitOf(q, 1000, 500),
+      orderBy: [{ start: "asc" }, { id: "asc" }],
+      take: limit + 1,
+      skip: offset,
     });
     ctx.audit.detail({ rows: rows.length });
-    return { data: await appointmentViews(ctx.db, rows), nextCursor: null, hasMore: false };
+    const pageRows = rows.slice(0, limit);
+    return {
+      data: await appointmentViews(ctx.db, pageRows),
+      nextCursor: rows.length > limit ? String(offset + limit) : null,
+      hasMore: rows.length > limit,
+    };
   },
 
   async searchAvailability(ctx) {
@@ -301,6 +309,7 @@ export const schedulingHandlers: HandlerMap = {
       );
     }
     const warnings: string[] = [];
+    let paymentId: string | undefined;
     for (const type of b.consentsSigned ?? []) {
       const has = await ctx.db.consent.findFirst({
         where: { patientId: a.patientId, type, status: "ACTIVE", revokedAt: null },
@@ -362,6 +371,7 @@ export const schedulingHandlers: HandlerMap = {
       });
       if (pay.status !== "SUCCEEDED")
         warnings.push("Payment was declined. The amount stays on the patient's balance.");
+      else paymentId = pay.id;
       ctx.audit.add({
         action: "CREATE",
         patientId: a.patientId,
@@ -378,7 +388,12 @@ export const schedulingHandlers: HandlerMap = {
         title: `Patient arrived for ${(await ctx.db.practitioner.findUnique({ where: { id: a.practitionerId } }))?.lastName ?? "provider"} · ${whenText(a.start, await practiceTimeZone(ctx.db))}`,
         linkRoute: "/schedule/flow",
       });
-    return { appointment: await one(ctx, a.id), encounterId: enc.id, warnings };
+    return {
+      appointment: await one(ctx, a.id),
+      encounterId: enc.id,
+      warnings,
+      ...(paymentId ? { paymentId } : {}),
+    };
   },
 
   async roomAppointment(ctx) {

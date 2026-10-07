@@ -19,8 +19,9 @@ The agent adds questions here instead of guessing. Humans answer them; answered 
 | OPEN-Q13 | Session timeouts (idle and absolute) per role, and whether "remember this device" may skip MFA | S0 | 15 min idle, 12 h absolute; MFA every sign-in | Open |
 | OPEN-Q14 | Operations list roles in `x-roles` that the state machine `by` does not (24 transitions, e.g. manager on arriveAppointment, ma/provider on bookAppointment). Which wins? | S1, S5, S6 | Follow `states.yaml` (precedence rule); extra roles get 403 | Open |
 | OPEN-Q15 | Breached-password check: agile-emr has no k-anonymity breach service (e.g. HIBP). Add one as a new integration, or keep a local list? | S0 | Local list of common leaked passwords + 12-character minimum + name/email check | Open |
-| OPEN-Q16 | WebAuthn (security keys) is specified for staff MFA. Which library/attestation policy? | S0 | TOTP, SMS, email codes and recovery codes only; security keys hidden in the UI | Open |
+| OPEN-Q16 | WebAuthn (security keys) is specified for staff MFA. Which library/attestation policy? | S0 | TOTP, SMS, email codes and recovery codes only; the security-key option is shown disabled with the reason | Open |
 | OPEN-Q17 | Which consents (if any) let staff open a restricted record (VIP, confidential, Part 2) without break-the-glass — e.g. the patient's PCP or care team? | S0, S2 | Every staff read of restricted clinical detail needs an active EmergencyAccessGrant; identity banner and search rows stay visible | Open |
+| OPEN-Q18 | Which consents must be on file before a visit (front-desk "Forms" column and arrive checklist)? Should the list be practice-configurable or vary by visit type? | S1 | Every visit needs Notice of Privacy Practices and Financial policy; the list is fixed in code (`REQUIRED_CONSENTS`) | Open |
 
 ## Spec corrections made during the build
 
