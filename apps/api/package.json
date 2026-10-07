@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/server.js",
-    "test": "node --test --test-concurrency=1 test/"
+    "test": "tsc -p tsconfig.json && node --test --test-concurrency=1 'test/**/*.test.mjs'"
   },
   "dependencies": {
     "@agile-emr/shared": "0.0.1",

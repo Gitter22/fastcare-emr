@@ -86,6 +86,8 @@ export interface Ctx<Id extends OperationId = OperationId> {
     add(entry: AuditEntry): void;
     /** Skip the default event (the handler wrote its own, e.g. LOGIN vs LOGIN_FAILED). */
     suppressDefault(): void;
+    /** Actor for requests that authenticate inside the handler (login, MFA, invitations). */
+    actor(actorType: "staff" | "portal", actorId: string, sessionId?: string | null): void;
   };
   /** Work that must persist even when the request fails and its transaction rolls back (lockout counters, failure audit). */
   onFailure(fn: (tx: Tx) => Promise<void>): void;

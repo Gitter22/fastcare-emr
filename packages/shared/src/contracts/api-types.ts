@@ -3094,7 +3094,7 @@ export interface MfaFactorInfo {
   lastUsedAt?: string;
 }
 
-export type MfaFactorType = "TOTP" | "SMS" | "EMAIL" | "WEBAUTHN" | "PUSH";
+export type MfaFactorType = "TOTP" | "SMS" | "EMAIL" | "WEBAUTHN" | "PUSH" | "RECOVERY_CODE";
 
 export interface MfaVerifyRequest {
   challengeId: string;
@@ -3566,6 +3566,8 @@ export interface PatientContactPoint {
   system: ContactPointSystem;
   use?: ContactPointUse | null;
   value: string;
+  /** keyed blind index (HMAC-SHA256 of the normalised value) so encrypted phone/email stay searchable */
+  readonly valueIndex?: string | null;
   rank: number;
   verifiedAt?: string | null;
   /** TCPA opt-out (STOP) */

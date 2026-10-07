@@ -15,6 +15,7 @@ import { writeAuditEntries, type AuditActor, type AuditEntry } from "../audit.js
 import { Problem, forbidden, notImplemented, unauthenticated } from "../problem.js";
 import { STEP_UP_WINDOW_MS, touchSession } from "../sessions.js";
 import { verifyToken } from "../tokens.js";
+import { implementedOperations } from "./capabilities.js";
 import type { BinaryResult, Ctx, HandlerMap, Principal, StaffPrincipal } from "./context.js";
 
 import schemasJson from "../../contracts/schemas.json" with { type: "json" };
@@ -57,6 +58,7 @@ export function registerOperations(
   for (const op of Object.values(operations) as OperationMeta[]) {
     const handler = handlers[op.id as OperationId] as ((ctx: Ctx) => Promise<unknown>) | undefined;
     (handler ? implemented : missing).push(op.id);
+    if (handler) implementedOperations.add(op.id);
     const s = schemas.operations[op.id];
     const url = op.path.replace(/\{(\w+)\}/g, ":$1");
     let validateResponse: ((data: unknown) => boolean) | null = null;
@@ -267,6 +269,7 @@ async function runOperation(
     emergencyAccessId?: string | null;
     suppressed: boolean;
     extra: AuditEntry[];
+    actor?: { actorType: "staff" | "portal"; actorId: string; sessionId: string | null };
   } = { suppressed: false, extra: [] };
 
   const params = (req.params ?? {}) as Record<string, string>;
@@ -305,6 +308,8 @@ async function runOperation(
         },
         add: (e) => void auditState.extra.push({ operationId: op.id, ...e }),
         suppressDefault: () => void (auditState.suppressed = true),
+        actor: (actorType, actorId, sessionId) =>
+          void (auditState.actor = { actorType, actorId, sessionId: sessionId ?? null }),
       },
       onFailure: (fn) => void failureWork.push(fn),
       afterCommit: (fn) => void afterCommit.push(fn),
@@ -360,7 +365,9 @@ async function runOperation(
         detail: auditState.detail ?? null,
       });
     }
-    await writeAuditEntries(tx, actorFor(principal, boundPractice, req), entries);
+    const actor = actorFor(principal, boundPractice, req);
+    if (auditState.actor) Object.assign(actor, auditState.actor);
+    await writeAuditEntries(tx, actor, entries);
     return result;
   };
 

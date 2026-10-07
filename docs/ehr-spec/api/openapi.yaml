@@ -44971,6 +44971,7 @@ components:
         - EMAIL
         - WEBAUTHN
         - PUSH
+        - RECOVERY_CODE
     MfaVerifyRequest:
       type: object
       x-phi: false
@@ -46403,6 +46404,13 @@ components:
         value:
           type: string
           x-phi: true
+          x-encrypted: true
+        valueIndex:
+          type:
+            - string
+            - 'null'
+          description: keyed blind index (HMAC-SHA256 of the normalised value) so encrypted phone/email stay searchable
+          readOnly: true
         rank:
           type: integer
         verifiedAt:
@@ -46437,6 +46445,7 @@ components:
         value:
           type: string
           x-phi: true
+          x-encrypted: true
         rank:
           type: integer
         verifiedAt:

@@ -120,6 +120,7 @@ enum MfaFactorType {
   EMAIL
   WEBAUTHN
   PUSH
+  RECOVERY_CODE /// one row holding argon2 hashes of single-use recovery codes (secret, encrypted)
 }
 
 enum SessionSubject {

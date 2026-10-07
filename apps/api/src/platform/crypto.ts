@@ -15,8 +15,8 @@ import {
 export { decryptField, decryptOptionalField, encryptField, encryptOptionalField };
 
 /** For `Bytes` columns tagged @encrypted (SSN, TOTP seed). */
-export function encryptToBytes(plaintext: string): Buffer {
-  return Buffer.from(encryptField(plaintext), "utf8");
+export function encryptToBytes(plaintext: string): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(Buffer.from(encryptField(plaintext), "utf8"));
 }
 
 export function decryptFromBytes(stored: Uint8Array | null | undefined): string | null {
@@ -71,9 +71,12 @@ export function normaliseContact(kind: "phone" | "email", value: string): string
  */
 export const MASTER_KEY_ID = "phi-master-v1";
 
-export function newDataKey(): { dataKey: Buffer; wrapped: Buffer } {
+export function newDataKey(): { dataKey: Buffer; wrapped: Uint8Array<ArrayBuffer> } {
   const dataKey = randomBytes(32);
-  return { dataKey, wrapped: Buffer.from(encryptField(dataKey.toString("base64")), "utf8") };
+  return {
+    dataKey,
+    wrapped: new Uint8Array(Buffer.from(encryptField(dataKey.toString("base64")), "utf8")),
+  };
 }
 
 export function unwrapDataKey(wrapped: Uint8Array): Buffer {
