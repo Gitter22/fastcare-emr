@@ -84,6 +84,8 @@ for (const [name, s] of Object.entries(schemas)) {
   types += t.startsWith("{") ? `export interface ${name} ${t}\n\n` : `export type ${name} = ${t};\n\n`;
 }
 
+types += `/** Schema name -> type (used by the API's schema-driven serialiser). */\nexport interface SchemaTypes {\n${Object.keys(schemas).map((n) => `  ${n}: ${n};`).join("\n")}\n}\n`;
+
 // ---------------------------------------------------------------- operations
 const paramRefs = openapi.components.parameters;
 const resolveParam = (p) => (p.$ref ? paramRefs[p.$ref.split("/").pop()] : p);
@@ -235,6 +237,51 @@ export const roleEnum = (r: StaffRoleId) => r.toUpperCase() as "FRONTDESK" | "MA
 export const roleFromEnum = (r: string) => r.toLowerCase() as StaffRoleId;
 `;
 
+// ---------------------------------------------------------------- screen catalog (screens.yaml + spec/ui)
+const screensSpec = yaml.load(readFileSync(join(specDir, "spec/screens.yaml"), "utf8")).screens;
+const modulesSpec = yaml.load(readFileSync(join(specDir, "spec/modules.yaml"), "utf8")).modules;
+const uiScreens = {};
+for (const f of ["auth", "home", "schedule", "patients", "chart", "encounter", "inbox", "billing", "reports", "telehealth", "admin", "portal"]) {
+  const doc = yaml.load(readFileSync(join(specDir, `spec/ui/${f}.yaml`), "utf8"));
+  Object.assign(uiScreens, doc.screens ?? {});
+}
+const moduleOf = {};
+for (const m of modulesSpec) for (const g of m.groups) for (const sid of g.screens) moduleOf[sid] = { module: m.id, nav: m.nav, group: g.name };
+const catalog = screensSpec.map((sc) => {
+  const ui = uiScreens[sc.id] ?? {};
+  return {
+    id: sc.id,
+    name: sc.name,
+    purpose: sc.purpose ?? "",
+    roles: sc.roles ?? [],
+    route: ui.route ?? null,
+    pattern: ui.pattern ?? null,
+    up: ui.up ?? null,
+    container: ui.container ?? null,
+    module: moduleOf[sc.id]?.module ?? null,
+    nav: moduleOf[sc.id]?.nav ?? null,
+    group: moduleOf[sc.id]?.group ?? null,
+  };
+});
+const screensTs = header + `
+export interface ScreenDef {
+  id: string;
+  name: string;
+  purpose: string;
+  roles: readonly string[];
+  /** Route from spec/ui (null for overlays). */
+  route: string | null;
+  pattern: string | null;
+  up: string | null;
+  container: string | null;
+  module: string | null;
+  nav: string | null;
+  group: string | null;
+}
+export const screens = ${JSON.stringify(Object.fromEntries(catalog.map((c) => [c.id, c])), null, 2)} as const satisfies Record<string, ScreenDef>;
+export type ScreenId = keyof typeof screens;
+`;
+
 // ---------------------------------------------------------------- JSON Schemas for request validation
 function strip(o) {
   if (Array.isArray(o)) return o.map(strip);
@@ -277,6 +324,25 @@ const jsonSchemas = {
   ),
 };
 
+// ---------------------------------------------------------------- schema doc tags (docs/09-data-model.md)
+const prismaSchema = readFileSync(join(root, "prisma/schema.prisma"), "utf8");
+const schemaTags = { tenant: [], appendOnly: [], versioned: [], fhir: {}, patientScoped: [], encrypted: {}, phi: {} };
+for (const m of prismaSchema.matchAll(/((?:\/\/\/.*\n)*)model (\w+) \{([\s\S]*?)\n\}/g)) {
+  const [, tags, name, body] = m;
+  if (tags.includes("@tenant")) schemaTags.tenant.push(name);
+  if (tags.includes("@append-only")) schemaTags.appendOnly.push(name);
+  if (tags.includes("@versioned")) schemaTags.versioned.push(name);
+  const fhir = /@fhir (\w+)/.exec(tags);
+  if (fhir) schemaTags.fhir[name] = fhir[1];
+  if (/\n\s+patientId\s+String/.test(body)) schemaTags.patientScoped.push(name);
+  for (const line of body.split("\n")) {
+    const f = /^\s+(\w+)\s+\S+.*\/\/\/(.*)$/.exec(line);
+    if (!f) continue;
+    if (f[2].includes("@encrypted")) (schemaTags.encrypted[name] ??= []).push(f[1]);
+    if (f[2].includes("@phi")) (schemaTags.phi[name] ??= []).push(f[1]);
+  }
+}
+
 const sharedOut = join(root, "packages/shared/src/contracts");
 const apiOut = join(root, "apps/api/src/contracts");
 mkdirSync(sharedOut, { recursive: true });
@@ -285,5 +351,7 @@ writeFileSync(join(sharedOut, "api-types.ts"), types);
 writeFileSync(join(sharedOut, "operations.ts"), opsTs);
 writeFileSync(join(sharedOut, "states.ts"), statesTs);
 writeFileSync(join(sharedOut, "roles.ts"), rolesTs);
+writeFileSync(join(sharedOut, "screens.ts"), screensTs);
 writeFileSync(join(apiOut, "schemas.json"), JSON.stringify(jsonSchemas));
+writeFileSync(join(apiOut, "schema-tags.json"), JSON.stringify(schemaTags, null, 2));
 console.log(`codegen: ${Object.keys(schemas).length} schemas, ${ops.length} operations, ${states.machines.length} machines`);

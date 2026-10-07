@@ -227,6 +227,10 @@ PatientBanner:
   codeStatus: string?
   pcp: string?
   primaryCoverage: string?
+  eligibility: EligibilityStatus?
+  balance: money
+  preferredLanguage: string?
+  interpreterNeeded: bool
   flags: "string[]"
   restricted: bool
   part2: bool

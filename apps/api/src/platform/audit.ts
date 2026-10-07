@@ -31,12 +31,19 @@ export interface AuditActor {
   userAgent: string | null;
 }
 
-function canonical(row: Record<string, unknown>): string {
-  return JSON.stringify(
-    Object.keys(row)
+/** Deterministic JSON with keys sorted at every depth (jsonb does not preserve key order). */
+function stable(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stable);
+  if (v && typeof v === "object" && !(v instanceof Date)) {
+    return Object.keys(v as object)
       .sort()
-      .map((k) => [k, row[k]]),
-  );
+      .map((k) => [k, stable((v as Record<string, unknown>)[k])]);
+  }
+  return v;
+}
+
+function canonical(row: Record<string, unknown>): string {
+  return JSON.stringify(stable(row));
 }
 
 export async function writeAuditEntries(

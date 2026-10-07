@@ -39679,6 +39679,7 @@ components:
         memberId:
           type: string
           x-phi: true
+          x-encrypted: true
         groupNumber:
           type:
             - string
@@ -39761,6 +39762,7 @@ components:
         memberId:
           type: string
           x-phi: true
+          x-encrypted: true
         groupNumber:
           type:
             - string
@@ -39818,6 +39820,7 @@ components:
         memberId:
           type: string
           x-phi: true
+          x-encrypted: true
         groupNumber:
           type:
             - string
@@ -46362,6 +46365,16 @@ components:
           type: string
         primaryCoverage:
           type: string
+        eligibility:
+          $ref: '#/components/schemas/EligibilityStatus'
+        balance:
+          type: string
+          pattern: ^-?\d+\.\d{2}$
+          description: decimal amount, 2 places
+        preferredLanguage:
+          type: string
+        interpreterNeeded:
+          type: boolean
         flags:
           type: array
           items:
@@ -46378,6 +46391,8 @@ components:
         - age
         - allergies
         - noKnownAllergies
+        - balance
+        - interpreterNeeded
         - flags
         - restricted
         - part2
@@ -48475,7 +48490,8 @@ components:
           type: string
         tin:
           type: string
-          description: Tax ID
+          description: Tax ID (EIN), app-layer AES-256-GCM like agile-emr
+          x-encrypted: true
         groupNpi:
           type:
             - string
@@ -48634,7 +48650,8 @@ components:
           type: string
         tin:
           type: string
-          description: Tax ID
+          description: Tax ID (EIN), app-layer AES-256-GCM like agile-emr
+          x-encrypted: true
         groupNpi:
           type:
             - string
@@ -49951,11 +49968,13 @@ components:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         email:
           type:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         address:
           type:
             - object
@@ -50006,11 +50025,13 @@ components:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         email:
           type:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         address:
           type:
             - object
@@ -50051,11 +50072,13 @@ components:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         email:
           type:
             - string
             - 'null'
           x-phi: true
+          x-encrypted: true
         address:
           type:
             - object

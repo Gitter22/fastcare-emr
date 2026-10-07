@@ -1,0 +1,486 @@
+{
+  "tenant": [
+    "PracticeSetting",
+    "Location",
+    "Room",
+    "Practitioner",
+    "PractitionerLicense",
+    "DeaRegistration",
+    "PayerEnrollment",
+    "WorkPool",
+    "WorkPoolMember",
+    "User",
+    "UserRole",
+    "UserLocation",
+    "CosignRule",
+    "EmergencyAccessGrant",
+    "AuditEvent",
+    "DisclosureLog",
+    "ResourceVersion",
+    "ProvenanceRecord",
+    "FileObject",
+    "Patient",
+    "PatientIdentifier",
+    "PatientAddress",
+    "PatientContactPoint",
+    "RelatedPerson",
+    "DuplicateCandidate",
+    "PatientMerge",
+    "StagedChange",
+    "PatientList",
+    "Pharmacy",
+    "Payer",
+    "PayerPlan",
+    "Coverage",
+    "EligibilityCheck",
+    "VisitType",
+    "ScheduleTemplate",
+    "ScheduleBlock",
+    "Appointment",
+    "AppointmentStatusEvent",
+    "WaitlistEntry",
+    "Recall",
+    "CheckinSession",
+    "Encounter",
+    "ClinicalNote",
+    "NoteSection",
+    "AiDraftSegment",
+    "Addendum",
+    "NoteTemplate",
+    "SmartPhrase",
+    "AfterVisitSummary",
+    "Condition",
+    "AllergyIntolerance",
+    "MedicationStatement",
+    "MedicationRequest",
+    "DurAlert",
+    "PdmpQuery",
+    "RxRequest",
+    "Observation",
+    "DiagnosticReport",
+    "CriticalResultContact",
+    "InboundResult",
+    "Immunization",
+    "VaccineLot",
+    "Procedure",
+    "FamilyMemberHistory",
+    "Questionnaire",
+    "QuestionnaireResponse",
+    "Device",
+    "CarePlan",
+    "Goal",
+    "TimeLog",
+    "Measure",
+    "CareGap",
+    "MeasureResult",
+    "CdsRule",
+    "CdsFiring",
+    "ServiceRequest",
+    "ServiceRequestReason",
+    "Specimen",
+    "OrderSet",
+    "LabCompendiumItem",
+    "Referral",
+    "Authorization",
+    "DocumentReference",
+    "IncomingDocument",
+    "Consent",
+    "AmendmentRequest",
+    "MessageThread",
+    "Message",
+    "CommunicationLog",
+    "Task",
+    "TaskComment",
+    "Notification",
+    "TelehealthSession",
+    "EVisit",
+    "FeeSchedule",
+    "FeeScheduleItem",
+    "ChargeItem",
+    "Claim",
+    "ClaimLine",
+    "ClaimEvent",
+    "ClaimBatch",
+    "Remittance",
+    "RemittanceClaimPayment",
+    "RemittanceAdjustment",
+    "ProviderLevelAdjustment",
+    "Denial",
+    "Appeal",
+    "LedgerEntry",
+    "PaymentMethod",
+    "Payment",
+    "PaymentPlan",
+    "Statement",
+    "Estimate",
+    "DepositBatch",
+    "IntegrationConnection",
+    "InterfaceMessage",
+    "Job"
+  ],
+  "appendOnly": [
+    "EmergencyAccessGrant",
+    "AuditEvent",
+    "DisclosureLog",
+    "ResourceVersion",
+    "ProvenanceRecord",
+    "PatientMerge",
+    "AppointmentStatusEvent",
+    "Addendum",
+    "DurAlert",
+    "PdmpQuery",
+    "CriticalResultContact",
+    "TimeLog",
+    "CdsFiring",
+    "Message",
+    "TaskComment",
+    "ClaimEvent",
+    "LedgerEntry"
+  ],
+  "versioned": [
+    "Practice",
+    "PracticeSetting",
+    "Location",
+    "Practitioner",
+    "ResourceVersion",
+    "Patient",
+    "Payer",
+    "Coverage",
+    "VisitType",
+    "ScheduleTemplate",
+    "Appointment",
+    "Encounter",
+    "ClinicalNote",
+    "NoteTemplate",
+    "Condition",
+    "AllergyIntolerance",
+    "MedicationStatement",
+    "MedicationRequest",
+    "Observation",
+    "DiagnosticReport",
+    "Immunization",
+    "Procedure",
+    "Questionnaire",
+    "QuestionnaireResponse",
+    "CarePlan",
+    "CdsRule",
+    "ServiceRequest",
+    "OrderSet",
+    "Referral",
+    "DocumentReference",
+    "Consent",
+    "Task",
+    "FeeSchedule",
+    "ChargeItem",
+    "Claim"
+  ],
+  "fhir": {
+    "Practice": "Organization",
+    "Location": "Location",
+    "Practitioner": "Practitioner",
+    "WorkPool": "CareTeam",
+    "AuditEvent": "AuditEvent",
+    "ProvenanceRecord": "Provenance",
+    "Patient": "Patient",
+    "RelatedPerson": "RelatedPerson",
+    "Pharmacy": "Organization",
+    "Payer": "Organization",
+    "Coverage": "Coverage",
+    "EligibilityCheck": "CoverageEligibilityResponse",
+    "Appointment": "Appointment",
+    "Encounter": "Encounter",
+    "ClinicalNote": "DocumentReference",
+    "AfterVisitSummary": "DocumentReference",
+    "Condition": "Condition",
+    "AllergyIntolerance": "AllergyIntolerance",
+    "MedicationStatement": "MedicationStatement",
+    "MedicationRequest": "MedicationRequest",
+    "Observation": "Observation",
+    "DiagnosticReport": "DiagnosticReport",
+    "Immunization": "Immunization",
+    "Procedure": "Procedure",
+    "FamilyMemberHistory": "FamilyMemberHistory",
+    "Questionnaire": "Questionnaire",
+    "QuestionnaireResponse": "QuestionnaireResponse",
+    "Device": "Device",
+    "CarePlan": "CarePlan",
+    "Goal": "Goal",
+    "Measure": "Measure",
+    "CareGap": "MeasureReport",
+    "MeasureResult": "MeasureReport",
+    "ServiceRequest": "ServiceRequest",
+    "Specimen": "Specimen",
+    "Referral": "ServiceRequest",
+    "Authorization": "ClaimResponse",
+    "DocumentReference": "DocumentReference",
+    "Consent": "Consent",
+    "MessageThread": "Communication",
+    "Message": "Communication",
+    "CommunicationLog": "Communication",
+    "Task": "Task",
+    "ChargeItem": "ChargeItem",
+    "Claim": "Claim",
+    "Remittance": "PaymentReconciliation",
+    "Payment": "PaymentNotice"
+  },
+  "patientScoped": [
+    "AccountToken",
+    "EmergencyAccessGrant",
+    "AuditEvent",
+    "DisclosureLog",
+    "PatientIdentifier",
+    "PatientAddress",
+    "PatientContactPoint",
+    "RelatedPerson",
+    "StagedChange",
+    "Coverage",
+    "Appointment",
+    "WaitlistEntry",
+    "Recall",
+    "CheckinSession",
+    "Encounter",
+    "ClinicalNote",
+    "AfterVisitSummary",
+    "Condition",
+    "AllergyIntolerance",
+    "MedicationStatement",
+    "MedicationRequest",
+    "PdmpQuery",
+    "RxRequest",
+    "Observation",
+    "DiagnosticReport",
+    "Immunization",
+    "Procedure",
+    "FamilyMemberHistory",
+    "QuestionnaireResponse",
+    "Device",
+    "CarePlan",
+    "Goal",
+    "TimeLog",
+    "CareGap",
+    "CdsFiring",
+    "ServiceRequest",
+    "Referral",
+    "Authorization",
+    "DocumentReference",
+    "Consent",
+    "AmendmentRequest",
+    "MessageThread",
+    "CommunicationLog",
+    "Task",
+    "EVisit",
+    "ChargeItem",
+    "Claim",
+    "LedgerEntry",
+    "PaymentMethod",
+    "Payment",
+    "PaymentPlan",
+    "Statement",
+    "Estimate",
+    "PortalAccess",
+    "SmartGrant"
+  ],
+  "encrypted": {
+    "Practice": [
+      "tin"
+    ],
+    "DeaRegistration": [
+      "number"
+    ],
+    "MfaFactor": [
+      "secret"
+    ],
+    "ResourceVersion": [
+      "snapshot"
+    ],
+    "Patient": [
+      "ssnCiphertext"
+    ],
+    "PatientContactPoint": [
+      "value"
+    ],
+    "RelatedPerson": [
+      "phone",
+      "email",
+      "ssnCiphertext"
+    ],
+    "Coverage": [
+      "memberId"
+    ]
+  },
+  "phi": {
+    "EmergencyAccessGrant": [
+      "reasonText"
+    ],
+    "ResourceVersion": [
+      "snapshot"
+    ],
+    "FileObject": [
+      "fileName"
+    ],
+    "Patient": [
+      "firstName",
+      "middleName",
+      "lastName",
+      "suffix",
+      "preferredName",
+      "previousNames",
+      "birthDate",
+      "genderIdentity",
+      "sexualOrientation",
+      "raceCodes",
+      "ethnicityCodes",
+      "ssnCiphertext",
+      "ssnLast4",
+      "deceasedAt"
+    ],
+    "PatientIdentifier": [
+      "value"
+    ],
+    "PatientAddress": [
+      "line1",
+      "line2",
+      "city",
+      "postalCode"
+    ],
+    "PatientContactPoint": [
+      "value"
+    ],
+    "RelatedPerson": [
+      "firstName",
+      "lastName",
+      "birthDate",
+      "phone",
+      "email",
+      "address",
+      "ssnCiphertext"
+    ],
+    "StagedChange": [
+      "changes"
+    ],
+    "Coverage": [
+      "memberId"
+    ],
+    "Appointment": [
+      "reason",
+      "comment"
+    ],
+    "Encounter": [
+      "chiefComplaint",
+      "patientWords",
+      "prechartNote",
+      "followUpInstruction"
+    ],
+    "NoteSection": [
+      "content"
+    ],
+    "AiDraftSegment": [
+      "text"
+    ],
+    "Addendum": [
+      "text"
+    ],
+    "AfterVisitSummary": [
+      "instructions",
+      "content"
+    ],
+    "Condition": [
+      "display",
+      "note"
+    ],
+    "AllergyIntolerance": [
+      "substanceDisplay",
+      "reactions"
+    ],
+    "MedicationStatement": [
+      "display",
+      "dosageText"
+    ],
+    "MedicationRequest": [
+      "display",
+      "sigText",
+      "noteToPharmacist"
+    ],
+    "DurAlert": [
+      "message"
+    ],
+    "RxRequest": [
+      "requestedChange"
+    ],
+    "Observation": [
+      "valueQuantity",
+      "valueString",
+      "valueCode",
+      "components",
+      "note"
+    ],
+    "DiagnosticReport": [
+      "conclusion",
+      "reviewComment"
+    ],
+    "CriticalResultContact": [
+      "instructions"
+    ],
+    "InboundResult": [
+      "demographics"
+    ],
+    "Procedure": [
+      "display"
+    ],
+    "FamilyMemberHistory": [
+      "conditions"
+    ],
+    "QuestionnaireResponse": [
+      "answers"
+    ],
+    "CarePlan": [
+      "activities"
+    ],
+    "Goal": [
+      "description"
+    ],
+    "ServiceRequest": [
+      "aoeAnswers"
+    ],
+    "Referral": [
+      "reason"
+    ],
+    "DocumentReference": [
+      "title"
+    ],
+    "IncomingDocument": [
+      "fromNumberOrAddress",
+      "ocrText"
+    ],
+    "AmendmentRequest": [
+      "requestText"
+    ],
+    "MessageThread": [
+      "subject"
+    ],
+    "Message": [
+      "body"
+    ],
+    "CommunicationLog": [
+      "to",
+      "summary"
+    ],
+    "Task": [
+      "title",
+      "description"
+    ],
+    "TaskComment": [
+      "body"
+    ],
+    "PortalUser": [
+      "email",
+      "phone"
+    ],
+    "InterfaceMessage": [
+      "payloadFileId"
+    ],
+    "WebhookEvent": [
+      "payloadFileId"
+    ]
+  }
+}

@@ -835,7 +835,7 @@ enum AmendmentStatus {
 model Practice {
   id             String   @id @default(uuid()) @db.Uuid
   legalName      String
-  tin            String   /// Tax ID
+  tin            String   /// @encrypted Tax ID (EIN), app-layer AES-256-GCM like agile-emr
   groupNpi       String?  /// Validated against NPPES
   taxonomyCode   String?
   addressLine1   String
@@ -1485,8 +1485,8 @@ model RelatedPerson {
   firstName     String   /// @phi
   lastName      String   /// @phi
   birthDate     DateTime? @db.Date /// @phi
-  phone         String?  /// @phi
-  email         String?  /// @phi
+  phone         String?  /// @phi @encrypted
+  email         String?  /// @phi @encrypted
   address       Json?    /// @phi
   ssnCiphertext Bytes?   /// @phi @encrypted @secret guarantor SSN for collections only
   active        Boolean  @default(true)
@@ -1635,7 +1635,7 @@ model Coverage {
   payer           Payer     @relation(fields: [payerId], references: [id])
   planId          String?   @db.Uuid
   order           Int       @default(1) /// 1 primary, 2 secondary, 3 tertiary
-  memberId        String    /// @phi
+  memberId        String    /// @phi @encrypted
   groupNumber     String?
   subscriberRelatedPersonId String? @db.Uuid /// null = patient is subscriber
   relationshipToSubscriber String @default("self")
