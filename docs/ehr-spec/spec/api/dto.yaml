@@ -70,6 +70,7 @@ MfaEnrollmentChallenge:
   type: MfaFactorType
   otpauthUri: uri?
   secretBase32: string?
+  qrCodeDataUrl: string?
   webauthnCreationOptions: json?
   codeSentTo: string?
 MfaEnrollmentConfirm: {_phi: false, code: string?, webauthnAttestation: json?}
@@ -108,6 +109,9 @@ AuditEventEntry:
   entityType: string?
   entityId: string?
   patientId: uuid?
+  patientName: string?
+  patientMrn: string?
+  operation: string?
   ipAddress: string?
   userAgent: string?
   reason: text?
@@ -288,7 +292,7 @@ EligibilityCheckDetail:
 ConsentSignatureRequest: {type: ConsentType, signerName: string, signerRelationship: PortalRelationship, signatureFileId: uuid?, documentVersion: string, expiresAt: date?}
 PortalAccessView: {id: uuid, portalUserName: string, email: email, relationship: PortalRelationship, scopes: "string[]", status: AccountStatus, lastSignInAt: datetime?, patient: PatientSummary}
 PortalInvitationRequest: {email: email?, phone: phone?, relationship: PortalRelationship, scopes: "messages|appointments|records|billing|proxy-admin[]", name: string?, expiresInDays: int?}
-DuplicateCandidateView: {id: uuid, score: number, status: DuplicateStatus, a: PatientSummary, b: PatientSummary, matchedOn: "string[]", createdAt: datetime}
+DuplicateCandidateView: {id: uuid, score: number, status: DuplicateStatus, a: PatientSummary, b: PatientSummary, matchedOn: "string[]", createdAt: datetime, mergeId: uuid?, survivorId: uuid?}
 DuplicateComparison:
   candidate: DuplicateCandidateView
   fields: "{field: string, a: string?, b: string?, same: bool}[]"

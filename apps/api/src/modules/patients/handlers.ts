@@ -4,6 +4,7 @@ import { encryptOptionalField } from "../../platform/crypto.js";
 import { limitOf, toDto, toDtos } from "../../platform/dto.js";
 import type { Ctx, HandlerMap } from "../../platform/http/context.js";
 import { notifyRole } from "../../platform/notify.js";
+import { auditPage } from "../../platform/auditView.js";
 import {
   RESTRICTED_LABELS,
   recentPatientIds,
@@ -877,22 +878,35 @@ async function candidateViews(
   }>,
 ) {
   const ids = [...new Set(rows.flatMap((r) => [r.patientAId, r.patientBId]))];
-  const pts = await tx.patient.findMany({
-    where: { id: { in: ids } },
-    include: { contactPoints: true },
-  });
+  const [pts, merges] = await Promise.all([
+    tx.patient.findMany({ where: { id: { in: ids } }, include: { contactPoints: true } }),
+    tx.patientMerge.findMany({
+      where: { unmergedAt: null, survivorId: { in: ids }, mergedId: { in: ids } },
+    }),
+  ]);
   const by = new Map(pts.map((p) => [p.id, toSummary(p)]));
   return rows
     .filter((r) => by.has(r.patientAId) && by.has(r.patientBId))
-    .map((r) => ({
-      id: r.id,
-      score: r.score,
-      status: r.status,
-      a: by.get(r.patientAId)!,
-      b: by.get(r.patientBId)!,
-      matchedOn: r.matchedOn,
-      createdAt: r.createdAt.toISOString(),
-    }));
+    .map((r) => {
+      const m =
+        r.status === "MERGED"
+          ? merges.find(
+              (x) =>
+                [x.survivorId, x.mergedId].includes(r.patientAId) &&
+                [x.survivorId, x.mergedId].includes(r.patientBId),
+            )
+          : undefined;
+      return {
+        id: r.id,
+        score: r.score,
+        status: r.status,
+        a: by.get(r.patientAId)!,
+        b: by.get(r.patientBId)!,
+        matchedOn: r.matchedOn,
+        createdAt: r.createdAt.toISOString(),
+        ...(m ? { mergeId: m.id, survivorId: m.survivorId } : {}),
+      };
+    });
 }
 
 /** Mutable models that carry patientId (schema tags): everything patient-scoped except append-only tables. */
@@ -912,56 +926,6 @@ function delegateFor(tx: Tx, model: string) {
       { findMany(a: object): Promise<unknown[]>; updateMany(a: object): Promise<unknown> }
     >
   )[model[0]!.toLowerCase() + model.slice(1)]!;
-}
-
-export async function auditPage(
-  tx: Tx,
-  rows: Array<{
-    id: bigint;
-    at: Date;
-    action: string;
-    outcome: string;
-    actorId: string | null;
-    actorRole: string | null;
-    resourceType: string | null;
-    resourceId: string | null;
-    patientId: string | null;
-    ip: string | null;
-    userAgent: string | null;
-    emergencyAccessId: string | null;
-    purposeOfUse: string | null;
-  }>,
-  limit: number,
-) {
-  const slice = rows.slice(0, limit);
-  const userIds = [...new Set(slice.map((r) => r.actorId).filter((x): x is string => !!x))];
-  const users = await tx.user.findMany({
-    where: { id: { in: userIds } },
-    select: { id: true, firstName: true, lastName: true },
-  });
-  const names = new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
-  return {
-    data: slice.map((e) => ({
-      id: e.id.toString(),
-      at: e.at.toISOString(),
-      action: e.action as never,
-      outcome: e.outcome as never,
-      actor: {
-        ...(e.actorId ? { userId: e.actorId } : {}),
-        ...(e.actorId && names.get(e.actorId) ? { name: names.get(e.actorId) } : {}),
-        ...(e.actorRole ? { role: e.actorRole as never } : {}),
-      },
-      ...(e.resourceType ? { entityType: e.resourceType } : {}),
-      ...(e.resourceId ? { entityId: e.resourceId } : {}),
-      ...(e.patientId ? { patientId: e.patientId } : {}),
-      ...(e.ip ? { ipAddress: e.ip } : {}),
-      ...(e.userAgent ? { userAgent: e.userAgent } : {}),
-      ...(e.purposeOfUse ? { reason: e.purposeOfUse } : {}),
-      ...(e.emergencyAccessId ? { emergencyAccessGrantId: e.emergencyAccessId } : {}),
-    })),
-    nextCursor: rows.length > limit && slice.length ? slice[slice.length - 1]!.id.toString() : null,
-    hasMore: rows.length > limit,
-  };
 }
 
 export { primaryEmail, parseDate };

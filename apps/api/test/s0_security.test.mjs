@@ -66,7 +66,7 @@ test("INV-SEC-04: invited user sets a password, must enrol MFA, then gets recove
   await new Promise((r) => setTimeout(r, 50));
   const msg = capturedMessages.sent.find((m) => m.to === email && m.template === "staff-invite");
   assert.ok(msg);
-  const token = /token=([\w-]+)/.exec(msg.body)[1];
+  const token = /invite\/([\w-]+)/.exec(msg.body)[1];
   const info = await call("GET", `/auth/invitations/${token}`);
   assert.equal(info.status, 200);
   const weak = await call("POST", `/auth/invitations/${token}/accept`, { body: { password: "password123", acceptTerms: true } });

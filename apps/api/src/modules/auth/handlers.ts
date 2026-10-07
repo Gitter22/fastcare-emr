@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import QRCode from "qrcode";
 import type { MfaFactor, Role, Tx } from "../../db.js";
 import { getEnv } from "../../env.js";
 import { messaging } from "../../gateways/messaging/index.js";
@@ -458,7 +459,8 @@ export const authHandlers: HandlerMap = {
         },
       });
       ctx.audit.resource("MfaFactor", f.id);
-      return { factorId: f.id, type: "TOTP", otpauthUri, secretBase32: secret };
+      const qrCodeDataUrl = await QRCode.toDataURL(otpauthUri, { margin: 1, width: 200 });
+      return { factorId: f.id, type: "TOTP", otpauthUri, secretBase32: secret, qrCodeDataUrl };
     }
     if (type === "SMS" || type === "EMAIL") {
       const target = type === "SMS" ? ctx.body.phone : user.email;
@@ -752,7 +754,7 @@ export const authHandlers: HandlerMap = {
           expiresAt: new Date(Date.now() + 3_600_000),
         },
       });
-      const link = `${getEnv().WEB_BASE_URL}/reset-password?token=${token}`;
+      const link = `${getEnv().WEB_BASE_URL}/reset-password/${token}`;
       ctx.afterCommit(async () => {
         await messaging.send("EMAIL", ctx.body.email, "password-reset", { link });
       });

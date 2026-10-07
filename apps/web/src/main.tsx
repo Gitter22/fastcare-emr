@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { App } from "./app/App";
+import "./styles/globals.css";
 
-// Placeholder until the Pine app shell lands (slice S0).
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <main>Agile EMR</main>
+    <App />
   </StrictMode>,
 );

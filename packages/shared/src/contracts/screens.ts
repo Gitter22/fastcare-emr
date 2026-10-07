@@ -5,6 +5,8 @@ export interface ScreenDef {
   name: string;
   purpose: string;
   roles: readonly string[];
+  /** Roles that may open the screen (screen roles + x-roles of the operations serving it). */
+  accessRoles: readonly string[];
   /** Route from spec/ui (null for overlays). */
   route: string | null;
   pattern: string | null;
@@ -22,6 +24,10 @@ export const screens = {
     "roles": [
       "frontdesk"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "manager"
+    ],
     "route": "/home/front-desk",
     "pattern": "app-shell",
     "up": null,
@@ -35,6 +41,9 @@ export const screens = {
     "name": "Clinical day list",
     "purpose": "See which patients need rooming, protocols or follow-up today.",
     "roles": [
+      "ma"
+    ],
+    "accessRoles": [
       "ma"
     ],
     "route": "/home/clinical",
@@ -52,6 +61,9 @@ export const screens = {
     "roles": [
       "provider"
     ],
+    "accessRoles": [
+      "provider"
+    ],
     "route": "/home/provider",
     "pattern": "app-shell",
     "up": null,
@@ -67,6 +79,10 @@ export const screens = {
     "roles": [
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/home/billing",
     "pattern": "app-shell",
     "up": null,
@@ -80,6 +96,9 @@ export const screens = {
     "name": "Practice KPI board",
     "purpose": "Spot operational and financial problems early.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/home/practice",
@@ -101,6 +120,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": null,
     "pattern": "overlay",
     "up": null,
@@ -118,6 +144,13 @@ export const screens = {
       "provider",
       "biller",
       "manager"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
     ],
     "route": null,
     "pattern": "overlay",
@@ -137,6 +170,12 @@ export const screens = {
       "provider",
       "manager"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/schedule",
     "pattern": "calendar",
     "up": null,
@@ -151,6 +190,12 @@ export const screens = {
     "purpose": "Book an appointment in under 60 seconds.",
     "roles": [
       "frontdesk"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
     ],
     "route": "/schedule/book",
     "pattern": "calendar",
@@ -167,6 +212,11 @@ export const screens = {
     "roles": [
       "frontdesk",
       "ma"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "provider"
     ],
     "route": "/schedule/appointments/:appointmentId",
     "pattern": "calendar",
@@ -185,6 +235,12 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/schedule/flow",
     "pattern": "board",
     "up": "schedule.calendar",
@@ -198,6 +254,9 @@ export const screens = {
     "name": "Room and resource board",
     "purpose": "Assign rooms and equipment.",
     "roles": [
+      "ma"
+    ],
+    "accessRoles": [
       "ma"
     ],
     "route": "/schedule/rooms",
@@ -215,6 +274,9 @@ export const screens = {
     "roles": [
       "frontdesk"
     ],
+    "accessRoles": [
+      "frontdesk"
+    ],
     "route": "/schedule/checkout/:appointmentId",
     "pattern": "chart-context",
     "up": "schedule.flow-board",
@@ -229,6 +291,10 @@ export const screens = {
     "purpose": "Fill cancelled slots automatically.",
     "roles": [
       "frontdesk"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "manager"
     ],
     "route": "/schedule/waitlist",
     "pattern": "list-detail",
@@ -245,6 +311,11 @@ export const screens = {
     "roles": [
       "frontdesk",
       "ma"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager"
     ],
     "route": "/schedule/recalls",
     "pattern": "list-detail",
@@ -264,6 +335,13 @@ export const screens = {
       "provider",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/patients",
     "pattern": "list-detail",
     "up": null,
@@ -279,6 +357,11 @@ export const screens = {
     "roles": [
       "frontdesk"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/patients/new",
     "pattern": "form-page",
     "up": "patients.search",
@@ -292,6 +375,9 @@ export const screens = {
     "name": "Duplicate review and merge",
     "purpose": "Resolve duplicate patients safely.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/patients/duplicates",
@@ -311,6 +397,11 @@ export const screens = {
       "ma",
       "manager"
     ],
+    "accessRoles": [
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/patients/lists",
     "pattern": "list-detail",
     "up": "patients.search",
@@ -327,6 +418,11 @@ export const screens = {
       "ma",
       "manager"
     ],
+    "accessRoles": [
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/patients/registries",
     "pattern": "list-detail",
     "up": "patients.search",
@@ -340,6 +436,11 @@ export const screens = {
     "name": "Chart summary",
     "purpose": "Understand the patient in 30 seconds.",
     "roles": [
+      "frontdesk",
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "frontdesk",
       "ma",
       "provider"
@@ -360,6 +461,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/timeline",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -373,6 +478,10 @@ export const screens = {
     "name": "Problem list",
     "purpose": "Maintain active and resolved problems.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -392,6 +501,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/medications",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -405,6 +518,10 @@ export const screens = {
     "name": "Allergies",
     "purpose": "Record allergies and intolerances with reaction and severity.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -424,6 +541,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/vitals",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -437,6 +558,10 @@ export const screens = {
     "name": "Results viewer",
     "purpose": "Read, trend and compare results.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -456,6 +581,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/immunizations",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -469,6 +598,10 @@ export const screens = {
     "name": "History",
     "purpose": "Past medical, surgical, family, social history and SDOH.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -488,6 +621,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/orders",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -502,6 +639,11 @@ export const screens = {
     "purpose": "Inbound and outbound referrals with loop status.",
     "roles": [
       "frontdesk",
+      "provider"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
       "provider"
     ],
     "route": "/patient/:patientId/referrals",
@@ -520,6 +662,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/care-plan",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -533,6 +679,10 @@ export const screens = {
     "name": "Preventive care and care gaps",
     "purpose": "See and close due preventive and chronic-care items.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -553,6 +703,12 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/patient/:patientId/documents",
     "pattern": "chart-list",
     "up": "chart.summary",
@@ -567,6 +723,13 @@ export const screens = {
     "purpose": "Messages, calls and letters for this patient.",
     "roles": [
       "ma",
+      "provider"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
       "provider"
     ],
     "route": "/patient/:patientId/communications",
@@ -585,6 +748,10 @@ export const screens = {
       "frontdesk",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk"
+    ],
     "route": "/patient/:patientId/demographics",
     "pattern": "chart-context",
     "up": "chart.summary",
@@ -598,6 +765,10 @@ export const screens = {
     "name": "Consents and privacy",
     "purpose": "Signed consents, restrictions, Part 2 consent, proxy grants.",
     "roles": [
+      "frontdesk",
+      "manager"
+    ],
+    "accessRoles": [
       "frontdesk",
       "manager"
     ],
@@ -617,6 +788,11 @@ export const screens = {
       "frontdesk",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/patient/:patientId/account",
     "pattern": "chart-context",
     "up": "chart.summary",
@@ -630,6 +806,9 @@ export const screens = {
     "name": "Access log",
     "purpose": "Who viewed or changed this record.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/patient/:patientId/access-log",
@@ -648,6 +827,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/encounter/:encounterId/prechart",
     "pattern": "encounter-workspace",
     "up": "chart.summary",
@@ -663,6 +846,10 @@ export const screens = {
     "roles": [
       "ma"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/encounter/:encounterId/rooming",
     "pattern": "encounter-workspace",
     "up": "chart.summary",
@@ -676,6 +863,10 @@ export const screens = {
     "name": "Encounter note",
     "purpose": "Document the visit.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -695,6 +886,10 @@ export const screens = {
       "ma",
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/encounter/:encounterId/orders",
     "pattern": "encounter-workspace",
     "up": "encounter.note",
@@ -708,6 +903,10 @@ export const screens = {
     "name": "Prescription composer",
     "purpose": "Prescribe safely, covered, and sent.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -726,6 +925,10 @@ export const screens = {
     "roles": [
       "provider"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/encounter/:encounterId/dx",
     "pattern": "encounter-workspace",
     "up": "encounter.note",
@@ -741,6 +944,10 @@ export const screens = {
     "roles": [
       "provider",
       "biller"
+    ],
+    "accessRoles": [
+      "biller",
+      "provider"
     ],
     "route": "/patient/:patientId/encounter/:encounterId/charges",
     "pattern": "encounter-workspace",
@@ -758,6 +965,11 @@ export const screens = {
       "provider",
       "frontdesk"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "provider"
+    ],
     "route": "/patient/:patientId/encounter/:encounterId/avs",
     "pattern": "encounter-workspace",
     "up": "encounter.note",
@@ -771,6 +983,9 @@ export const screens = {
     "name": "Sign and pre-flight",
     "purpose": "Lock the note after blocking checks pass.",
     "roles": [
+      "provider"
+    ],
+    "accessRoles": [
       "provider"
     ],
     "route": "/patient/:patientId/encounter/:encounterId/sign",
@@ -789,6 +1004,10 @@ export const screens = {
       "provider",
       "ma"
     ],
+    "accessRoles": [
+      "ma",
+      "provider"
+    ],
     "route": "/inbox/results",
     "pattern": "inbox",
     "up": null,
@@ -802,6 +1021,10 @@ export const screens = {
     "name": "Rx renewal and change requests",
     "purpose": "Handle pharmacy and portal refill requests by protocol.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -820,6 +1043,9 @@ export const screens = {
     "roles": [
       "provider"
     ],
+    "accessRoles": [
+      "provider"
+    ],
     "route": "/inbox/cosign",
     "pattern": "inbox",
     "up": null,
@@ -834,6 +1060,13 @@ export const screens = {
     "purpose": "Respond within SLA.",
     "roles": [
       "ma",
+      "provider"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
       "provider"
     ],
     "route": "/inbox/messages",
@@ -855,6 +1088,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/inbox/tasks",
     "pattern": "inbox",
     "up": null,
@@ -870,6 +1110,11 @@ export const screens = {
     "roles": [
       "frontdesk",
       "ma"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager"
     ],
     "route": "/inbox/previsit",
     "pattern": "inbox",
@@ -887,6 +1132,11 @@ export const screens = {
       "frontdesk",
       "ma"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager"
+    ],
     "route": "/inbox/documents",
     "pattern": "inbox",
     "up": null,
@@ -903,6 +1153,11 @@ export const screens = {
       "frontdesk",
       "ma"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager"
+    ],
     "route": "/inbox/prior-auth",
     "pattern": "inbox",
     "up": null,
@@ -918,6 +1173,9 @@ export const screens = {
     "roles": [
       "ma"
     ],
+    "accessRoles": [
+      "ma"
+    ],
     "route": "/inbox/collection",
     "pattern": "inbox",
     "up": null,
@@ -931,6 +1189,10 @@ export const screens = {
     "name": "Overdue orders",
     "purpose": "Find orders without results past their expected date.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -950,6 +1212,10 @@ export const screens = {
       "ma",
       "manager"
     ],
+    "accessRoles": [
+      "ma",
+      "manager"
+    ],
     "route": "/inbox/unmatched-results",
     "pattern": "inbox",
     "up": null,
@@ -964,6 +1230,11 @@ export const screens = {
     "purpose": "Authorise, send, schedule and close referrals.",
     "roles": [
       "frontdesk"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "manager",
+      "provider"
     ],
     "route": "/inbox/referrals",
     "pattern": "inbox",
@@ -981,6 +1252,11 @@ export const screens = {
       "frontdesk",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/billing/eligibility",
     "pattern": "billing-page",
     "up": null,
@@ -997,6 +1273,11 @@ export const screens = {
       "frontdesk",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/billing/estimates",
     "pattern": "billing-page",
     "up": "billing.eligibility",
@@ -1011,6 +1292,11 @@ export const screens = {
     "purpose": "Take copays and balances; card on file; receipts.",
     "roles": [
       "frontdesk"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
     ],
     "route": "/billing/payments",
     "pattern": "billing-page",
@@ -1028,6 +1314,11 @@ export const screens = {
       "biller",
       "provider"
     ],
+    "accessRoles": [
+      "biller",
+      "manager",
+      "provider"
+    ],
     "route": "/billing/charge-review",
     "pattern": "billing-page",
     "up": null,
@@ -1042,6 +1333,10 @@ export const screens = {
     "purpose": "Track claims from scrubbed to paid.",
     "roles": [
       "biller"
+    ],
+    "accessRoles": [
+      "biller",
+      "manager"
     ],
     "route": "/billing/claims",
     "pattern": "billing-page",
@@ -1058,6 +1353,10 @@ export const screens = {
     "roles": [
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/billing/rejections",
     "pattern": "billing-page",
     "up": "billing.claims",
@@ -1073,6 +1372,10 @@ export const screens = {
     "roles": [
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/billing/era",
     "pattern": "billing-page",
     "up": null,
@@ -1087,6 +1390,10 @@ export const screens = {
     "purpose": "Recover denied revenue.",
     "roles": [
       "biller"
+    ],
+    "accessRoles": [
+      "biller",
+      "manager"
     ],
     "route": "/billing/denials",
     "pattern": "billing-page",
@@ -1104,6 +1411,11 @@ export const screens = {
       "biller",
       "frontdesk"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/billing/statements",
     "pattern": "billing-page",
     "up": null,
@@ -1120,6 +1432,11 @@ export const screens = {
       "biller",
       "frontdesk"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "manager"
+    ],
     "route": "/billing/accounts/:patientId",
     "pattern": "billing-page",
     "up": "billing.statements",
@@ -1133,6 +1450,10 @@ export const screens = {
     "name": "Day close",
     "purpose": "Reconcile payments to deposits.",
     "roles": [
+      "biller",
+      "manager"
+    ],
+    "accessRoles": [
       "biller",
       "manager"
     ],
@@ -1152,6 +1473,10 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/reports/ar-aging",
     "pattern": "report",
     "up": null,
@@ -1165,6 +1490,10 @@ export const screens = {
     "name": "Collections and payer mix",
     "purpose": "Revenue collected by payer and source.",
     "roles": [
+      "biller",
+      "manager"
+    ],
+    "accessRoles": [
       "biller",
       "manager"
     ],
@@ -1184,6 +1513,10 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/reports/charge-lag",
     "pattern": "report",
     "up": null,
@@ -1200,6 +1533,10 @@ export const screens = {
       "manager",
       "frontdesk"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "manager"
+    ],
     "route": "/reports/no-shows",
     "pattern": "report",
     "up": null,
@@ -1215,6 +1552,9 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "manager"
+    ],
     "route": "/reports/cycle-time",
     "pattern": "report",
     "up": null,
@@ -1228,6 +1568,10 @@ export const screens = {
     "name": "Provider productivity",
     "purpose": "Visits and wRVUs by provider.",
     "roles": [
+      "manager",
+      "provider"
+    ],
+    "accessRoles": [
       "manager",
       "provider"
     ],
@@ -1247,6 +1591,10 @@ export const screens = {
       "manager",
       "provider"
     ],
+    "accessRoles": [
+      "manager",
+      "provider"
+    ],
     "route": "/reports/quality",
     "pattern": "report",
     "up": null,
@@ -1263,6 +1611,11 @@ export const screens = {
       "provider",
       "ma"
     ],
+    "accessRoles": [
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/reports/care-gaps",
     "pattern": "report",
     "up": null,
@@ -1276,6 +1629,9 @@ export const screens = {
     "name": "Data export",
     "purpose": "CSV, bulk FHIR and full electronic health information export.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/reports/export",
@@ -1294,6 +1650,11 @@ export const screens = {
       "patient",
       "ma"
     ],
+    "accessRoles": [
+      "ma",
+      "patient",
+      "provider"
+    ],
     "route": "/telehealth",
     "pattern": "board",
     "up": null,
@@ -1309,6 +1670,11 @@ export const screens = {
     "roles": [
       "provider",
       "patient"
+    ],
+    "accessRoles": [
+      "ma",
+      "patient",
+      "provider"
     ],
     "route": "/telehealth/visit/:appointmentId",
     "pattern": "telehealth-room",
@@ -1326,6 +1692,10 @@ export const screens = {
       "provider",
       "patient"
     ],
+    "accessRoles": [
+      "patient",
+      "provider"
+    ],
     "route": "/telehealth/evisits",
     "pattern": "inbox",
     "up": "telehealth.waiting-room",
@@ -1339,6 +1709,10 @@ export const screens = {
     "name": "Remote monitoring",
     "purpose": "Device readings and RPM time tracking.",
     "roles": [
+      "ma",
+      "provider"
+    ],
+    "accessRoles": [
       "ma",
       "provider"
     ],
@@ -1357,6 +1731,11 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "manager",
+      "provider"
+    ],
     "route": "/admin/locations",
     "pattern": "settings",
     "up": null,
@@ -1370,6 +1749,9 @@ export const screens = {
     "name": "Users and roles",
     "purpose": "Least-privilege access.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/admin/users",
@@ -1387,6 +1769,9 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "manager"
+    ],
     "route": "/admin/providers",
     "pattern": "settings",
     "up": "admin.users-roles",
@@ -1400,6 +1785,10 @@ export const screens = {
     "name": "Visit types and schedule templates",
     "purpose": "Durations, slot rules and booking channels.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
+      "frontdesk",
       "manager"
     ],
     "route": "/admin/visit-types",
@@ -1417,6 +1806,12 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/admin/online-booking",
     "pattern": "settings",
     "up": "admin.visit-types",
@@ -1433,6 +1828,10 @@ export const screens = {
       "manager",
       "biller"
     ],
+    "accessRoles": [
+      "biller",
+      "manager"
+    ],
     "route": "/admin/payers",
     "pattern": "settings",
     "up": null,
@@ -1446,6 +1845,11 @@ export const screens = {
     "name": "Note templates and smart phrases",
     "purpose": "Clinical documentation content.",
     "roles": [
+      "manager",
+      "provider"
+    ],
+    "accessRoles": [
+      "ma",
       "manager",
       "provider"
     ],
@@ -1465,6 +1869,10 @@ export const screens = {
       "manager",
       "provider"
     ],
+    "accessRoles": [
+      "manager",
+      "provider"
+    ],
     "route": "/admin/order-sets",
     "pattern": "settings",
     "up": null,
@@ -1480,6 +1888,12 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/admin/forms",
     "pattern": "settings",
     "up": null,
@@ -1493,6 +1907,9 @@ export const screens = {
     "name": "Clinical decision support rules",
     "purpose": "Configure alerts and care-gap rules; review override rates.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/admin/alert-rules",
@@ -1510,6 +1927,13 @@ export const screens = {
     "roles": [
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/admin/security",
     "pattern": "settings",
     "up": null,
@@ -1523,6 +1947,9 @@ export const screens = {
     "name": "Audit log viewer",
     "purpose": "Answer who saw what, when.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/admin/audit",
@@ -1541,6 +1968,10 @@ export const screens = {
       "manager",
       "system"
     ],
+    "accessRoles": [
+      "manager",
+      "system"
+    ],
     "route": "/admin/interfaces",
     "pattern": "settings",
     "up": null,
@@ -1554,6 +1985,9 @@ export const screens = {
     "name": "Portal settings",
     "purpose": "Portal features, release rules, proxy policy.",
     "roles": [
+      "manager"
+    ],
+    "accessRoles": [
       "manager"
     ],
     "route": "/admin/portal",
@@ -1571,6 +2005,9 @@ export const screens = {
     "roles": [
       "patient"
     ],
+    "accessRoles": [
+      "patient"
+    ],
     "route": "/portal",
     "pattern": "portal-mobile",
     "up": null,
@@ -1584,6 +2021,9 @@ export const screens = {
     "name": "Appointments",
     "purpose": "Book, reschedule, cancel; join telehealth.",
     "roles": [
+      "patient"
+    ],
+    "accessRoles": [
       "patient"
     ],
     "route": "/portal/visits",
@@ -1601,6 +2041,9 @@ export const screens = {
     "roles": [
       "patient"
     ],
+    "accessRoles": [
+      "patient"
+    ],
     "route": "/portal/todos",
     "pattern": "portal-mobile",
     "up": "portal.home",
@@ -1615,6 +2058,11 @@ export const screens = {
     "purpose": "Message the care team.",
     "roles": [
       "patient"
+    ],
+    "accessRoles": [
+      "ma",
+      "patient",
+      "provider"
     ],
     "route": "/portal/messages",
     "pattern": "portal-mobile",
@@ -1631,6 +2079,12 @@ export const screens = {
     "roles": [
       "patient"
     ],
+    "accessRoles": [
+      "ma",
+      "manager",
+      "patient",
+      "provider"
+    ],
     "route": "/portal/record",
     "pattern": "portal-mobile",
     "up": "portal.home",
@@ -1644,6 +2098,9 @@ export const screens = {
     "name": "Billing",
     "purpose": "Statements, pay, payment plans, autopay.",
     "roles": [
+      "patient"
+    ],
+    "accessRoles": [
       "patient"
     ],
     "route": "/portal/billing",
@@ -1660,6 +2117,12 @@ export const screens = {
     "purpose": "Demographics, pharmacy, communication preferences, proxy management, MFA.",
     "roles": [
       "patient"
+    ],
+    "accessRoles": [
+      "frontdesk",
+      "ma",
+      "patient",
+      "provider"
     ],
     "route": "/portal/profile",
     "pattern": "portal-mobile",
@@ -1680,6 +2143,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/sign-in",
     "pattern": "public-card",
     "up": null,
@@ -1698,6 +2168,13 @@ export const screens = {
       "provider",
       "biller",
       "manager"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
     ],
     "route": "/sign-in/verify",
     "pattern": "public-card",
@@ -1718,6 +2195,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/sign-in/enroll",
     "pattern": "public-card",
     "up": "auth.sign-in",
@@ -1736,6 +2220,13 @@ export const screens = {
       "provider",
       "biller",
       "manager"
+    ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
     ],
     "route": "/forgot-password",
     "pattern": "public-card",
@@ -1756,6 +2247,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/reset-password/:token",
     "pattern": "public-card",
     "up": "auth.sign-in",
@@ -1775,6 +2273,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/invite/:token",
     "pattern": "public-card",
     "up": "auth.sign-in",
@@ -1791,6 +2296,11 @@ export const screens = {
       "provider",
       "manager",
       "biller"
+    ],
+    "accessRoles": [
+      "biller",
+      "manager",
+      "provider"
     ],
     "route": null,
     "pattern": "overlay",
@@ -1811,6 +2321,13 @@ export const screens = {
       "biller",
       "manager"
     ],
+    "accessRoles": [
+      "biller",
+      "frontdesk",
+      "ma",
+      "manager",
+      "provider"
+    ],
     "route": "/account/security",
     "pattern": "app-shell",
     "up": null,
@@ -1824,6 +2341,9 @@ export const screens = {
     "name": "Patient sign-in",
     "purpose": "Patient or proxy signs in to the portal.",
     "roles": [
+      "patient"
+    ],
+    "accessRoles": [
       "patient"
     ],
     "route": "/portal/sign-in",
@@ -1841,6 +2361,9 @@ export const screens = {
     "roles": [
       "patient"
     ],
+    "accessRoles": [
+      "patient"
+    ],
     "route": "/portal/activate/:token",
     "pattern": "public-card",
     "up": "portal.sign-in",
@@ -1854,6 +2377,9 @@ export const screens = {
     "name": "Patient verification code",
     "purpose": "Verify a one-time code sent by SMS or email, or an authenticator app.",
     "roles": [
+      "patient"
+    ],
+    "accessRoles": [
       "patient"
     ],
     "route": "/portal/sign-in/verify",
@@ -1871,6 +2397,9 @@ export const screens = {
     "roles": [
       "patient"
     ],
+    "accessRoles": [
+      "patient"
+    ],
     "route": "/portal/forgot-password",
     "pattern": "public-card",
     "up": "portal.sign-in",
@@ -1884,6 +2413,9 @@ export const screens = {
     "name": "Patient reset password",
     "purpose": "Set a new password from a single-use link.",
     "roles": [
+      "patient"
+    ],
+    "accessRoles": [
       "patient"
     ],
     "route": "/portal/reset-password/:token",

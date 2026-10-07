@@ -36865,6 +36865,12 @@ components:
         patientId:
           type: string
           format: uuid
+        patientName:
+          type: string
+        patientMrn:
+          type: string
+        operation:
+          type: string
         ipAddress:
           type: string
         userAgent:
@@ -40957,6 +40963,12 @@ components:
         createdAt:
           type: string
           format: date-time
+        mergeId:
+          type: string
+          format: uuid
+        survivorId:
+          type: string
+          format: uuid
       required:
         - id
         - score
@@ -44894,6 +44906,8 @@ components:
           type: string
           format: uri
         secretBase32:
+          type: string
+        qrCodeDataUrl:
           type: string
         webauthnCreationOptions: {}
         codeSentTo:

@@ -247,6 +247,15 @@ for (const f of ["auth", "home", "schedule", "patients", "chart", "encounter", "
 }
 const moduleOf = {};
 for (const m of modulesSpec) for (const g of m.groups) for (const sid of g.screens) moduleOf[sid] = { module: m.id, nav: m.nav, group: g.name };
+// Who may open a screen: its own roles, plus any role allowed to call EVERY read (GET) operation that serves it
+// (x-screens). Intersection, so one broad helper read never opens a restricted screen.
+const STAFF = ["frontdesk", "ma", "provider", "biller", "manager"];
+const accessRoles = {};
+for (const sc of yaml.load(readFileSync(join(specDir, "spec/screens.yaml"), "utf8")).screens) {
+  const reads = ops.filter((o) => o.method === "GET" && o.screens.includes(sc.id) && o.security.includes("staffAuth"));
+  if (!reads.length) continue;
+  accessRoles[sc.id] = STAFF.filter((r) => reads.every((o) => !o.roles || o.roles.includes(r)));
+}
 const catalog = screensSpec.map((sc) => {
   const ui = uiScreens[sc.id] ?? {};
   return {
@@ -254,6 +263,7 @@ const catalog = screensSpec.map((sc) => {
     name: sc.name,
     purpose: sc.purpose ?? "",
     roles: sc.roles ?? [],
+    accessRoles: [...new Set([...(sc.roles ?? []), ...(accessRoles[sc.id] ?? [])])].sort(),
     route: ui.route ?? null,
     pattern: ui.pattern ?? null,
     up: ui.up ?? null,
@@ -269,6 +279,8 @@ export interface ScreenDef {
   name: string;
   purpose: string;
   roles: readonly string[];
+  /** Roles that may open the screen (screen roles + x-roles of the operations serving it). */
+  accessRoles: readonly string[];
   /** Route from spec/ui (null for overlays). */
   route: string | null;
   pattern: string | null;

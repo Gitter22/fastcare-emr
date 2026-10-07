@@ -4,7 +4,7 @@ import { limitOf, toDto, toDtos } from "../../platform/dto.js";
 import type { HandlerMap } from "../../platform/http/context.js";
 import { conflict, notFound, unprocessable } from "../../platform/problem.js";
 import { writeVersion } from "../../platform/versioning.js";
-import { auditPage } from "../patients/handlers.js";
+import { auditPage } from "../../platform/auditView.js";
 
 /**
  * Practice settings, audit search and export, break-the-glass review (admin.security, admin.audit-log).

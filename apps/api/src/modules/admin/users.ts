@@ -154,7 +154,7 @@ export const userHandlers: HandlerMap = {
       },
     });
     const practice = await ctx.db.practice.findUniqueOrThrow({ where: { id: practiceId } });
-    const link = `${getEnv().WEB_BASE_URL}/accept-invite?token=${token}`;
+    const link = `${getEnv().WEB_BASE_URL}/invite/${token}`;
     ctx.afterCommit(
       async () =>
         void (await messaging.send("EMAIL", email, "staff-invite", {

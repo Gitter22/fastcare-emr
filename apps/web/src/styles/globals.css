@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./pine-theme.css";
+
+:root {
+  color-scheme: light;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-canvas);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* Numbers that clinicians compare line up (vitals, doses, dates, MRNs). */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

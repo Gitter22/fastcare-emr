@@ -1,0 +1,1680 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pine Design Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Pine — generated from tokens.json */
+      :root,
+      [data-theme="light"] {
+        --surface: #ffffff;
+        --canvas: #f4f5f4;
+        --surface-hover: #f1f3f2;
+        --surface-active: #e6eae8;
+        --surface-muted: #edf0ee;
+        --ink: #111412;
+        --ink-2: #353b37;
+        --ink-3: #565e59;
+        --line: #e4e8e6;
+        --line-strong: #868e89;
+        --pine-50: #edf4f1;
+        --pine-100: #d3e6dd;
+        --pine-200: #a7cdbb;
+        --pine-600: #145c48;
+        --pine-700: #0f4a3a;
+        --pine-800: #0b3a2d;
+        --on-primary: #ffffff;
+        --focus: var(--pine-600);
+        --danger: #b3261e;
+        --danger-hover: #96201a;
+        --danger-ink: #9b1f18;
+        --danger-bg: #fbecea;
+        --caution-ink: #7a4f00;
+        --caution-bg: #fbf1db;
+        --scrim: rgba(17, 20, 18, 0.4);
+        --shadow-overlay: 0 12px 32px -8px rgba(17, 20, 18, 0.22), 0 2px 6px rgba(17, 20, 18, 0.08);
+        --shadow-sticky: 0 1px 0 rgba(17, 20, 18, 0.1);
+      }
+      :root {
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-12: 48px;
+        --radius-none: 0;
+        --radius-xs: 2px;
+        --radius-full: 9999px;
+        --control-sm: 32px;
+        --control-md: 40px;
+        --control-lg: 48px;
+        --row-compact: 36px;
+        --row-default: 44px;
+        --sidebar: 248px;
+        --dialog-sm: 440px;
+        --duration-fast: 100ms;
+        --duration-base: 140ms;
+        --duration-slow: 180ms;
+        --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+        --font-sans: Figtree, ui-sans-serif, system-ui, sans-serif;
+      }
+      .display {
+        font-family: var(--font-sans);
+        font-size: 32px;
+        line-height: 38px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .h1 {
+        font-family: var(--font-sans);
+        font-size: 26px;
+        line-height: 32px;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+      }
+      .h2 {
+        font-family: var(--font-sans);
+        font-size: 20px;
+        line-height: 26px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .h3 {
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 22px;
+        font-weight: 700;
+      }
+      .body-lg {
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 400;
+      }
+      .body {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 400;
+      }
+      .body-strong {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+      }
+      .data {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 500;
+      }
+      .label {
+        font-family: var(--font-sans);
+        font-size: 13px;
+        line-height: 18px;
+        font-weight: 600;
+      }
+      .small {
+        font-family: var(--font-sans);
+        font-size: 13px;
+        line-height: 18px;
+        font-weight: 500;
+      }
+      .caption {
+        font-family: var(--font-sans);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
+      }
+
+      /* Pine reference styles. Every .pn-* class maps to a Tailwind recipe in the Implementation section. */
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 20px;
+        color: var(--ink);
+        background: var(--surface);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      .pn-num {
+        font-variant-numeric: tabular-nums;
+      }
+      .pn-stack {
+        display: grid;
+        gap: var(--space-4);
+        padding: var(--space-6);
+      }
+      .pn-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-6);
+      }
+      .pn-icon {
+        width: 18px;
+        height: 18px;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      :where(
+        .pn-btn,
+        .pn-input,
+        .pn-select,
+        .pn-tab,
+        .pn-nav-item,
+        .pn-menu-item,
+        .pn-crumb a,
+        .pn-table tbody tr,
+        .pn-check input,
+        .pn-link
+      ) {
+        transition:
+          background-color var(--duration-fast) var(--ease-standard),
+          color var(--duration-fast) var(--ease-standard),
+          border-color var(--duration-fast) var(--ease-standard),
+          box-shadow var(--duration-fast) var(--ease-standard);
+      }
+      :where(
+        .pn-btn,
+        .pn-tab,
+        .pn-nav-item,
+        .pn-menu-item,
+        .pn-crumb a,
+        .pn-link,
+        .pn-check input
+      ):focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      /* Button */
+      .pn-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        height: var(--control-md);
+        padding: 0 var(--space-4);
+        border: 0;
+        border-radius: var(--radius-none);
+        font: 600 14px/20px var(--font-sans);
+        letter-spacing: 0.005em;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+      }
+      .pn-btn-primary {
+        background: var(--pine-600);
+        color: var(--on-primary);
+      }
+      .pn-btn-primary:hover {
+        background: var(--pine-700);
+      }
+      .pn-btn-primary:active {
+        background: var(--pine-800);
+      }
+      .pn-btn-secondary {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: inset 0 0 0 1.5px var(--ink);
+      }
+      .pn-btn-secondary:hover {
+        background: var(--surface-hover);
+      }
+      .pn-btn-secondary:active {
+        background: var(--surface-active);
+      }
+      .pn-btn-ghost {
+        background: transparent;
+        color: var(--ink);
+      }
+      .pn-btn-ghost:hover {
+        background: var(--surface-hover);
+      }
+      .pn-btn-ghost:active {
+        background: var(--surface-active);
+      }
+      .pn-btn-danger {
+        background: var(--danger);
+        color: var(--on-primary);
+      }
+      .pn-btn-danger:hover {
+        background: var(--danger-hover);
+      }
+      .pn-btn-danger:active {
+        background: var(--danger-ink);
+      }
+      .pn-btn:disabled,
+      .pn-btn[aria-disabled="true"] {
+        background: var(--surface-active);
+        color: var(--ink-3);
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+      .pn-btn-sm {
+        height: var(--control-sm);
+        padding: 0 var(--space-3);
+        font-size: 13px;
+      }
+      .pn-btn-lg {
+        height: var(--control-lg);
+        padding: 0 20px;
+        font-size: 15px;
+      }
+      .pn-btn-icon {
+        width: var(--control-md);
+        padding: 0;
+      }
+      .pn-btn-icon.pn-btn-sm {
+        width: var(--control-sm);
+      }
+
+      .pn-link {
+        color: var(--pine-600);
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        text-decoration-color: transparent;
+      }
+      .pn-link:hover {
+        text-decoration-color: currentColor;
+      }
+
+      /* Field */
+      .pn-field {
+        display: grid;
+        gap: 6px;
+      }
+      .pn-label {
+        font: 600 13px/18px var(--font-sans);
+        color: var(--ink);
+      }
+      .pn-label .pn-req {
+        color: var(--danger-ink);
+        margin-left: 2px;
+      }
+      .pn-input,
+      .pn-select {
+        height: var(--control-md);
+        width: 100%;
+        padding: 0 var(--space-3);
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-none);
+        background: var(--surface);
+        color: var(--ink);
+        font: 400 14px/20px var(--font-sans);
+      }
+      .pn-input::placeholder {
+        color: var(--ink-3);
+      }
+      .pn-input:hover,
+      .pn-select:hover {
+        border-color: var(--ink-2);
+      }
+      .pn-input:focus,
+      .pn-select:focus {
+        outline: none;
+        border-color: var(--pine-600);
+        box-shadow: inset 0 0 0 1px var(--pine-600);
+      }
+      .pn-input[aria-invalid="true"] {
+        border-color: var(--danger);
+        box-shadow: inset 0 0 0 1px var(--danger);
+      }
+      .pn-input:disabled {
+        background: var(--canvas);
+        color: var(--ink-3);
+        cursor: not-allowed;
+      }
+      textarea.pn-input {
+        height: auto;
+        min-height: 96px;
+        padding: 10px var(--space-3);
+        resize: vertical;
+      }
+      .pn-hint {
+        font: 500 13px/18px var(--font-sans);
+        color: var(--ink-2);
+      }
+      .pn-error {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        font: 500 13px/18px var(--font-sans);
+        color: var(--danger-ink);
+      }
+      .pn-error .pn-icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .pn-select {
+        appearance: none;
+        -webkit-appearance: none;
+        padding-right: 36px;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111412' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+      }
+
+      /* Checkbox */
+      .pn-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        font: 400 14px/20px var(--font-sans);
+      }
+      .pn-check input {
+        appearance: none;
+        -webkit-appearance: none;
+        margin: 0;
+        width: 18px;
+        height: 18px;
+        flex: none;
+        border: 1.5px solid var(--line-strong);
+        border-radius: var(--radius-xs);
+        background: var(--surface);
+        cursor: pointer;
+      }
+      .pn-check:hover input {
+        border-color: var(--ink);
+      }
+      .pn-check input:checked {
+        background: var(--pine-600)
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+          center / 12px no-repeat;
+        border-color: var(--pine-600);
+      }
+      .pn-check:hover input:checked {
+        background-color: var(--pine-700);
+        border-color: var(--pine-700);
+      }
+
+      /* Tabs */
+      .pn-tabs {
+        display: flex;
+        gap: var(--space-6);
+      }
+      .pn-tab {
+        position: relative;
+        height: 40px;
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        font: 600 14px/20px var(--font-sans);
+        color: var(--ink-2);
+      }
+      .pn-tab:hover {
+        color: var(--ink);
+      }
+      .pn-tab[aria-selected="true"] {
+        color: var(--ink);
+      }
+      .pn-tab[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: var(--pine-600);
+      }
+
+      /* Breadcrumbs */
+      .pn-crumbs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        font: 500 13px/18px var(--font-sans);
+      }
+      .pn-crumb {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--ink-2);
+      }
+      .pn-crumb + .pn-crumb::before {
+        content: "/";
+        color: var(--ink-3);
+      }
+      .pn-crumb a {
+        color: var(--ink-2);
+        text-decoration: underline;
+        text-decoration-color: transparent;
+        text-underline-offset: 3px;
+      }
+      .pn-crumb a:hover {
+        color: var(--ink);
+        text-decoration-color: currentColor;
+      }
+      .pn-crumb[aria-current="page"] {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      /* Stepper */
+      .pn-steps {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .pn-step {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        font: 600 14px/20px var(--font-sans);
+        color: var(--ink-2);
+      }
+      .pn-step-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        flex: none;
+        font: 700 13px/1 var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        box-shadow: inset 0 0 0 1.5px var(--line-strong);
+        color: var(--ink-2);
+      }
+      .pn-step[data-state="done"] {
+        color: var(--ink);
+      }
+      .pn-step[data-state="done"] .pn-step-mark {
+        background: var(--ink);
+        color: var(--on-primary);
+        box-shadow: none;
+      }
+      .pn-step[data-state="current"] {
+        color: var(--ink);
+        font-weight: 700;
+      }
+      .pn-step[data-state="current"] .pn-step-mark {
+        background: var(--pine-600);
+        color: var(--on-primary);
+        box-shadow: none;
+      }
+      .pn-step-bar {
+        width: 32px;
+        height: 1.5px;
+        background: var(--line-strong);
+        flex: none;
+      }
+      .pn-step-bar[data-done] {
+        background: var(--ink);
+      }
+      .pn-step-mark .pn-icon {
+        width: 14px;
+        height: 14px;
+        stroke-width: 2.5;
+      }
+
+      /* Table */
+      .pn-table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 400 14px/20px var(--font-sans);
+      }
+      .pn-table th {
+        height: 36px;
+        padding: 0 var(--space-3);
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+        font: 600 13px/18px var(--font-sans);
+        color: var(--ink-2);
+        border-bottom: 1px solid var(--ink);
+      }
+      .pn-table td {
+        height: var(--row-default);
+        padding: 0 var(--space-3);
+        vertical-align: middle;
+        border-bottom: 1px solid var(--line);
+      }
+      .pn-table tbody tr:hover td {
+        background: var(--surface-hover);
+      }
+      .pn-table tbody tr[aria-selected="true"] td {
+        background: var(--pine-50);
+      }
+      .pn-table tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      .pn-table .pn-r {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .pn-table .pn-strong {
+        font-weight: 600;
+      }
+      .pn-table .pn-meta {
+        color: var(--ink-2);
+      }
+      .pn-table-compact td {
+        height: var(--row-compact);
+      }
+      .pn-table td:first-child,
+      .pn-table th:first-child {
+        padding-left: 0;
+      }
+      .pn-table td:last-child,
+      .pn-table th:last-child {
+        padding-right: 0;
+      }
+      .pn-table .pn-flag {
+        color: var(--danger-ink);
+        font-weight: 700;
+      }
+
+      /* Tag */
+      .pn-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        height: 22px;
+        padding: 0 var(--space-2);
+        font: 600 12px/16px var(--font-sans);
+        white-space: nowrap;
+        background: var(--surface-muted);
+        color: var(--ink);
+      }
+      .pn-tag-outline {
+        background: transparent;
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+      }
+      .pn-tag-active {
+        background: var(--pine-50);
+        color: var(--pine-700);
+      }
+      .pn-tag-caution {
+        background: var(--caution-bg);
+        color: var(--caution-ink);
+      }
+      .pn-tag-critical {
+        background: var(--danger-bg);
+        color: var(--danger-ink);
+      }
+      .pn-tag .pn-icon {
+        width: 14px;
+        height: 14px;
+        stroke-width: 2;
+      }
+
+      /* Card (island) */
+      .pn-canvas {
+        background: var(--canvas);
+        padding: var(--space-8);
+      }
+      .pn-card {
+        background: var(--surface);
+        padding: var(--space-6);
+      }
+      .pn-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-4);
+        margin-bottom: var(--space-4);
+        min-height: 32px;
+      }
+      .pn-card-title {
+        font: 700 16px/22px var(--font-sans);
+        color: var(--ink);
+      }
+
+      /* Page header */
+      .pn-page-head {
+        display: grid;
+        gap: var(--space-3);
+      }
+      .pn-page-head-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: var(--space-4);
+      }
+      .pn-h1 {
+        font: 700 26px/32px var(--font-sans);
+        letter-spacing: -0.015em;
+        color: var(--ink);
+      }
+      .pn-h2 {
+        font: 700 20px/26px var(--font-sans);
+        letter-spacing: -0.01em;
+        color: var(--ink);
+      }
+      .pn-actions {
+        display: flex;
+        gap: var(--space-2);
+      }
+
+      /* Patient banner */
+      .pn-patient {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-4) var(--space-6);
+        background: var(--surface);
+      }
+      .pn-avatar {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: var(--radius-full);
+        background: var(--ink);
+        color: var(--on-primary);
+        font: 700 15px/1 var(--font-sans);
+        flex: none;
+      }
+      .pn-patient-main {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+      }
+      .pn-patient-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 var(--space-3);
+        font: 500 13px/18px var(--font-sans);
+        color: var(--ink-2);
+        font-variant-numeric: tabular-nums;
+      }
+      .pn-patient-meta b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .pn-patient-flags {
+        display: flex;
+        gap: var(--space-2);
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      /* Alert (clinical banner) */
+      .pn-alert {
+        display: flex;
+        gap: var(--space-3);
+        align-items: flex-start;
+        padding: var(--space-3) var(--space-4);
+        background: var(--surface-muted);
+        color: var(--ink);
+        font: 400 14px/20px var(--font-sans);
+      }
+      .pn-alert .pn-icon {
+        margin-top: 1px;
+      }
+      .pn-alert b {
+        font-weight: 700;
+      }
+      .pn-alert-caution {
+        background: var(--caution-bg);
+        color: var(--caution-ink);
+      }
+      .pn-alert-critical {
+        background: var(--danger-bg);
+        color: var(--danger-ink);
+      }
+      .pn-alert-action {
+        margin-left: auto;
+        flex: none;
+      }
+
+      /* Overlay surfaces: dialog, menu, toast */
+      .pn-scrim {
+        background: var(--scrim);
+        display: grid;
+        place-items: center;
+        padding: var(--space-8);
+      }
+      .pn-dialog {
+        width: var(--dialog-sm);
+        max-width: 100%;
+        background: var(--surface);
+        padding: var(--space-6);
+        box-shadow: var(--shadow-overlay);
+      }
+      .pn-dialog-title {
+        font: 700 20px/26px var(--font-sans);
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        margin-bottom: var(--space-2);
+      }
+      .pn-dialog-body {
+        color: var(--ink);
+      }
+      .pn-dialog-foot {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--space-2);
+        margin-top: var(--space-6);
+      }
+      @keyframes pn-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes pn-fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      .pn-enter {
+        animation: pn-in var(--duration-base) var(--ease-standard) both;
+      }
+      .pn-fade {
+        animation: pn-fade var(--duration-base) var(--ease-standard) both;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pn-enter,
+        .pn-fade {
+          animation: none;
+        }
+      }
+
+      .pn-menu {
+        min-width: 208px;
+        padding: var(--space-1);
+        background: var(--surface);
+        box-shadow: var(--shadow-overlay);
+        display: grid;
+      }
+      .pn-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: var(--row-compact);
+        padding: 0 var(--space-3);
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+        font: 500 14px/20px var(--font-sans);
+        color: var(--ink);
+      }
+      .pn-menu-item:hover {
+        background: var(--surface-hover);
+      }
+      .pn-menu-item:active,
+      .pn-menu-item[data-highlighted] {
+        background: var(--surface-active);
+      }
+      .pn-menu-item .pn-icon {
+        color: var(--ink-2);
+      }
+      .pn-menu-item-danger,
+      .pn-menu-item-danger .pn-icon {
+        color: var(--danger-ink);
+      }
+      .pn-menu-gap {
+        height: var(--space-1);
+      }
+
+      .pn-toast {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        width: 360px;
+        max-width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: var(--ink);
+        color: var(--on-primary);
+        font: 500 14px/20px var(--font-sans);
+        box-shadow: var(--shadow-overlay);
+      }
+      .pn-toast button {
+        margin-left: auto;
+        border: 0;
+        background: none;
+        padding: 0;
+        color: var(--pine-200);
+        font: 700 14px/20px var(--font-sans);
+        cursor: pointer;
+      }
+      .pn-toast button:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* Side nav */
+      .pn-nav {
+        width: var(--sidebar);
+        background: var(--surface);
+        padding: var(--space-4) var(--space-3);
+        display: grid;
+        align-content: start;
+        gap: 2px;
+      }
+      .pn-nav-brand {
+        font: 800 18px/24px var(--font-sans);
+        letter-spacing: -0.02em;
+        padding: 0 var(--space-3) var(--space-4);
+        color: var(--ink);
+      }
+      .pn-nav-group {
+        font: 600 12px/16px var(--font-sans);
+        color: var(--ink-2);
+        padding: var(--space-4) var(--space-3) var(--space-2);
+      }
+      .pn-nav-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        height: var(--row-compact);
+        padding: 0 var(--space-3);
+        font: 500 14px/20px var(--font-sans);
+        color: var(--ink-2);
+        text-decoration: none;
+      }
+      .pn-nav-item:hover {
+        background: var(--surface-hover);
+        color: var(--ink);
+      }
+      .pn-nav-item[aria-current="page"] {
+        background: var(--pine-50);
+        color: var(--pine-700);
+        font-weight: 600;
+      }
+      .pn-nav-count {
+        margin-left: auto;
+        font: 600 12px/16px var(--font-sans);
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-2);
+      }
+      .pn-nav-item[aria-current="page"] .pn-nav-count {
+        color: var(--pine-700);
+      }
+
+      /* Showcase layout helpers */
+      .pn-shell {
+        display: grid;
+        grid-template-columns: var(--sidebar) 1fr;
+        min-height: 100vh;
+        background: var(--canvas);
+      }
+      .pn-main {
+        padding: var(--space-8);
+        display: grid;
+        gap: var(--space-6);
+        align-content: start;
+        min-width: 0;
+      }
+      .pn-grid-2 {
+        display: grid;
+        grid-template-columns: 3fr 2fr;
+        gap: var(--space-6);
+        align-items: start;
+      }
+      .pn-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-4) var(--space-6);
+      }
+      .pn-span-2 {
+        grid-column: span 2;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      .doc {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 32px 96px;
+      }
+      .doc > header {
+        margin-bottom: 48px;
+      }
+      .sec {
+        margin-top: 64px;
+      }
+      .sec > h2 {
+        margin-bottom: 24px;
+      }
+      .spec {
+        font: 500 13px/18px var(--font-sans);
+        color: var(--ink-2);
+        font-variant-numeric: tabular-nums;
+      }
+      .sw-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 16px;
+      }
+      .sw-chip {
+        height: 64px;
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .sw-name {
+        font: 600 13px/18px var(--font-sans);
+        margin-top: 8px;
+      }
+      .type-row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 24px;
+        align-items: baseline;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .type-row:last-child {
+        border-bottom: 0;
+      }
+      .pair-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      .demo-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+      .lbl {
+        font: 600 13px/18px var(--font-sans);
+        color: var(--ink-2);
+        margin-bottom: 12px;
+      }
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .space-row {
+        display: grid;
+        grid-template-columns: 110px 60px 1fr;
+        gap: 16px;
+        align-items: center;
+        padding: 6px 0;
+      }
+      .space-bar {
+        height: 16px;
+        background: var(--pine-600);
+      }
+      .shape-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+      }
+      .shape {
+        height: 96px;
+        background: var(--surface);
+        display: grid;
+        place-items: center;
+      }
+      .overlay-stage {
+        position: relative;
+        height: 300px;
+      }
+      .overlay-stage .pn-scrim {
+        position: absolute;
+        inset: 0;
+      }
+      .mini-shell {
+        box-shadow: inset 0 0 0 1px var(--line);
+        overflow: hidden;
+      }
+      .mini-shell .pn-shell {
+        min-height: 0;
+      }
+      .mini-shell .pn-nav {
+        box-shadow: inset -1px 0 0 var(--line);
+      }
+      @media (max-width: 860px) {
+        .pair-grid,
+        .demo-grid,
+        .shape-grid {
+          grid-template-columns: 1fr;
+        }
+        .type-row {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+        .pn-shell {
+          grid-template-columns: 1fr;
+        }
+        .mini-shell .pn-nav {
+          display: none;
+        }
+        .pn-grid-2,
+        .pn-form-grid {
+          grid-template-columns: 1fr;
+        }
+        .pn-span-2 {
+          grid-column: auto;
+        }
+      }
+    </style>
+
+    <svg width="0" height="0" style="position: absolute">
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+        <path d="M12 9v4M12 17h.01" />
+      </symbol>
+      <symbol id="i-circle-alert" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4M12 16h.01" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24">
+        <path d="M12 20h9" />
+        <path d="M16.4 3.6a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path
+          d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        />
+      </symbol>
+      <symbol id="i-users" viewBox="0 0 24 24">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </symbol>
+      <symbol id="i-cal" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+      </symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24">
+        <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+        <path
+          d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        />
+      </symbol>
+    </svg>
+
+    <div class="doc">
+      <header>
+        <div class="spec">Design guide · v1 · Oct 2026</div>
+        <h1 class="display" style="margin-top: 8px">Pine</h1>
+      </header>
+
+      <!-- COLOR -->
+      <section class="sec">
+        <h2 class="h2">Color</h2>
+        <div class="lbl">Dominant 60% · Structure 30%</div>
+        <div class="sw-grid" id="sw-neutral"></div>
+        <div class="lbl" style="margin-top: 32px">Accent 10%</div>
+        <div class="sw-grid" id="sw-pine"></div>
+        <div class="lbl" style="margin-top: 32px">Clinical signal only</div>
+        <div class="sw-grid" id="sw-signal"></div>
+      </section>
+
+      <!-- TYPE -->
+      <section class="sec">
+        <h2 class="h2">Typography</h2>
+        <div id="type-scale"></div>
+      </section>
+
+      <section class="sec">
+        <h2 class="h2">Heading pairs</h2>
+        <div class="pair-grid">
+          <div>
+            <div class="lbl">Page</div>
+            <ol class="pn-crumbs" style="margin-bottom: 12px">
+              <li class="pn-crumb"><a href="#">Patients</a></li>
+              <li class="pn-crumb" aria-current="page">Maria Delgado</li>
+            </ol>
+            <h1 class="h1">Encounters</h1>
+            <p class="body" style="margin-top: 16px">Content starts here. No subtitle.</p>
+          </div>
+          <div>
+            <div class="lbl">Card</div>
+            <div class="pn-card-head" style="margin-bottom: 16px">
+              <h3 class="h3">Active medications</h3>
+              <button class="pn-btn pn-btn-ghost pn-btn-sm">
+                <svg class="pn-icon"><use href="#i-plus" /></svg>Add
+              </button>
+            </div>
+            <p class="body">Metformin 500 mg, twice daily</p>
+          </div>
+          <div>
+            <div class="lbl">Dialog</div>
+            <h2 class="h2">Discontinue metformin?</h2>
+            <p class="body" style="margin-top: 8px">The pharmacy will be notified.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUTTONS -->
+      <section class="sec">
+        <h2 class="h2">Buttons</h2>
+        <div class="demo-grid">
+          <div>
+            <div class="lbl">Variants · hover and press them</div>
+            <div class="btn-row">
+              <button class="pn-btn pn-btn-primary">Sign note</button
+              ><button class="pn-btn pn-btn-secondary">Save draft</button
+              ><button class="pn-btn pn-btn-ghost">Cancel</button
+              ><button class="pn-btn pn-btn-danger">Delete</button>
+            </div>
+            <div class="lbl" style="margin-top: 24px">With icon · icon only</div>
+            <div class="btn-row">
+              <button class="pn-btn pn-btn-secondary">
+                <svg class="pn-icon"><use href="#i-plus" /></svg>Add order</button
+              ><button class="pn-btn pn-btn-ghost">
+                <svg class="pn-icon"><use href="#i-pen" /></svg>Edit</button
+              ><button class="pn-btn pn-btn-ghost pn-btn-icon" aria-label="More">
+                <svg class="pn-icon"><use href="#i-more" /></svg>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="lbl">Sizes · 32 / 40 / 48</div>
+            <div class="btn-row">
+              <button class="pn-btn pn-btn-primary pn-btn-sm">Small</button
+              ><button class="pn-btn pn-btn-primary">Medium</button
+              ><button class="pn-btn pn-btn-primary pn-btn-lg">Large</button>
+            </div>
+            <div class="lbl" style="margin-top: 24px">Disabled · link</div>
+            <div class="btn-row">
+              <button class="pn-btn pn-btn-primary" disabled>Send to pharmacy</button
+              ><a class="pn-link" href="#" style="margin-left: 8px">View history</a>
+            </div>
+          </div>
+        </div>
+        <p class="spec" style="margin-top: 16px">
+          One primary per view. Default variant is secondary. Tab through to see the focus ring.
+        </p>
+      </section>
+
+      <!-- FORMS -->
+      <section class="sec">
+        <h2 class="h2">Form controls</h2>
+        <div class="pn-form-grid" style="max-width: 720px">
+          <div class="pn-field">
+            <label class="pn-label" for="f1">First name<span class="pn-req">*</span></label
+            ><input class="pn-input" id="f1" value="Maria" />
+          </div>
+          <div class="pn-field">
+            <label class="pn-label" for="f2">Date of birth</label
+            ><input class="pn-input pn-num" id="f2" placeholder="MM/DD/YYYY" />
+          </div>
+          <div class="pn-field">
+            <label class="pn-label" for="f3">Sex at birth</label
+            ><select class="pn-select" id="f3">
+              <option>Female</option>
+              <option>Male</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+          <div class="pn-field">
+            <label class="pn-label" for="f4">NPI</label
+            ><input class="pn-input pn-num" id="f4" value="12345" aria-invalid="true" />
+            <div class="pn-error">
+              <svg class="pn-icon"><use href="#i-circle-alert" /></svg>NPI must be 10 digits.
+            </div>
+          </div>
+          <div class="pn-field">
+            <label class="pn-label" for="f5">MRN</label
+            ><input class="pn-input pn-num" id="f5" value="004812" disabled />
+            <div class="pn-hint">Assigned by the system.</div>
+          </div>
+          <div class="pn-field">
+            <label class="pn-label" for="f6">Search</label
+            ><input class="pn-input" id="f6" placeholder="Name, MRN or DOB" />
+          </div>
+          <div class="pn-field pn-span-2">
+            <label class="pn-label" for="f7">Chief complaint</label
+            ><textarea class="pn-input" id="f7">Persistent cough for 2 weeks.</textarea>
+          </div>
+          <div class="pn-span-2" style="display: flex; gap: 24px; flex-wrap: wrap">
+            <label class="pn-check"><input type="checkbox" checked />Patient consented</label
+            ><label class="pn-check"><input type="checkbox" />Send copy to patient portal</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPACING / SHAPE -->
+      <section class="sec">
+        <h2 class="h2">Spacing</h2>
+        <div id="spacing"></div>
+        <p class="spec" style="margin-top: 16px">
+          Field gap 16 · card padding 24 · page padding and section gap 32 · button gap 8.
+        </p>
+      </section>
+
+      <section class="sec">
+        <h2 class="h2">Radius and elevation</h2>
+        <div class="pn-canvas shape-grid">
+          <div>
+            <div class="shape"><span class="label">radius-none</span></div>
+            <p class="spec" style="margin-top: 8px">Everything</p>
+          </div>
+          <div>
+            <div class="shape" style="box-shadow: var(--shadow-overlay)">
+              <span class="label">shadow-overlay</span>
+            </div>
+            <p class="spec" style="margin-top: 8px">Dialogs, menus, toasts only</p>
+          </div>
+          <div>
+            <div class="shape">
+              <label class="pn-check"><input type="checkbox" checked />radius-xs</label>
+            </div>
+            <p class="spec" style="margin-top: 8px">Checkbox only</p>
+          </div>
+          <div>
+            <div class="shape"><span class="pn-avatar">MD</span></div>
+            <p class="spec" style="margin-top: 8px">radius-full · avatars only</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- STATUS -->
+      <section class="sec">
+        <h2 class="h2">Tags and alerts</h2>
+        <div class="btn-row">
+          <span class="pn-tag">Draft</span><span class="pn-tag pn-tag-outline">Scheduled</span
+          ><span class="pn-tag pn-tag-active">Active</span
+          ><span class="pn-tag pn-tag-caution">Pending review</span
+          ><span class="pn-tag pn-tag-critical"
+            ><svg class="pn-icon"><use href="#i-alert" /></svg>Penicillin</span
+          >
+        </div>
+        <div style="display: grid; gap: 8px; margin-top: 24px; max-width: 720px">
+          <div class="pn-alert">
+            <svg class="pn-icon"><use href="#i-circle-alert" /></svg
+            ><span>Insurance last verified 90 days ago.</span
+            ><button class="pn-btn pn-btn-ghost pn-btn-sm pn-alert-action">Verify</button>
+          </div>
+          <div class="pn-alert pn-alert-caution">
+            <svg class="pn-icon"><use href="#i-alert" /></svg
+            ><span><b>Interaction.</b> Lisinopril with potassium supplement.</span>
+          </div>
+          <div class="pn-alert pn-alert-critical">
+            <svg class="pn-icon"><use href="#i-alert" /></svg
+            ><span><b>Critical result.</b> Potassium 6.4 mmol/L.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- NAV -->
+      <section class="sec">
+        <h2 class="h2">Navigation</h2>
+        <div class="lbl">Breadcrumbs</div>
+        <ol class="pn-crumbs">
+          <li class="pn-crumb"><a href="#">Patients</a></li>
+          <li class="pn-crumb"><a href="#">Maria Delgado</a></li>
+          <li class="pn-crumb" aria-current="page">Encounter 14 Oct</li>
+        </ol>
+        <div class="lbl" style="margin-top: 32px">Tabs</div>
+        <div class="pn-tabs" role="tablist">
+          <button class="pn-tab" role="tab" aria-selected="true">Summary</button
+          ><button class="pn-tab" role="tab">Notes</button
+          ><button class="pn-tab" role="tab">Labs</button
+          ><button class="pn-tab" role="tab">Medications</button
+          ><button class="pn-tab" role="tab">Billing</button>
+        </div>
+        <div class="lbl" style="margin-top: 32px">Stepper</div>
+        <ol class="pn-steps">
+          <li class="pn-step" data-state="done">
+            <span class="pn-step-mark"
+              ><svg class="pn-icon"><use href="#i-check" /></svg></span
+            >Patient
+          </li>
+          <span class="pn-step-bar" data-done></span>
+          <li class="pn-step" data-state="current">
+            <span class="pn-step-mark">2</span>Medication
+          </li>
+          <span class="pn-step-bar"></span>
+          <li class="pn-step"><span class="pn-step-mark">3</span>Pharmacy</li>
+          <span class="pn-step-bar"></span>
+          <li class="pn-step"><span class="pn-step-mark">4</span>Review</li>
+        </ol>
+      </section>
+
+      <!-- TABLE -->
+      <section class="sec">
+        <h2 class="h2">Table</h2>
+        <table class="pn-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Recorded by</th>
+              <th class="pn-r">BP</th>
+              <th class="pn-r">HR</th>
+              <th class="pn-r">SpO₂</th>
+              <th class="pn-r">Temp °F</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="pn-num">10/14/2026</td>
+              <td>A. Patel, RN</td>
+              <td class="pn-r pn-flag">162/98</td>
+              <td class="pn-r">88</td>
+              <td class="pn-r">97%</td>
+              <td class="pn-r">98.4</td>
+              <td class="pn-r">
+                <button class="pn-btn pn-btn-ghost pn-btn-icon pn-btn-sm" aria-label="Actions">
+                  <svg class="pn-icon"><use href="#i-more" /></svg>
+                </button>
+              </td>
+            </tr>
+            <tr aria-selected="true">
+              <td class="pn-num">09/02/2026</td>
+              <td>J. Kim, MA</td>
+              <td class="pn-r">138/86</td>
+              <td class="pn-r">76</td>
+              <td class="pn-r">98%</td>
+              <td class="pn-r">98.6</td>
+              <td class="pn-r">
+                <button class="pn-btn pn-btn-ghost pn-btn-icon pn-btn-sm" aria-label="Actions">
+                  <svg class="pn-icon"><use href="#i-more" /></svg>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td class="pn-num">06/18/2026</td>
+              <td>A. Patel, RN</td>
+              <td class="pn-r">132/84</td>
+              <td class="pn-r">72</td>
+              <td class="pn-r">99%</td>
+              <td class="pn-r">98.2</td>
+              <td class="pn-r">
+                <button class="pn-btn pn-btn-ghost pn-btn-icon pn-btn-sm" aria-label="Actions">
+                  <svg class="pn-icon"><use href="#i-more" /></svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="spec" style="margin-top: 12px">
+          Header rule in ink · row hairlines · hover row · selected row in pine-50 · numbers
+          right-aligned, tabular · out-of-range value bold danger-ink.
+        </p>
+      </section>
+
+      <!-- OVERLAYS -->
+      <section class="sec">
+        <h2 class="h2">Dialog, menu, toast</h2>
+        <div class="demo-grid">
+          <div class="overlay-stage">
+            <div class="pn-scrim">
+              <div class="pn-dialog pn-enter" role="alertdialog">
+                <h2 class="pn-dialog-title">Discontinue metformin?</h2>
+                <p class="pn-dialog-body">
+                  It moves to past medications and the pharmacy is notified.
+                </p>
+                <div class="pn-dialog-foot">
+                  <button class="pn-btn pn-btn-ghost">Cancel</button
+                  ><button class="pn-btn pn-btn-danger">Discontinue</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; gap: 24px; align-content: start">
+            <div class="pn-menu" role="menu">
+              <button class="pn-menu-item">
+                <svg class="pn-icon"><use href="#i-pen" /></svg>Edit dose
+              </button>
+              <button class="pn-menu-item">
+                <svg class="pn-icon"><use href="#i-file" /></svg>View history
+              </button>
+              <div class="pn-menu-gap"></div>
+              <button class="pn-menu-item pn-menu-item-danger">
+                <svg class="pn-icon"><use href="#i-trash" /></svg>Discontinue
+              </button>
+            </div>
+            <div class="pn-toast">Note signed.<button>Undo</button></div>
+            <button class="pn-btn pn-btn-secondary" id="replay" style="justify-self: start">
+              Replay dialog entrance
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- LAYOUT -->
+      <section class="sec">
+        <h2 class="h2">Layout</h2>
+        <div class="mini-shell">
+          <div class="pn-shell">
+            <nav class="pn-nav">
+              <div class="pn-nav-brand">Pine</div>
+              <a class="pn-nav-item" href="#"
+                ><svg class="pn-icon"><use href="#i-cal" /></svg>Schedule<span class="pn-nav-count"
+                  >18</span
+                ></a
+              >
+              <a class="pn-nav-item" href="#" aria-current="page"
+                ><svg class="pn-icon"><use href="#i-users" /></svg>Patients</a
+              >
+              <a class="pn-nav-item" href="#"
+                ><svg class="pn-icon"><use href="#i-inbox" /></svg>Inbox<span class="pn-nav-count"
+                  >6</span
+                ></a
+              >
+              <div class="pn-nav-group">Billing</div>
+              <a class="pn-nav-item" href="#"
+                ><svg class="pn-icon"><use href="#i-file" /></svg>Claims</a
+              >
+            </nav>
+            <div class="pn-main">
+              <div class="pn-page-head">
+                <ol class="pn-crumbs">
+                  <li class="pn-crumb"><a href="#">Patients</a></li>
+                  <li class="pn-crumb" aria-current="page">Maria Delgado</li>
+                </ol>
+              </div>
+              <div class="pn-patient" style="padding: 16px 24px">
+                <span class="pn-avatar">MD</span>
+                <div class="pn-patient-main">
+                  <h2 class="h2">Maria Delgado</h2>
+                  <div class="pn-patient-meta">
+                    <span>F · 54 y</span><span>DOB <b>03/12/1972</b></span
+                    ><span>MRN <b>004812</b></span
+                    ><span>PCP <b>Dr. R. Shah</b></span>
+                  </div>
+                </div>
+                <div class="pn-patient-flags">
+                  <span class="pn-tag pn-tag-critical"
+                    ><svg class="pn-icon"><use href="#i-alert" /></svg>Penicillin</span
+                  ><span class="pn-tag">Medicare</span>
+                </div>
+              </div>
+              <div class="pn-page-head-row">
+                <div class="pn-tabs">
+                  <button class="pn-tab" aria-selected="true">Summary</button
+                  ><button class="pn-tab">Notes</button><button class="pn-tab">Labs</button>
+                </div>
+                <div class="pn-actions">
+                  <button class="pn-btn pn-btn-secondary">New order</button
+                  ><button class="pn-btn pn-btn-primary">Start encounter</button>
+                </div>
+              </div>
+              <div class="pn-grid-2">
+                <section class="pn-card">
+                  <div class="pn-card-head">
+                    <h3 class="pn-card-title">Recent vitals</h3>
+                    <a class="pn-link" href="#">All vitals</a>
+                  </div>
+                  <table class="pn-table pn-table-compact">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th class="pn-r">BP</th>
+                        <th class="pn-r">HR</th>
+                        <th class="pn-r">Weight lb</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="pn-num">10/14/2026</td>
+                        <td class="pn-r pn-flag">162/98</td>
+                        <td class="pn-r">88</td>
+                        <td class="pn-r">171</td>
+                      </tr>
+                      <tr>
+                        <td class="pn-num">09/02/2026</td>
+                        <td class="pn-r">138/86</td>
+                        <td class="pn-r">76</td>
+                        <td class="pn-r">173</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+                <section class="pn-card">
+                  <div class="pn-card-head">
+                    <h3 class="pn-card-title">Active medications</h3>
+                    <button class="pn-btn pn-btn-ghost pn-btn-sm">
+                      <svg class="pn-icon"><use href="#i-plus" /></svg>Add
+                    </button>
+                  </div>
+                  <div style="display: grid; gap: 12px">
+                    <div>
+                      <div class="body-strong">Metformin 500 mg</div>
+                      <div class="small" style="color: var(--ink-2)">Twice daily with meals</div>
+                    </div>
+                    <div>
+                      <div class="body-strong">Lisinopril 10 mg</div>
+                      <div class="small" style="color: var(--ink-2)">Once daily</div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="spec" style="margin-top: 12px">
+          White islands on canvas. No borders, no shadows, no nested cards. One primary action in
+          the view.
+        </p>
+      </section>
+    </div>
+
+    <script>
+      const cs = getComputedStyle(document.documentElement);
+      const v = (n) => cs.getPropertyValue("--" + n).trim();
+      const sw = (id, names) =>
+        (document.getElementById(id).innerHTML = names
+          .map(
+            (n) =>
+              `<div><div class="sw-chip" style="background:var(--${n})"></div><div class="sw-name">${n}</div><div class="spec">${v(n)}</div></div>`,
+          )
+          .join(""));
+      sw("sw-neutral", [
+        "surface",
+        "canvas",
+        "surface-hover",
+        "surface-muted",
+        "surface-active",
+        "line",
+        "line-strong",
+        "ink-3",
+        "ink-2",
+        "ink",
+      ]);
+      sw("sw-pine", ["pine-50", "pine-100", "pine-200", "pine-600", "pine-700", "pine-800"]);
+      sw("sw-signal", ["caution-bg", "caution-ink", "danger-bg", "danger", "danger-ink"]);
+      const T = [
+        ["display", "32 / 38 · 800", "Good morning, Dr. Patel"],
+        ["h1", "26 / 32 · 700", "Encounters"],
+        ["h2", "20 / 26 · 700", "Discontinue metformin?"],
+        ["h3", "16 / 22 · 700", "Active medications"],
+        ["body-lg", "16 / 24 · 400", "Review the order before sending it to the pharmacy."],
+        ["body", "14 / 20 · 400", "Metformin 500 mg, twice daily with meals"],
+        ["body-strong", "14 / 20 · 600", "Lisinopril 10 mg"],
+        ["data", "14 / 20 · 500 · tabular", "128/84   72   98.6   004812"],
+        ["label", "13 / 18 · 600", "Date of birth"],
+        ["small", "13 / 18 · 500 · ink-2", "Updated 2 min ago"],
+        ["caption", "12 / 16 · 600", "Severe"],
+      ];
+      document.getElementById("type-scale").innerHTML = T.map(
+        ([c, s, t]) =>
+          `<div class="type-row"><div><div class="label">${c}</div><div class="spec">${s}</div></div><div class="${c}${c === "data" ? " pn-num" : ""}" ${c === "small" ? 'style="color:var(--ink-2)"' : ""}>${t}</div></div>`,
+      ).join("");
+      document.getElementById("spacing").innerHTML = [
+        "space-1",
+        "space-2",
+        "space-3",
+        "space-4",
+        "space-6",
+        "space-8",
+        "space-12",
+      ]
+        .map(
+          (n) =>
+            `<div class="space-row"><span class="label">${n}</span><span class="spec">${v(n)}</span><div class="space-bar" style="width:var(--${n})"></div></div>`,
+        )
+        .join("");
+      document.getElementById("replay").onclick = () => {
+        const d = document.querySelector(".pn-dialog"),
+          s = document.querySelector(".overlay-stage .pn-scrim");
+        [d, s].forEach((e) => {
+          e.classList.remove("pn-enter", "pn-fade");
+          void e.offsetWidth;
+        });
+        s.classList.add("pn-fade");
+        d.classList.add("pn-enter");
+      };
+    </script>
+  </body>
+</html>

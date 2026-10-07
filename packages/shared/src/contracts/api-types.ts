@@ -451,6 +451,9 @@ export interface AuditEventEntry {
   entityType?: string;
   entityId?: string;
   patientId?: string;
+  patientName?: string;
+  patientMrn?: string;
+  operation?: string;
   ipAddress?: string;
   userAgent?: string;
   reason?: string;
@@ -1800,6 +1803,8 @@ export interface DuplicateCandidateView {
   b: PatientSummary;
   matchedOn: Array<string>;
   createdAt: string;
+  mergeId?: string;
+  survivorId?: string;
 }
 
 export interface DuplicateCheckResult {
@@ -3061,6 +3066,7 @@ export interface MfaEnrollmentChallenge {
   type: MfaFactorType;
   otpauthUri?: string;
   secretBase32?: string;
+  qrCodeDataUrl?: string;
   webauthnCreationOptions?: unknown;
   codeSentTo?: string;
 }
