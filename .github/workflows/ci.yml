@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  node-build-and-audit:
+    name: Node build, typecheck & SCA scan (apps/web, apps/api, packages/shared)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # Risk S7 (Risk Management Plan): fails the build on any high/critical
+      # vulnerability, not just a logged warning. Covers the whole workspace
+      # (apps/web, apps/api, packages/shared) plus the root.
+      - name: Dependency / SCA scan (npm audit)
+        run: npm audit --audit-level=high --workspaces --include-workspace-root
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/agile_emr"
+
+  fhir-build-and-audit:
+    name: Java build & SCA scan (apps/fhir)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
+
+      - name: Build
+        working-directory: apps/fhir
+        run: mvn -B package
+
+      # Java-side equivalent of the Node SCA scan (risk S7). OWASP
+      # Dependency-Check fails the build on a CVSS-high-or-above finding,
+      # same "fail closed" standard as the npm audit job above. Once
+      # apps/fhir has real dependencies from Step 6 (HAPI FHIR etc.), this
+      # is the same gate, not a new one to add later.
+      - name: Dependency / SCA scan (OWASP Dependency-Check)
+        working-directory: apps/fhir
+        run: |
+          mvn -B org.owasp:dependency-check-maven:check \
+            -DfailBuildOnCVSS=7 \
+            -Dformats=HTML,JSON
+
+  secret-scan:
+    name: Secret scan (gitleaks, full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

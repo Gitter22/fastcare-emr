@@ -1,0 +1,120 @@
+# Reports. Pattern report: report-nav, filters (period, provider, export), metrics, drilldown.
+# Every number drills down to the records behind it.
+screens:
+  reports.ar-aging:
+    route: /reports/ar-aging
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: ar-buckets, type: chart, bind: "AR by bucket 0–30, 31–60, 61–90, 91–120, 120+ per payer"}
+        - {id: ar-total, type: stat, bind: "total AR, days in AR"}
+      drilldown:
+        - id: ar-table
+          type: table
+          bind: "Claim[] / patient balances in selected bucket"
+          cols:
+            - {id: ar-claim, type: link, label: "Claim", go: billing.claims#detail}
+            - {id: ar-account, type: link, label: "Account", go: billing.patient-account}
+
+  reports.collections:
+    route: /reports/collections
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: col-by-source, type: chart, bind: "collections by payer and patient, by month"}
+        - {id: col-payer-mix, type: chart, bind: "visits and charges by payer"}
+      drilldown:
+        - {id: col-table, type: table, bind: "Payment[] in period", cols: [{id: col-account, type: link, label: "Account", go: billing.patient-account}]}
+
+  reports.charge-lag:
+    route: /reports/charge-lag
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: lag-days, type: stat, bind: "days from DOS to note sign and to claim, by provider"}
+        - {id: clean-rate, type: stat, bind: "clean-claim rate"}
+      drilldown:
+        - {id: lag-table, type: table, bind: "Encounter[] unsigned or held, oldest first", cols: [{id: lag-open, type: link, label: "Open", go: billing.charge-review}]}
+
+  reports.no-shows:
+    route: /reports/no-shows
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: ns-rate, type: chart, bind: "no-show and late-cancel rate by provider, day, visit type"}
+        - {id: fill-rate, type: stat, bind: "template utilisation"}
+      drilldown:
+        - {id: ns-table, type: table, bind: "Appointment[] no-show in period", cols: [{id: ns-patient, type: link, label: "Patient", go: chart.summary}, {id: ns-rebook, type: button, label: "Rebook", go: schedule.booking-drawer}]}
+
+  reports.cycle-time:
+    route: /reports/cycle-time
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: ct-stages, type: chart, bind: "minutes per stage (arrive→room→provider→checkout) from flow board timestamps"}
+      drilldown:
+        - {id: ct-table, type: table, bind: "Appointment[] with stage times", cols: [{id: ct-patient, type: link, label: "Patient", go: chart.summary}]}
+
+  reports.productivity:
+    route: /reports/productivity
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: pr-visits, type: chart, bind: "visits and wRVU by provider and week"}
+      drilldown:
+        - {id: pr-table, type: table, bind: "Encounter[] with E/M level and wRVU"}
+
+  reports.quality:
+    route: /reports/quality
+    pattern: report
+    up: null
+    wireframe: Quality.dc.html
+    flows: ["flow:quality/04"]
+    regions:
+      metrics:
+        - {id: q-export-qrda, type: button, label: "Export QRDA III", be: logic}
+        - id: q-measure
+          type: card
+          each: true
+          bind: "Measure (name, CMS id, rate, numerator/denominator, practice goal, missing data)"
+          be: logic
+          cols:
+            - {id: q-meter, type: meter, bind: "rate vs goal"}
+            - {id: q-open, type: link, label: "Patients not met", go: reports.quality#drill}
+    views:
+      drill:
+        container: pane
+        regions:
+          drilldown:
+            - {id: qd-table, type: table, bind: "Patient[] not meeting measure (age, PCP, last done, next visit, open order)"}
+            - {id: qd-patient, type: link, each: true, label: "Patient", go: chart.care-gaps}
+            - {id: qd-recall, type: button, label: "Add selected to recall", go: schedule.recall-list}
+            - {id: qd-outreach, type: button, label: "Send outreach (portal + text)", primary: true, be: logic, inv: [INV-SEC-06]}
+
+  reports.care-gaps:
+    route: /reports/care-gaps
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: cg-by-gap, type: chart, bind: "open gaps by type for my panel"}
+      drilldown:
+        - {id: cg-table, type: table, bind: "Patient[] with open gaps", be: logic, cols: [{id: cg-patient, type: link, label: "Patient", go: chart.care-gaps}, {id: cg-recall, type: button, label: "Recall", go: schedule.recall-list}]}
+
+  reports.export:
+    route: /reports/export
+    pattern: report
+    up: null
+    regions:
+      metrics:
+        - {id: ex-type, type: radio, label: "CSV of a report · Bulk FHIR (population) · Full EHI export (patient or practice)"}
+        - {id: ex-scope, type: select, label: "Scope"}
+        - {id: ex-run, type: button, label: "Start export", primary: true, does: "async job; audited", opens: [auth.step-up], be: logic, inv: [INV-SEC-01]}
+      drilldown:
+        - {id: ex-jobs, type: table, bind: "Export jobs (who, when, scope, status, download)"}

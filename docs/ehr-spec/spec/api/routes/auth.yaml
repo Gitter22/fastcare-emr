@@ -1,0 +1,27 @@
+tag: Auth
+description: Staff authentication. Password (argon2id) + mandatory MFA (TOTP, WebAuthn, SMS fallback via MfaGateway). Short-lived access JWT + rotating refresh token (httpOnly cookie). Lockout after repeated failures. Every attempt is audited.
+defaults: {auth: none, phi: false}
+ops:
+  - {id: login, m: POST, p: "/auth/login", sum: "Verify email and password; returns an MFA challenge", body: LoginRequest, res: LoginResult, screens: [auth.sign-in], audit: LOGIN, inv: [INV-SEC-04, INV-SEC-01], errors: [423, 429]}
+  - {id: verifyMfa, m: POST, p: "/auth/mfa/verify", sum: "Verify the second factor and start a session", body: MfaVerifyRequest, res: SessionTokens, screens: [auth.mfa-challenge], audit: MFA, inv: [INV-SEC-04], errors: [429], integ: MfaGateway}
+  - {id: resendMfaCode, m: POST, p: "/auth/mfa/resend", sum: "Send a new SMS code for a challenge", body: ChallengeRef, res: none, screens: [auth.mfa-challenge], errors: [429], integ: MfaGateway}
+  - {id: getWebAuthnAssertionOptions, m: POST, p: "/auth/mfa/webauthn/options", sum: "WebAuthn assertion options for a challenge", body: ChallengeRef, res: WebAuthnOptions, screens: [auth.mfa-challenge]}
+  - {id: startMfaEnrollment, m: POST, p: "/auth/mfa/enrollments", sum: "Begin enrolling a factor (enrolment token after invite, or signed-in user)", auth: staff-or-enrollment, body: MfaEnrollmentStart, res: MfaEnrollmentChallenge, screens: [auth.mfa-enroll, auth.account-security], audit: UPDATE}
+  - {id: confirmMfaEnrollment, m: POST, p: "/auth/mfa/enrollments/{factorId}/confirm", sum: "Confirm a factor; first factor returns recovery codes and a session", auth: staff-or-enrollment, body: MfaEnrollmentConfirm, res: MfaEnrollmentResult, screens: [auth.mfa-enroll], audit: UPDATE, inv: [INV-SEC-04]}
+  - {id: deleteMfaFactor, m: DELETE, p: "/auth/mfa/factors/{factorId}", sum: "Remove a factor (at least one must remain)", auth: staff, stepup: true, res: none, screens: [auth.account-security], audit: UPDATE}
+  - {id: regenerateRecoveryCodes, m: POST, p: "/auth/mfa/recovery-codes", sum: "Issue new recovery codes (old ones stop working)", auth: staff, stepup: true, res: RecoveryCodes, screens: [auth.account-security], audit: UPDATE}
+  - {id: refreshSession, m: POST, p: "/auth/token/refresh", sum: "Rotate refresh token; enforces idle and absolute timeouts", res: SessionTokens, screens: [auth.sign-in], inv: [INV-SEC-04]}
+  - {id: logout, m: POST, p: "/auth/logout", sum: "End the current session", auth: staff, res: none, screens: [auth.account-security], audit: LOGOUT}
+  - {id: getMe, m: GET, p: "/auth/me", sum: "Current user, roles, active role, practice, locations, permissions and session policy", auth: staff, res: Me, screens: [home.frontdesk-board, home.clinical-daylist, home.provider-worklist, home.rcm-queues, home.practice-kpis, auth.account-security]}
+  - {id: switchActiveRole, m: POST, p: "/auth/me/active-role", sum: "Switch the role the user is acting as", auth: staff, body: ActiveRoleRequest, res: Me, screens: [home.practice-kpis], audit: UPDATE}
+  - {id: stepUp, m: POST, p: "/auth/step-up", sum: "Re-authenticate (password + factor) before a sensitive action; sets session.stepUpAt", auth: staff, body: StepUpRequest, res: StepUpResult, screens: [auth.step-up], audit: MFA, inv: [INV-SAFE-05]}
+  - {id: forgotPassword, m: POST, p: "/auth/password/forgot", sum: "Email a reset link if the account exists (same response either way)", body: EmailRequest, res: accepted, screens: [auth.forgot-password], errors: [429], integ: MessagingGateway}
+  - {id: checkPassword, m: POST, p: "/auth/password/check", sum: "Check a candidate password against policy and breached-password list", body: PasswordCandidate, res: PasswordCheckResult, screens: [auth.reset-password, auth.accept-invite, portal.activate, portal.reset-password]}
+  - {id: resetPassword, m: POST, p: "/auth/password/reset", sum: "Set a new password from a reset token; revokes all sessions", body: PasswordResetRequest, res: none, screens: [auth.reset-password], audit: UPDATE}
+  - {id: changePassword, m: POST, p: "/auth/password/change", sum: "Change password; revokes other sessions", auth: staff, body: PasswordChangeRequest, res: none, screens: [auth.account-security], audit: UPDATE}
+  - {id: getInvitation, m: GET, p: "/auth/invitations/{token}", sum: "Invitation details (practice, email, roles)", res: InvitationInfo, screens: [auth.accept-invite]}
+  - {id: acceptInvitation, m: POST, p: "/auth/invitations/{token}/accept", sum: "Activate account; returns an enrolment token for MFA setup", body: AcceptInvitationRequest, res: EnrollmentToken, screens: [auth.accept-invite], audit: UPDATE}
+  - {id: listMySessions, m: GET, p: "/auth/sessions", sum: "My active sessions", auth: staff, res: "list:SessionInfo", screens: [auth.account-security]}
+  - {id: revokeSession, m: DELETE, p: "/auth/sessions/{sessionId}", sum: "Sign out one session", auth: staff, res: none, screens: [auth.account-security], audit: LOGOUT}
+  - {id: revokeOtherSessions, m: POST, p: "/auth/sessions/revoke-others", sum: "Sign out everywhere else", auth: staff, res: none, screens: [auth.account-security], audit: LOGOUT}
+  - {id: listMySecurityEvents, m: GET, p: "/auth/me/security-events", sum: "My sign-in and MFA events (last 30 days)", auth: staff, res: "page:AuditEventEntry", screens: [auth.account-security]}

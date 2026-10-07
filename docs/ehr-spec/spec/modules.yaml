@@ -1,0 +1,140 @@
+# Sitemap. `nav`: rail = global left rail; context = patient chart context (ADR-001); portal = patient app.
+# Groups only organise screens for navigation; screens are defined in screens.yaml.
+modules:
+  - id: home
+    name: Home
+    nav: rail
+    intent: Role-specific work queues. Every tile is a filtered list with a count and a primary action (ADR-007).
+    groups:
+      - name: Role homes
+        screens: [home.frontdesk-board, home.clinical-daylist, home.provider-worklist, home.rcm-queues, home.practice-kpis]
+      - name: Global
+        screens: [global.command-bar, global.notifications]
+
+  - id: schedule
+    name: Schedule
+    nav: rail
+    intent: Plan and run the day. Booking is a drawer over the calendar so context is never lost.
+    groups:
+      - name: Calendar
+        screens: [schedule.calendar, schedule.booking-drawer, schedule.appointment-detail]
+      - name: Run the day
+        screens: [schedule.flow-board, schedule.room-board, schedule.checkout]
+      - name: Fill the day
+        screens: [schedule.waitlist, schedule.recall-list]
+
+  - id: patients
+    name: Patients
+    nav: rail
+    intent: Find or create a patient, then open the chart context. Duplicate prevention starts here.
+    groups:
+      - name: Find and register
+        screens: [patients.search, patients.registration, patients.merge-review]
+      - name: Populations
+        screens: [patients.lists, patients.registries]
+
+  - id: chart
+    name: Patient chart
+    nav: context
+    intent: Everything about one patient. Pinned banner (INV-ID-01). Opened from anywhere.
+    groups:
+      - name: Overview
+        screens: [chart.summary, chart.timeline]
+      - name: Clinical lists
+        screens: [chart.problems, chart.medications, chart.allergies, chart.vitals, chart.results, chart.immunizations, chart.history]
+      - name: Care coordination
+        screens: [chart.orders, chart.referrals, chart.care-plan, chart.care-gaps]
+      - name: Records and admin
+        screens: [chart.documents, chart.communications, chart.demographics, chart.consents, chart.account, chart.access-log]
+
+  - id: encounter
+    name: Encounter workspace
+    nav: context
+    intent: One visit's documentation, orders, prescriptions, coding and signing.
+    groups:
+      - name: Before and during
+        screens: [encounter.prechart, encounter.rooming, encounter.note]
+      - name: Actions
+        screens: [encounter.orders, encounter.rx, encounter.dx-coding, encounter.charges]
+      - name: Close
+        screens: [encounter.avs, encounter.sign]
+
+  - id: inbox
+    name: Inbox
+    nav: rail
+    intent: Single work queue with typed folders and pools. Every item has an owner, due time and audit trail.
+    groups:
+      - name: Clinical
+        screens: [inbox.results, inbox.rx-requests, inbox.cosign]
+      - name: Communication
+        screens: [inbox.patient-messages, inbox.tasks]
+      - name: Intake and documents
+        screens: [inbox.previsit-queue, inbox.documents, inbox.prior-auth]
+      - name: Tracking
+        screens: [orders.collection, orders.tracking, orders.result-reconciliation, referrals.worklist]
+
+  - id: billing
+    name: Billing
+    nav: rail
+    intent: Practice management and revenue cycle, as worklists in the order money flows.
+    groups:
+      - name: Front end
+        screens: [billing.eligibility, billing.estimates, billing.payment-capture]
+      - name: Mid cycle
+        screens: [billing.charge-review, billing.claims, billing.rejections]
+      - name: Back end
+        screens: [billing.era-posting, billing.denials, billing.statements, billing.patient-account, billing.day-close]
+
+  - id: reports
+    name: Reports
+    nav: rail
+    intent: Standard reports per role. Every number drills down to the records behind it.
+    groups:
+      - name: Financial
+        screens: [reports.ar-aging, reports.collections, reports.charge-lag]
+      - name: Operational
+        screens: [reports.no-shows, reports.cycle-time, reports.productivity]
+      - name: Clinical and regulatory
+        screens: [reports.quality, reports.care-gaps, reports.export]
+
+  - id: telehealth
+    name: Telehealth
+    nav: rail
+    intent: A modality of the same encounter (ADR-006), plus asynchronous care.
+    groups:
+      - name: Visit
+        screens: [telehealth.waiting-room, telehealth.visit]
+      - name: Asynchronous
+        screens: [telehealth.evisit, telehealth.rpm]
+
+  - id: admin
+    name: Admin
+    nav: rail
+    intent: Practice-owned configuration. Versioned and audited.
+    groups:
+      - name: Organisation
+        screens: [admin.locations, admin.users-roles, admin.providers]
+      - name: Scheduling and billing setup
+        screens: [admin.visit-types, admin.online-booking, admin.payers-fees]
+      - name: Clinical content
+        screens: [admin.templates, admin.order-sets, admin.forms, admin.cds-rules]
+      - name: Security and interfaces
+        screens: [admin.security, admin.audit-log, admin.interfaces, admin.portal-settings]
+
+  - id: portal
+    name: Patient portal
+    nav: portal
+    intent: Mobile-first, plain language, WCAG 2.1 AA. Proxy access for caregivers.
+    groups:
+      - name: Main
+        screens: [portal.home, portal.appointments, portal.todos, portal.messages, portal.record, portal.billing, portal.profile]
+
+  - id: auth
+    name: Sign-in & account
+    nav: public
+    intent: Authentication for staff (password + mandatory MFA) and patients (password + verification code). No PHI is shown before authentication.
+    groups:
+      - name: Staff
+        screens: [auth.sign-in, auth.mfa-challenge, auth.mfa-enroll, auth.forgot-password, auth.reset-password, auth.accept-invite, auth.step-up, auth.account-security]
+      - name: Patient portal
+        screens: [portal.sign-in, portal.activate, portal.mfa-challenge, portal.forgot-password, portal.reset-password]

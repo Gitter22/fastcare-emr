@@ -1,0 +1,326 @@
+# Admin. Pattern settings: admin-nav, list, edit pane. Every save is versioned and audited (INV-SEC-01).
+screens:
+  admin.locations:
+    route: /admin/locations
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: practice-card, type: card, bind: "Practice (legal name, TIN, billing NPI, address)", go: admin.locations#practice}
+        - {id: location-row, type: link, each: true, bind: "Location[] (name, address, POS code, hours, rooms)", go: admin.locations#location}
+        - {id: add-location, type: button, label: "+ Location", go: admin.locations#location}
+    views:
+      practice:
+        container: pane
+        regions:
+          edit:
+            - {id: pr-legal, type: input, label: "Legal name"}
+            - {id: pr-tin, type: input, label: "TIN"}
+            - {id: pr-npi, type: input, label: "Group NPI"}
+            - {id: pr-save, type: button, label: "Save", primary: true}
+      location:
+        container: pane
+        regions:
+          edit:
+            - {id: loc-name, type: input, label: "Name"}
+            - {id: loc-address, type: input, label: "Address"}
+            - {id: loc-pos, type: select, label: "Place of service"}
+            - {id: loc-hours, type: list, label: "Hours", each: true}
+            - {id: loc-rooms, type: list, label: "Rooms and equipment", each: true}
+            - {id: loc-save, type: button, label: "Save", primary: true}
+
+  admin.users-roles:
+    route: /admin/users
+    pattern: settings
+    up: null
+    wireframe: Users.dc.html
+    regions:
+      list:
+        - {id: invite, type: button, label: "+ Invite user", primary: true, go: admin.users-roles#invite}
+        - {id: user-search, type: search, label: "Search users"}
+        - {id: role-filter, type: select, label: "Role"}
+        - {id: status-filter, type: select, label: "Status"}
+        - id: user-table
+          type: table
+          bind: "User[] (name, credential, roles, MFA, last sign-in, status)"
+          cols:
+            - {id: user-open, type: link, label: "Open", go: admin.users-roles#edit}
+            - {id: user-locked, type: chip, bind: "locked", when: "locked"}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: ue-roles, type: checkbox, each: true, label: "Roles", bind: "roles.yaml"}
+            - {id: ue-can-sign, type: text, bind: "derived from roles.can_sign", inv: [INV-SAFE-01]}
+            - {id: ue-cosign, type: select, label: "Co-sign required by / when", bind: "co-sign rules (OPEN-Q5)"}
+            - {id: ue-locations, type: select, label: "Locations"}
+            - {id: ue-provider-link, type: link, label: "Provider record", go: admin.providers, when: "role provider"}
+            - {id: ue-epcs, type: alert, bind: "EPCS identity proofing status", when: "role provider", be: logic}
+            - {id: ue-unlock, type: button, label: "Unlock", when: "locked"}
+            - {id: ue-reset-mfa, type: button, label: "Reset MFA", inv: [INV-SEC-04]}
+            - {id: ue-deactivate, type: button, label: "Deactivate", does: "revoke sessions; keep audit history"}
+            - {id: ue-save, type: button, label: "Save changes", primary: true}
+      invite:
+        container: drawer
+        regions:
+          form:
+            - {id: inv-email, type: input, label: "Email"}
+            - {id: inv-name, type: input, label: "Name"}
+            - {id: inv-roles, type: checkbox, each: true, label: "Roles"}
+            - {id: inv-send, type: button, label: "Send invite", primary: true, does: "invite with MFA enrolment required", inv: [INV-SEC-04]}
+    states: [locked-account, terminated-user]
+
+  admin.providers:
+    route: /admin/providers
+    pattern: settings
+    up: admin.users-roles
+    regions:
+      list:
+        - {id: prov-row, type: link, each: true, bind: "Practitioner[] (NPI, taxonomy, licences, DEA, EPCS, payer enrolment)", go: admin.providers#edit}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: pv-npi, type: input, label: "NPI", be: logic}
+            - {id: pv-taxonomy, type: select, label: "Taxonomy"}
+            - {id: pv-licences, type: list, each: true, label: "State licences with expiry"}
+            - {id: pv-dea, type: list, each: true, label: "DEA registrations"}
+            - {id: pv-epcs, type: button, label: "Start EPCS identity proofing", be: logic, inv: [INV-SAFE-05]}
+            - {id: pv-supervision, type: select, label: "Supervising physician"}
+            - {id: pv-enrolment, type: table, bind: "payer enrolment status"}
+            - {id: pv-save, type: button, label: "Save", primary: true}
+
+  admin.visit-types:
+    route: /admin/visit-types
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: vt-row, type: link, each: true, bind: "VisitType[] (name, duration, channels, color)", go: admin.visit-types#edit}
+        - {id: vt-templates, type: link, label: "Provider schedule templates", go: admin.visit-types#template}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: vt-name, type: input, label: "Name"}
+            - {id: vt-duration, type: input, label: "Duration"}
+            - {id: vt-modality, type: checkbox, each: true, label: "In person / video / phone"}
+            - {id: vt-new-only, type: checkbox, label: "New patients only"}
+            - {id: vt-forms, type: select, label: "Pre-visit forms"}
+            - {id: vt-save, type: button, label: "Save", primary: true}
+      template:
+        container: pane
+        regions:
+          edit:
+            - {id: tp-provider, type: select, label: "Provider"}
+            - {id: tp-grid, type: table, label: "Weekly template: slots by visit type, blocks"}
+            - {id: tp-effective, type: date, label: "Effective from"}
+            - {id: tp-save, type: button, label: "Save", primary: true}
+
+  admin.online-booking:
+    route: /admin/online-booking
+    pattern: settings
+    up: admin.visit-types
+    regions:
+      edit:
+        - {id: ob-enabled, type: toggle, label: "Online booking on"}
+        - {id: ob-types, type: checkbox, each: true, label: "Visit types patients can book", bind: "VisitType[]"}
+        - {id: ob-window, type: input, label: "Booking window and minimum notice"}
+        - {id: ob-new-patients, type: toggle, label: "Allow new patients"}
+        - {id: ob-preview, type: link, label: "Preview patient booking", go: portal.appointments}
+        - {id: ob-save, type: button, label: "Save", primary: true}
+
+  admin.payers-fees:
+    route: /admin/payers
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: payer-row, type: link, each: true, bind: "Organization[] payers (payer ID, plans, claim rules)", go: admin.payers-fees#payer}
+        - {id: fee-schedules, type: link, label: "Fee schedules", go: admin.payers-fees#fees}
+    views:
+      payer:
+        container: pane
+        regions:
+          edit:
+            - {id: py-id, type: input, label: "Clearinghouse payer ID"}
+            - {id: py-rules, type: list, each: true, label: "Claim rules (modifiers, auth, referral required)", be: logic}
+            - {id: py-timely, type: input, label: "Timely filing days", inv: [INV-FIN-05]}
+            - {id: py-save, type: button, label: "Save", primary: true}
+      fees:
+        container: pane
+        regions:
+          edit:
+            - {id: fs-select, type: select, label: "Schedule (self-pay, payer contract)"}
+            - {id: fs-table, type: table, label: "CPT/HCPCS → fee / contracted rate", be: logic}
+            - {id: fs-import, type: upload, label: "Import CSV"}
+            - {id: fs-save, type: button, label: "Save new version", primary: true}
+
+  admin.templates:
+    route: /admin/templates
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: tmpl-row, type: link, each: true, bind: "NoteTemplate[] and SmartPhrase[] (owner, specialty, shared)", go: admin.templates#edit}
+        - {id: tmpl-new, type: button, label: "+ Template", go: admin.templates#edit}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: te-name, type: input, label: "Name"}
+            - {id: te-sections, type: list, each: true, label: "Sections with default text and pick-lists"}
+            - {id: te-share, type: select, label: "Shared with"}
+            - {id: te-preview, type: placeholder, label: "Preview"}
+            - {id: te-save, type: button, label: "Save version", primary: true}
+
+  admin.order-sets:
+    route: /admin/order-sets
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: os-row, type: link, each: true, bind: "OrderSet[] (name, items, owner)", go: admin.order-sets#edit}
+        - {id: os-compendium, type: link, label: "Lab compendium mapping", go: admin.order-sets#compendium}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: ose-name, type: input, label: "Name"}
+            - {id: ose-items, type: list, each: true, label: "Orders with default Dx, priority, AOE"}
+            - {id: ose-save, type: button, label: "Save", primary: true}
+      compendium:
+        container: pane
+        regions:
+          edit:
+            - {id: cmp-lab, type: select, label: "Lab"}
+            - {id: cmp-table, type: table, label: "Lab test codes ↔ LOINC ↔ display name", be: logic}
+            - {id: cmp-import, type: upload, label: "Import compendium"}
+
+  admin.forms:
+    route: /admin/forms
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - {id: fm-row, type: link, each: true, bind: "Questionnaire[] / consent forms (portal, kiosk, tablet)", go: admin.forms#edit}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: fe-items, type: list, each: true, label: "Questions (type, required, maps to chart field)"}
+            - {id: fe-languages, type: select, label: "Languages"}
+            - {id: fe-where, type: checkbox, each: true, label: "Used in portal / kiosk / tablet"}
+            - {id: fe-preview, type: placeholder, label: "Mobile preview"}
+            - {id: fe-publish, type: button, label: "Publish version", primary: true}
+
+  admin.cds-rules:
+    route: /admin/alert-rules
+    pattern: settings
+    up: null
+    regions:
+      list:
+        - id: cds-table
+          type: table
+          bind: "CDS rules and care-gap rules (name, type, severity, fires, override rate, status)"
+          be: logic
+          cols:
+            - {id: cds-open, type: link, label: "Open", go: admin.cds-rules#edit}
+            - {id: cds-override-rate, type: chip, bind: "override rate (high = noisy)", inv: [INV-SAFE-06]}
+    views:
+      edit:
+        container: pane
+        regions:
+          edit:
+            - {id: ce-logic, type: text, bind: "rule logic (read-only for vendor rules)"}
+            - {id: ce-severity, type: select, label: "Severity (interruptive / passive)", inv: [INV-SAFE-06]}
+            - {id: ce-audience, type: select, label: "Shown to roles"}
+            - {id: ce-overrides, type: table, bind: "recent override reasons"}
+            - {id: ce-toggle, type: toggle, label: "Active"}
+            - {id: ce-save, type: button, label: "Save", primary: true}
+
+  admin.security:
+    route: /admin/security
+    pattern: settings
+    up: null
+    regions:
+      edit:
+        - {id: sec-mfa, type: text, label: "MFA required for all staff (cannot be turned off)", inv: [INV-SEC-04]}
+        - {id: sec-timeout, type: select, label: "Session timeout", inv: [INV-SEC-04]}
+        - {id: sec-btg, type: select, label: "Emergency access duration and reviewer", inv: [INV-SEC-03]}
+        - {id: sec-ip, type: list, label: "Allowed networks (optional)"}
+        - {id: sec-password, type: list, label: "Password rules"}
+        - {id: sec-save, type: button, label: "Save", primary: true}
+
+  admin.audit-log:
+    route: /admin/audit
+    pattern: settings
+    up: null
+    wireframe: AuditLog.dc.html
+    regions:
+      list:
+        - {id: au-btg-banner, type: alert, bind: "count emergency access to review", when: "> 0"}
+        - {id: au-patient, type: search, label: "Patient"}
+        - {id: au-user, type: search, label: "User"}
+        - {id: au-action, type: select, label: "Action"}
+        - {id: au-when, type: select, label: "When"}
+        - {id: au-export, type: button, label: "Export CSV", does: "export (itself audited)"}
+        - id: au-table
+          type: table
+          bind: "AuditEvent[] (time, user, patient, action, object, source)"
+          inv: [INV-SEC-01]
+          cols:
+            - {id: au-open, type: link, label: "Open", go: admin.audit-log#event}
+    views:
+      event:
+        container: pane
+        regions:
+          edit:
+            - {id: ev-detail, type: card, bind: "event detail + reason for emergency access"}
+            - {id: ev-outcome, type: select, label: "Review outcome", when: "emergency access"}
+            - {id: ev-note, type: input, label: "Note"}
+            - {id: ev-user-day, type: button, label: "See everything this user did that day"}
+            - {id: ev-save, type: button, label: "Save review", primary: true}
+    states: [break-the-glass-events, large-result-set]
+
+  admin.interfaces:
+    route: /admin/interfaces
+    pattern: settings
+    up: null
+    wireframe: Interfaces.dc.html
+    regions:
+      list:
+        - {id: if-legend, type: text, label: "Healthy · Degraded · Down"}
+        - {id: if-card, type: card, each: true, bind: "Gateway status (integrations.yaml gateways): state, since, volume today", go: admin.interfaces#detail, be: logic, inv: [INV-OPS-01]}
+    views:
+      detail:
+        container: pane
+        regions:
+          edit:
+            - {id: if-stats, type: stat, bind: "queued, next batch, retry schedule, work items created", be: logic}
+            - {id: if-impact, type: text, bind: "what users see while degraded"}
+            - {id: if-errors, type: table, bind: "recent errors (time, message, error, attempts)"}
+            - {id: if-retry, type: button, label: "Retry now", primary: true, be: logic, inv: [INV-OPS-01]}
+            - {id: if-vendor, type: link, label: "Vendor status page", go: "external:vendor status"}
+            - {id: if-config, type: button, label: "Connection settings", does: "edit credentials/certificates (manager only)"}
+    states: [down, backlog, certificate-expiring]
+
+  admin.portal-settings:
+    route: /admin/portal
+    pattern: settings
+    up: null
+    regions:
+      edit:
+        - {id: ps-features, type: checkbox, each: true, label: "Features on (booking, messaging, bill pay, e-check-in, record download, app access)"}
+        - {id: ps-release, type: select, label: "Result release timing (OPEN-Q6)"}
+        - {id: ps-proxy, type: select, label: "Proxy and adolescent rules (OPEN-Q10)"}
+        - {id: ps-message-sla, type: input, label: "Message response time shown to patients"}
+        - {id: ps-urgent-words, type: list, label: "Urgent symptom words", be: logic}
+        - {id: ps-branding, type: upload, label: "Logo"}
+        - {id: ps-save, type: button, label: "Save", primary: true}

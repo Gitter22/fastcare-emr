@@ -1,0 +1,7 @@
+# Product spec and design-system sources are kept byte-identical to what the spec tools read.
+docs/
+# Codegen output (tools/codegen.mjs); regenerate instead of formatting.
+packages/shared/src/contracts/
+apps/api/src/contracts/
+prisma/migrations/
+prisma/reference-data/

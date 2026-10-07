@@ -1,0 +1,75 @@
+# Query parameters referenced by name from spec/api/routes/*.yaml (`q: [...]`).
+# Path parameters are inferred from the path template: *Id → uuid, others listed under path_params.
+# Paged operations get `cursor` and `limit` automatically.
+query:
+  q: {schema: {type: string, minLength: 1}, description: "Free-text search"}
+  date: {schema: {type: string, format: date}, description: "Business date (practice time zone)"}
+  from: {schema: {type: string, format: date-time}}
+  to: {schema: {type: string, format: date-time}}
+  fromDate: {schema: {type: string, format: date}}
+  toDate: {schema: {type: string, format: date}}
+  asOf: {schema: {type: string, format: date}}
+  month: {schema: {type: string, pattern: "^\\d{4}-\\d{2}$"}, description: "YYYY-MM"}
+  period: {schema: {type: string, enum: [today, week, month, quarter, ytd, custom]}}
+  locationId: {schema: {type: string, format: uuid}}
+  practitionerId: {schema: {type: string, format: uuid}}
+  patientId: {schema: {type: string, format: uuid}}
+  payerId: {schema: {type: string, format: uuid}}
+  poolId: {schema: {type: string, format: uuid}}
+  userId: {schema: {type: string, format: uuid}}
+  ruleId: {schema: {type: string, format: uuid}}
+  visitTypeId: {schema: {type: string, format: uuid}}
+  measureId: {schema: {type: string, format: uuid}}
+  assignee: {schema: {type: string, enum: [me, my-pools, created-by-me, all]}}
+  scope: {schema: {type: string, enum: [mine-and-pool, all]}}
+  status: {schema: {type: array, items: {type: string}}, style: form, explode: false, description: "One or more status values of the listed resource's state machine (states.yaml ids, upper snake case)"}
+  category: {schema: {type: string}}
+  type: {schema: {type: string}}
+  types: {schema: {type: array, items: {type: string}}, style: form, explode: false}
+  action: {schema: {$ref: "#/components/schemas/AuditAction"}}
+  role: {schema: {$ref: "#/components/schemas/Role"}}
+  modality: {schema: {$ref: "#/components/schemas/Modality"}}
+  timeOfDay: {schema: {type: string, enum: [any, morning, afternoon]}}
+  stagingStatus: {schema: {$ref: "#/components/schemas/StagingStatus"}}
+  clinicalStatus: {schema: {type: string}}
+  loinc: {schema: {type: string}, description: "LOINC code"}
+  cvx: {schema: {type: string}}
+  system: {schema: {$ref: "#/components/schemas/CodeSystem"}}
+  billableOnly: {schema: {type: boolean, default: true}}
+  birthDate: {schema: {type: string, format: date}}
+  phone: {schema: {type: string}}
+  mrn: {schema: {type: string}}
+  name: {schema: {type: string}}
+  state: {schema: {type: string, minLength: 2, maxLength: 2}}
+  city: {schema: {type: string}}
+  zip: {schema: {type: string}}
+  taxonomy: {schema: {type: string}}
+  entityType: {schema: {type: string, enum: ["1", "2"]}, description: "NPPES: 1 individual, 2 organisation"}
+  specialty: {schema: {type: string}}
+  lab: {schema: {type: string, enum: [QUEST, LABCORP, HEALTH_GORILLA]}}
+  direction: {schema: {type: string, enum: [outgoing, incoming]}}
+  matchStatus: {schema: {$ref: "#/components/schemas/MatchStatus"}}
+  rootCause: {schema: {type: string}}
+  bucket: {schema: {type: string, enum: ["0-30", "31-60", "61-90", "91-120", "120+"]}}
+  groupBy: {schema: {type: string, enum: [payer, provider, month, source, location]}}
+  rule: {schema: {type: string}, description: "Coding edit rule group (modifier, dx-pointer, ncci, auth, waiting-on-provider)"}
+  prefix: {schema: {type: string}, description: "Settings key prefix, e.g. security., portal., schedule."}
+  reviewOutcome: {schema: {$ref: "#/components/schemas/BreakGlassOutcome"}}
+  program: {schema: {type: string, enum: [ccm, pcm, rpm, evisit]}}
+  sort: {schema: {type: string}, description: "Field name; prefix with - for descending"}
+  format: {schema: {type: string, enum: [json, csv]}, description: "csv returns text/csv of the same rows"}
+  includeResolved: {schema: {type: boolean, default: false}}
+  limitOne: {schema: {type: boolean}}
+path_params:
+  token: {schema: {type: string, minLength: 32}, description: "Single-use token from an emailed or texted link"}
+  npi: {schema: {type: string, pattern: "^\\d{10}$"}}
+  rxcui: {schema: {type: string}}
+  page: {schema: {type: integer, minimum: 1}}
+  step: {schema: {type: string, enum: [details, insurance, questionnaire, medications, consents, payment]}}
+  key: {schema: {type: string}, description: "Settings key"}
+  editKey: {schema: {type: string}}
+  registryKey: {schema: {type: string, enum: [diabetes, hypertension, ccm-eligible, copd, ckd]}}
+  provider: {schema: {type: string}}
+  system: {schema: {$ref: "#/components/schemas/CodeSystem"}}
+  vid: {schema: {type: string}, description: "FHIR version id"}
+  id: {schema: {type: string}, description: "FHIR logical id"}

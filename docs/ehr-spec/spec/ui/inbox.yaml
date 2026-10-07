@@ -1,0 +1,288 @@
+# Inbox and tracking. Pattern inbox: folders (nav.yaml#inbox-folders) | items | detail.
+# Every item is a Task with owner/pool, due time and status (states:task).
+screens:
+  inbox.results:
+    route: /inbox/results
+    pattern: inbox
+    up: null
+    wireframe: ResultsInbox.dc.html
+    flows: ["flow:results/03", "flow:results/04"]
+    regions:
+      items:
+        - {id: items-title, type: heading, bind: "count"}
+        - {id: sign-normals, type: button, label: "Sign normal results", does: "bulk sign selected normal results", tr: "order:resulted-final->reviewed"}
+        - id: result-item
+          type: list
+          each: true
+          bind: "DiagnosticReport[] to review, sorted critical > abnormal > normal"
+          cols:
+            - {id: ri-select, type: checkbox}
+            - {id: ri-patient, type: text, bind: Patient.name}
+            - {id: ri-flag, type: chip, bind: "critical / abnormal / normal", be: logic}
+            - {id: ri-escalation, type: text, bind: "derived:escalatesAt", when: "critical", be: logic, inv: [INV-SAFE-04]}
+      detail:
+        - {id: rd-patient, type: heading, bind: "Patient.name, DOB, MRN, relevant meds", inv: [INV-ID-01]}
+        - {id: rd-open-chart, type: button, label: "Open chart", go: chart.results}
+        - {id: rd-table, type: table, bind: "Observation[] with previous values"}
+        - {id: rd-comment, type: textarea, label: "Comment (shared with patient)"}
+        - {id: rd-notify, type: button, label: "Notify patient", go: inbox.patient-messages#compose}
+        - {id: rd-order, type: button, label: "+ Order follow-up", does: "create ServiceRequest (unscheduled encounter)", go: chart.orders}
+        - {id: rd-rx, type: button, label: "+ Rx change", go: inbox.rx-requests}
+        - {id: rd-book, type: button, label: "Book visit", go: schedule.booking-drawer}
+        - {id: rd-forward, type: button, label: "Forward to…", go: inbox.tasks#new}
+        - {id: rd-contact, type: card, label: "Document patient contact", when: "critical", bind: "who, how, time, instructions, read-back", inv: [INV-SAFE-04]}
+        - {id: rd-attempt, type: button, label: "Couldn't reach · log attempt", when: "critical"}
+        - {id: rd-sign, type: button, label: "Sign & close", primary: true, tr: "order:resulted-final->reviewed", when: "contact documented if critical", be: logic, inv: [INV-SAFE-04, INV-SAFE-01]}
+    states: [critical, corrected, result-for-unknown-order]
+
+  inbox.rx-requests:
+    route: /inbox/rx-requests
+    pattern: inbox
+    up: null
+    flows: ["flow:refills/03", "flow:refills/04", "flow:encounter/05"]
+    regions:
+      items:
+        - id: rx-request-item
+          type: list
+          each: true
+          bind: "Task[] for RxRenewal / RxChange / portal refill request"
+          cols:
+            - {id: rr-type, type: chip, bind: "renewal / change / cancel response / portal"}
+            - {id: rr-status, type: status-chip, bind: "states:task"}
+            - {id: rr-protocol, type: chip, bind: "derived:refillProtocolResult (pass / fail + why)", be: logic}
+      detail:
+        - {id: rq-med, type: card, bind: "MedicationRequest original + requested change"}
+        - {id: rq-context, type: list, bind: "last visit, relevant labs, BP, adherence (fill history)"}
+        - {id: rq-pend, type: button, label: "Pend to provider", tr: "task:open->pended-to-provider", when: "role ma"}
+        - {id: rq-book, type: button, label: "Book visit + short supply", go: schedule.booking-drawer, when: "protocol fails"}
+        - {id: rq-modify, type: button, label: "Modify", go: encounter.rx}
+        - {id: rq-deny, type: button, label: "Deny with reason", does: "send denial to pharmacy and patient"}
+        - {id: rq-approve, type: button, label: "Approve & send", primary: true, when: "role provider", tr: "task:pended-to-provider->completed", be: logic, inv: [INV-SAFE-01, INV-SAFE-06]}
+
+  inbox.cosign:
+    route: /inbox/cosign
+    pattern: inbox
+    up: null
+    regions:
+      items:
+        - {id: cosign-item, type: list, each: true, bind: "ClinicalNote[] / ServiceRequest[] pending co-sign (author, patient, date)"}
+      detail:
+        - {id: cs-note, type: text, bind: "ClinicalNote pending-cosign"}
+        - {id: cs-open, type: button, label: "Open encounter", go: encounter.note}
+        - {id: cs-return, type: button, label: "Return with comment", does: "send back to author as task"}
+        - {id: cs-sign, type: button, label: "Co-sign", primary: true, tr: "note:pending-cosign->signed", be: logic, inv: [INV-SAFE-01]}
+
+  inbox.patient-messages:
+    route: /inbox/messages
+    pattern: inbox
+    up: null
+    wireframe: Messages.dc.html
+    flows: ["flow:refills/01", "flow:refills/02", "flow:refills/05"]
+    regions:
+      items:
+        - {id: scope-filter, type: tabs, label: "Mine + pool · All"}
+        - {id: compose, type: button, label: "+ New message", go: inbox.patient-messages#compose}
+        - id: thread-item
+          type: list
+          each: true
+          bind: "Communication threads (patient, category, preview, due by SLA, proxy sender)"
+          cols:
+            - {id: th-urgent, type: chip, bind: "derived:urgentKeywords", be: logic}
+            - {id: th-proxy, type: chip, bind: "sender is proxy"}
+            - {id: th-due, type: chip, bind: "derived:slaDue"}
+      detail:
+        - {id: md-patient, type: heading, bind: "Patient.name, DOB, MRN, context", inv: [INV-ID-01]}
+        - {id: md-open-chart, type: button, label: "Open chart", go: chart.summary}
+        - {id: md-assign, type: menu, label: "Assign", bind: "WorkPool / user"}
+        - {id: md-urgent, type: alert, bind: "matched words + patient was shown emergency notice", when: "urgent keywords", be: logic}
+        - {id: md-call, type: button, label: "Call patient", go: chart.communications#call, when: "urgent"}
+        - {id: md-escalate, type: button, label: "Escalate to provider now", tr: "task:open->escalated", when: "urgent"}
+        - {id: md-thread, type: list, bind: "Communication[] messages + internal notes", each: true}
+        - {id: md-mode, type: tabs, label: "Reply to patient · Internal note"}
+        - {id: md-templates, type: menu, label: "Templates"}
+        - {id: md-attach, type: button, label: "Attach"}
+        - {id: md-text, type: textarea, label: "Reply"}
+        - {id: md-book, type: button, label: "Book visit", go: schedule.booking-drawer}
+        - {id: md-evisit, type: button, label: "Convert to e-visit", go: telehealth.evisit}
+        - {id: md-pend, type: button, label: "Pend to provider", tr: "task:open->pended-to-provider"}
+        - {id: md-send, type: button, label: "Send", primary: true, does: "send portal message; SMS nudge without detail", inv: [INV-SEC-06], tr: "task:in-progress->completed"}
+    views:
+      compose:
+        container: drawer
+        regions:
+          form:
+            - {id: cm-patient, type: search, label: "Patient", bind: "Patient[]", inv: [INV-ID-01]}
+            - {id: cm-subject, type: input, label: "Subject"}
+            - {id: cm-body, type: textarea, label: "Message"}
+            - {id: cm-attach, type: upload, label: "Attach result or document"}
+            - {id: cm-send, type: button, label: "Send", primary: true, does: "create Communication", inv: [INV-SEC-06]}
+    states: [urgent-keywords, proxy-sender, after-hours]
+
+  inbox.tasks:
+    route: /inbox/tasks
+    pattern: inbox
+    up: null
+    regions:
+      items:
+        - {id: task-new, type: button, label: "+ New task", go: inbox.tasks#new}
+        - {id: task-filter, type: tabs, label: "Assigned to me · My pools · Created by me"}
+        - id: task-item
+          type: list
+          each: true
+          bind: "Task[] (title, patient, due, priority, from)"
+          cols:
+            - {id: tk-status, type: status-chip, bind: "states:task"}
+            - {id: tk-due, type: chip, bind: "due / overdue"}
+      detail:
+        - {id: td-body, type: text, bind: "Task.description + linked item"}
+        - {id: td-linked, type: link, label: "Open linked item", does: "navigate to the claim, chart, order or document the task points to"}
+        - {id: td-comment, type: textarea, label: "Comment"}
+        - {id: td-reassign, type: menu, label: "Reassign"}
+        - {id: td-start, type: button, label: "Start", tr: "task:open->in-progress"}
+        - {id: td-complete, type: button, label: "Complete", primary: true, tr: "task:in-progress->completed"}
+    views:
+      new:
+        container: drawer
+        regions:
+          form:
+            - {id: nt-title, type: input, label: "Task"}
+            - {id: nt-patient, type: search, label: "Patient (optional)"}
+            - {id: nt-assign, type: select, label: "Assign to user or pool"}
+            - {id: nt-due, type: date, label: "Due"}
+            - {id: nt-priority, type: select, label: "Priority"}
+            - {id: nt-save, type: button, label: "Create task", primary: true, tr: "task:new->open"}
+
+  inbox.previsit-queue:
+    route: /inbox/previsit
+    pattern: inbox
+    up: null
+    flows: ["flow:access/06"]
+    regions:
+      items:
+        - {id: pv-item, type: list, each: true, bind: "staged patient-entered changes grouped by patient and visit date"}
+      detail:
+        - {id: pv-patient, type: heading, bind: "Patient + appointment", inv: [INV-ID-01]}
+        - {id: pv-diff, type: table, bind: "field: on file vs entered by patient", inv: [INV-DATA-01]}
+        - {id: pv-accept, type: button, label: "Accept", each: true, does: "update Patient/Coverage field"}
+        - {id: pv-reject, type: button, label: "Reject", each: true}
+        - {id: pv-insurance-recheck, type: alert, when: "insurance changed", label: "Eligibility will be re-checked", be: logic}
+        - {id: pv-clinical-route, type: text, label: "Medications and allergies go to the MA for reconciliation", go: chart.medications}
+        - {id: pv-done, type: button, label: "Done", primary: true, does: "close item"}
+
+  inbox.documents:
+    route: /inbox/documents
+    pattern: inbox
+    up: null
+    wireframe: DocFiling.dc.html
+    flows: ["flow:referral/04"]
+    regions:
+      items:
+        - {id: doc-item, type: list, each: true, bind: "incoming fax/scan/Direct (source, pages, received, match confidence)", be: logic}
+      detail:
+        - {id: page-thumbs, type: list, bind: "pages", each: true}
+        - {id: page-viewer, type: placeholder, bind: "page image"}
+        - {id: rotate, type: button, label: "Rotate"}
+        - {id: split, type: button, label: "Split pages…", go: inbox.documents#split}
+        - {id: patient-candidate, type: radio, each: true, bind: "derived:ocrPatientMatches (name, DOB, MRN)", be: logic, inv: [INV-ID-01]}
+        - {id: search-patient, type: search, label: "Search another patient"}
+        - {id: other-patient-alert, type: alert, when: "page appears to be another patient", be: logic}
+        - {id: doc-type, type: select, label: "Document type", bind: "suggested type", be: logic}
+        - {id: doc-date, type: date, label: "Document date"}
+        - {id: doc-from, type: input, label: "From"}
+        - {id: close-referral, type: select, label: "Close referral", bind: "open referrals for patient", tr: "referral:scheduled->consult-received"}
+        - {id: notify, type: select, label: "Notify", bind: "provider inbox"}
+        - {id: return, type: button, label: "Not for us · return"}
+        - {id: file, type: button, label: "File", primary: true, does: "create DocumentReference; notify", when: "patient confirmed and no foreign pages"}
+    views:
+      split:
+        container: modal
+        regions:
+          body:
+            - {id: split-ranges, type: list, label: "Page ranges → new documents", each: true}
+            - {id: split-save, type: button, label: "Split", primary: true}
+    states: [low-confidence-match, multi-patient-fax]
+
+  inbox.prior-auth:
+    route: /inbox/prior-auth
+    pattern: inbox
+    up: null
+    regions:
+      items:
+        - {id: pa-item, type: list, each: true, bind: "Authorization tasks (patient, service or drug, payer, status, due)"}
+      detail:
+        - {id: pa-request, type: card, bind: "ServiceRequest / MedicationRequest needing auth + payer rules", be: logic}
+        - {id: pa-submit-epa, type: button, label: "Submit ePA", does: "ErxGateway ePA / payer portal", be: logic}
+        - {id: pa-portal, type: link, label: "Open payer portal", go: "external:payer portal"}
+        - {id: pa-number, type: input, label: "Authorization number", bind: Authorization.number}
+        - {id: pa-dates, type: date, label: "Valid from / to"}
+        - {id: pa-status, type: select, label: "Status (submitted, approved, denied)"}
+        - {id: pa-denied-route, type: button, label: "Send denial to provider", go: inbox.tasks#new, when: "denied"}
+        - {id: pa-save, type: button, label: "Save", primary: true}
+
+  orders.collection:
+    route: /inbox/collection
+    pattern: inbox
+    up: null
+    flows: ["flow:results/02"]
+    regions:
+      items:
+        - {id: col-item, type: list, each: true, bind: "ServiceRequest[] signed, needing specimen today (patient, tests, lab, fasting)"}
+      detail:
+        - {id: col-patient, type: heading, bind: "Patient name + DOB (confirm)", inv: [INV-ID-01]}
+        - {id: col-tests, type: list, bind: "tests, tube types"}
+        - {id: col-labels, type: button, label: "Print labels & requisition"}
+        - {id: col-time, type: input, label: "Collected at"}
+        - {id: col-done, type: button, label: "Mark collected", primary: true, tr: "order:sent->collected"}
+
+  orders.tracking:
+    route: /inbox/overdue-orders
+    pattern: inbox
+    up: null
+    flows: ["flow:results/06"]
+    regions:
+      items:
+        - {id: ot-item, type: list, each: true, bind: "ServiceRequest[] past expected date without result / referrals without consult", be: logic, inv: [INV-SAFE-07]}
+      detail:
+        - {id: ot-order, type: card, bind: "order, sent, expected, lab"}
+        - {id: ot-check-lab, type: button, label: "Check status with lab", be: logic}
+        - {id: ot-remind, type: button, label: "Remind patient", go: inbox.patient-messages#compose}
+        - {id: ot-cancel, type: button, label: "Cancel order with reason", tr: "order:sent->cancelled"}
+        - {id: ot-extend, type: button, label: "Extend expected date"}
+
+  orders.result-reconciliation:
+    route: /inbox/unmatched-results
+    pattern: inbox
+    up: null
+    flows: ["flow:results/03"]
+    regions:
+      items:
+        - {id: ur-item, type: list, each: true, bind: "DiagnosticReport staged, not matched (demographics on message, accession, lab)", inv: [INV-SAFE-03]}
+      detail:
+        - {id: ur-message, type: table, bind: "patient fields from HL7 message vs candidates"}
+        - {id: ur-candidate, type: radio, each: true, bind: "Patient + ServiceRequest candidates", be: logic}
+        - {id: ur-match, type: button, label: "Match to patient and order", primary: true, does: "file result; notify orderer", be: logic, inv: [INV-SAFE-03, INV-SEC-01]}
+        - {id: ur-reject, type: button, label: "Not our patient · reject to lab", be: logic}
+
+  referrals.worklist:
+    route: /inbox/referrals
+    pattern: inbox
+    up: null
+    flows: ["flow:referral/02", "flow:referral/03"]
+    regions:
+      items:
+        - {id: rf-filter, type: tabs, label: "To send · Awaiting appointment · Awaiting consult"}
+        - id: rf-item
+          type: list
+          each: true
+          bind: "Referral[] (patient, specialty, to, urgency, age)"
+          cols:
+            - {id: rf-status, type: status-chip, bind: "states:referral"}
+      detail:
+        - {id: rd-patient, type: heading, bind: "Patient + referral reason + Dx", inv: [INV-ID-01]}
+        - {id: rd-auth-rule, type: alert, bind: "payer referral/auth requirement", be: logic}
+        - {id: rd-get-auth, type: button, label: "Request authorization", tr: "referral:ordered->auth-pending", go: inbox.prior-auth}
+        - {id: rd-recipient, type: select, label: "Send to", bind: "Organization/Practitioner directory"}
+        - {id: rd-send, type: button, label: "Send referral with summary", primary: true, tr: "referral:ordered->sent", does: "Direct C-CDA or fax", be: logic}
+        - {id: rd-appt, type: date, label: "Specialist appointment", does: "record date", tr: "referral:sent->scheduled"}
+        - {id: rd-remind, type: button, label: "Remind patient", go: inbox.patient-messages#compose}
+        - {id: rd-cancel, type: button, label: "Cancel referral", tr: "referral:sent->cancelled"}

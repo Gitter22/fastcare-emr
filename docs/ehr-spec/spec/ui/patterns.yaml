@@ -1,0 +1,206 @@
+# Layout patterns. A screen names one pattern and inherits its regions and elements.
+# Screen-specific elements go in the screen's own regions. See docs/07-ui-spec.md.
+# Element ids defined here are reserved on every screen using the pattern.
+
+default_states: [loading, empty, error, permission-denied]
+
+patterns:
+  app-shell:
+    description: Staff application frame. Left rail and top bar from nav.yaml; content area to the right.
+    regions:
+      rail: "nav.yaml#rail"
+      topbar: "nav.yaml#topbar"
+      content: []
+
+  chart-context:
+    extends: app-shell
+    description: Patient chart (ADR-001). Open chart tabs, a pinned identity banner, chart navigation on the left.
+    regions:
+      chart-tabs:
+        - {id: chart-tab, type: tab, bind: "Patient[] open charts (max OPEN-Q9)", each: true, go: chart.summary}
+        - {id: chart-tab-close, type: icon-button, label: "Close chart", each: true, does: "close tab; return to last non-chart route"}
+      patient-banner:
+        - {id: banner-photo, type: avatar, bind: Patient.photo}
+        - {id: banner-name, type: heading, bind: "Patient.name (legal) + preferred name + pronouns", inv: [INV-ID-01]}
+        - {id: banner-dob, type: text, bind: "Patient.birthDate + age + sex for clinical use", inv: [INV-ID-01]}
+        - {id: banner-mrn, type: text, bind: Patient.identifier.mrn, inv: [INV-ID-01]}
+        - {id: banner-pcp, type: text, bind: Patient.generalPractitioner}
+        - {id: banner-coverage, type: chip, bind: "Coverage primary + CoverageEligibility.status", go: chart.demographics}
+        - {id: banner-balance, type: text, bind: "derived:patientBalance", go: chart.account, inv: [INV-FIN-02]}
+        - {id: banner-allergies, type: chip, bind: "AllergyIntolerance[] active", each: true, go: chart.allergies}
+        - {id: banner-code-status, type: chip, bind: "derived:codeStatus"}
+        - {id: banner-language, type: chip, bind: "Patient.communication + interpreter needed"}
+        - {id: banner-restricted, type: chip, bind: "derived:hasRestrictedRecords", when: "restricted records exist", inv: [INV-SEC-03]}
+      chart-nav:
+        - {id: nav-summary, type: link, label: "Summary", go: chart.summary}
+        - {id: nav-timeline, type: link, label: "Timeline", go: chart.timeline}
+        - {id: nav-problems, type: link, label: "Problems", go: chart.problems}
+        - {id: nav-medications, type: link, label: "Medications", bind: "count incoming", go: chart.medications}
+        - {id: nav-allergies, type: link, label: "Allergies", go: chart.allergies}
+        - {id: nav-vitals, type: link, label: "Vitals", go: chart.vitals}
+        - {id: nav-results, type: link, label: "Results", bind: "count new/pending", go: chart.results}
+        - {id: nav-immunizations, type: link, label: "Immunizations", go: chart.immunizations}
+        - {id: nav-history, type: link, label: "History", go: chart.history}
+        - {id: nav-orders, type: link, label: "Orders", go: chart.orders}
+        - {id: nav-referrals, type: link, label: "Referrals", go: chart.referrals}
+        - {id: nav-care-plan, type: link, label: "Care plan", go: chart.care-plan}
+        - {id: nav-care-gaps, type: link, label: "Care gaps", go: chart.care-gaps}
+        - {id: nav-documents, type: link, label: "Documents", go: chart.documents}
+        - {id: nav-communications, type: link, label: "Communications", go: chart.communications}
+        - {id: nav-demographics, type: link, label: "Demographics", go: chart.demographics}
+        - {id: nav-consents, type: link, label: "Consents", go: chart.consents}
+        - {id: nav-account, type: link, label: "Account", go: chart.account}
+        - {id: nav-access-log, type: link, label: "Access log", go: chart.access-log, when: "role manager"}
+      content: []
+
+  encounter-workspace:
+    extends: chart-context
+    description: One visit. Chart nav collapses; section tabs across the top; context drawer on the right; sticky action bar.
+    regions:
+      encounter-header:
+        - {id: enc-visit-type, type: heading, bind: Encounter.type}
+        - {id: enc-meta, type: text, bind: "Encounter.participant, location, period.start, POS"}
+        - {id: enc-appt-status, type: status-chip, bind: "states:appointment"}
+        - {id: enc-note-status, type: status-chip, bind: "states:note"}
+        - {id: enc-autosave, type: text, bind: "derived:lastAutosave", inv: [INV-SEC-04]}
+      section-tabs:
+        - {id: tab-prechart, type: tab, label: "Pre-chart", go: encounter.prechart}
+        - {id: tab-rooming, type: tab, label: "Rooming", go: encounter.rooming}
+        - {id: tab-note, type: tab, label: "Note", go: encounter.note}
+        - {id: tab-orders, type: tab, label: "Orders", bind: "count ServiceRequest this encounter", go: encounter.orders}
+        - {id: tab-rx, type: tab, label: "Rx", bind: "count MedicationRequest this encounter", go: encounter.rx}
+        - {id: tab-dx, type: tab, label: "Dx & coding", go: encounter.dx-coding}
+        - {id: tab-charges, type: tab, label: "Charges", go: encounter.charges}
+        - {id: tab-avs, type: tab, label: "AVS", go: encounter.avs}
+        - {id: tab-sign, type: tab, label: "Sign", go: encounter.sign}
+      context-drawer:
+        - {id: ctx-tabs, type: tabs, label: "Summary · Alerts · Orders · Coding · Prior note"}
+        - {id: ctx-summary, type: list, bind: "Condition[] active, MedicationStatement[] active, last Observation vitals, recent DiagnosticReport[]"}
+        - {id: ctx-alerts, type: card, bind: "CareGap[] + CDS cards", each: true, be: logic}
+        - {id: ctx-prior-note, type: text, bind: "ClinicalNote previous signed", does: "copy forward with diff"}
+      content: []
+      action-bar:
+        - {id: action-summary, type: text, bind: "derived:encounterOpenItems"}
+
+  list-detail:
+    extends: app-shell
+    description: Toolbar with search, filters and create; list or table; optional detail pane; create/edit as a drawer.
+    regions:
+      toolbar:
+        - {id: list-search, type: search}
+        - {id: list-filters, type: menu, label: "Filters"}
+      list: []
+      detail: []
+
+  chart-list:
+    extends: chart-context
+    description: list-detail inside the chart context.
+    regions:
+      toolbar:
+        - {id: list-search, type: search}
+        - {id: list-filters, type: menu, label: "Filters"}
+      list: []
+      detail: []
+
+  worklist:
+    extends: app-shell
+    description: Queue of items grouped by reason, ranked by urgency; rows expand inline to fix and release.
+    regions:
+      groups: []
+      queue: []
+      detail: []
+
+  inbox:
+    extends: app-shell
+    description: Three panes. Folders (nav.yaml#inbox-folders), item list, item detail.
+    regions:
+      folders: "nav.yaml#inbox-folders"
+      items: []
+      detail: []
+
+  board:
+    extends: app-shell
+    description: Columns by state machine status; cards move left to right.
+    regions:
+      filters: []
+      columns: []
+      footer: []
+
+  calendar:
+    extends: app-shell
+    description: Time grid with one column per provider or room.
+    regions:
+      toolbar: []
+      grid: []
+      side: []
+
+  form-page:
+    extends: app-shell
+    description: Stepper on the left, form sections, sticky action bar.
+    regions:
+      steps: []
+      form: []
+      aside: []
+      action-bar: []
+
+  settings:
+    extends: app-shell
+    description: Admin side navigation (nav.yaml#admin-nav), list, edit pane. All changes versioned and audited.
+    regions:
+      admin-nav: "nav.yaml#admin-nav"
+      list: []
+      edit: []
+
+  report:
+    extends: app-shell
+    description: Report side navigation (nav.yaml#report-nav), filters, metrics, drill-down table, export.
+    regions:
+      report-nav: "nav.yaml#report-nav"
+      filters:
+        - {id: period, type: select, label: "Period"}
+        - {id: provider-filter, type: select, label: "Provider"}
+        - {id: export, type: button, label: "Export", does: "CSV export of current view"}
+      metrics: []
+      drilldown: []
+
+  billing-page:
+    extends: app-shell
+    description: Billing sub-navigation (nav.yaml#billing-nav) above a worklist or detail.
+    regions:
+      billing-nav: "nav.yaml#billing-nav"
+      content: []
+
+  overlay:
+    description: Not a route. Opens over whatever is on screen.
+    regions:
+      content: []
+
+  public-card:
+    description: Unauthenticated page. Centred card, practice logo, no navigation and no PHI. Used for staff and portal sign-in flows.
+    regions:
+      card: []
+      footer:
+        - {id: legal-links, type: text, label: "Privacy notice · Terms · Accessibility"}
+
+  telehealth-room:
+    description: Full-window video with chart panel; no rail.
+    regions:
+      video: []
+      side: []
+      controls: []
+
+  portal-mobile:
+    description: Patient app. Top bar, content, bottom tab bar (nav.yaml#portal-tabs). Plain language, WCAG 2.1 AA.
+    regions:
+      topbar:
+        - {id: portal-proxy-switch, type: select, label: "Viewing as", bind: "Patient[] the user may act for", when: "user has proxy access"}
+      content: []
+      tabs: "nav.yaml#portal-tabs"
+
+containers:
+  drawer: {description: "Slides in from the right over the screen. Close returns to the underlying view.", dismiss: [close-button, esc, cancel, success]}
+  modal: {description: "Centred dialog with scrim.", dismiss: [close-button, esc, cancel, success, scrim-click]}
+  blocking-modal: {description: "Must choose an action. No scrim-click or Esc dismiss.", dismiss: [action-only]}
+  pane: {description: "Detail pane inside the screen; selection change swaps it.", dismiss: [select-another, close-button]}
+  sheet: {description: "Bottom sheet on mobile (portal).", dismiss: [swipe-down, close-button, success]}
+  page: {description: "Full-screen sub-page (portal) with a back arrow to the parent screen.", dismiss: [back-arrow, success]}

@@ -1,0 +1,265 @@
+# Billing / revenue cycle. Pattern billing-page shows nav.yaml#billing-nav on every screen.
+# Billing roles never see clinical note text (INV-SEC-05).
+screens:
+  billing.eligibility:
+    route: /billing/eligibility
+    pattern: billing-page
+    up: null
+    flows: ["flow:access/03"]
+    regions:
+      content:
+        - {id: el-date, type: select, label: "Visits on", bind: "today / tomorrow / range"}
+        - {id: el-run-batch, type: button, label: "Run batch now", does: "270 batch via ClearinghouseGateway", be: logic}
+        - id: el-table
+          type: table
+          bind: "Appointment[] with CoverageEligibility (status, copay, deductible left, checked at, auth needed)"
+          be: logic
+          cols:
+            - {id: el-patient, type: link, bind: Patient.name, go: chart.demographics}
+            - {id: el-status, type: chip, bind: CoverageEligibility.status}
+            - {id: el-recheck, type: button, label: "Re-check", be: logic}
+            - {id: el-detail, type: button, label: "Response detail", go: billing.eligibility#detail}
+    views:
+      detail:
+        container: drawer
+        regions:
+          body:
+            - {id: eld-benefits, type: table, bind: "271 benefits parsed (copay, coinsurance, deductible, OOP, PCP on file)"}
+            - {id: eld-raw, type: text, bind: "raw 271 (collapsed)"}
+            - {id: eld-update-coverage, type: button, label: "Update coverage", go: chart.demographics#coverage}
+
+  billing.estimates:
+    route: /billing/estimates
+    pattern: billing-page
+    up: billing.eligibility
+    regions:
+      content:
+        - {id: est-list, type: table, bind: "Estimate[] (patient, services, amount, sent, status)"}
+        - {id: est-new, type: button, label: "+ Good-faith estimate", primary: true, go: billing.estimates#new}
+    views:
+      new:
+        container: drawer
+        regions:
+          form:
+            - {id: est-patient, type: search, label: "Patient"}
+            - {id: est-services, type: list, label: "Expected services (CPT) with self-pay fees", each: true, bind: "fee schedule self-pay"}
+            - {id: est-total, type: stat, bind: "derived:estimateTotal"}
+            - {id: est-send, type: button, label: "Send to patient", primary: true, does: "create estimate document; send to portal/email"}
+
+  billing.payment-capture:
+    route: /billing/payments
+    pattern: billing-page
+    up: null
+    regions:
+      content:
+        - {id: pc-patient, type: search, label: "Patient", bind: "Patient[]", inv: [INV-ID-01]}
+        - {id: pc-balance, type: stat, bind: "derived:patientBalance by visit", inv: [INV-FIN-02]}
+        - {id: pc-amount, type: input, label: "Amount"}
+        - {id: pc-apply, type: select, label: "Apply to", bind: "oldest first / specific visit / copay today"}
+        - {id: pc-method, type: radio, label: "Card on file · Terminal · Cash · Check"}
+        - {id: pc-save-card, type: checkbox, label: "Save card on file (consent)"}
+        - {id: pc-receipt, type: select, label: "Receipt (text, email, print)"}
+        - {id: pc-take, type: button, label: "Take payment", primary: true, does: "PaymentGateway charge; ledger entry", be: logic, inv: [INV-FIN-01]}
+        - {id: pc-refund, type: button, label: "Refund…", when: "credit balance", does: "reversing ledger entry", be: logic, inv: [INV-FIN-01]}
+
+  billing.charge-review:
+    route: /billing/charge-review
+    pattern: billing-page
+    up: null
+    wireframe: ChargeReview.dc.html
+    flows: ["flow:rcm/02"]
+    regions:
+      content:
+        - {id: cr-summary, type: text, bind: "held count, $, oldest, auto-released today"}
+        - {id: cr-release-fixed, type: button, label: "Release fixed", does: "release all fixed encounters"}
+        - {id: cr-rule-group, type: link, each: true, bind: "edits grouped by rule (modifier, Dx pointer, NCCI, auth, waiting on provider)", be: logic}
+        - id: cr-table
+          type: table
+          bind: "Encounter[] with held ChargeItem[] (date, patient, payer, provider, codes, edit, amount)"
+          cols:
+            - {id: cr-expand, type: icon-button, label: "Expand", go: billing.charge-review#fix}
+            - {id: cr-patient-account, type: link, bind: Patient.name, go: billing.patient-account}
+    views:
+      fix:
+        container: pane
+        regions:
+          detail:
+            - {id: fx-lines, type: table, bind: "ChargeItem[] editable (modifiers, units, pointers)", inv: [INV-FIN-03]}
+            - {id: fx-note-hidden, type: text, label: "Note text hidden for billing roles", inv: [INV-SEC-05]}
+            - {id: fx-query, type: button, label: "Query provider", does: "create task to provider with return link", go: inbox.tasks#new}
+            - {id: fx-hold, type: button, label: "Hold with reason"}
+            - {id: fx-release, type: button, label: "Save & release to claim", primary: true, tr: "claim:draft->ready", be: logic, inv: [INV-FIN-03]}
+
+  billing.claims:
+    route: /billing/claims
+    pattern: billing-page
+    up: null
+    wireframe: Claims.dc.html
+    flows: ["flow:rcm/03", "flow:rcm/04"]
+    regions:
+      content:
+        - {id: cl-summary, type: text, bind: "clean-claim rate, next batch time"}
+        - {id: cl-payer, type: select, label: "Payer"}
+        - {id: cl-submit-ready, type: button, label: "Submit ready now", primary: true, tr: "claim:ready->submitted", be: logic}
+        - {id: cl-pipeline, type: stat-filter, each: true, bind: "count + $ per claim status (states:claim)"}
+        - id: cl-table
+          type: table
+          bind: "Claim[] in selected status (id, patient, payer, DOS, reason, billed)"
+          cols:
+            - {id: cl-open, type: link, label: "Open", go: billing.claims#detail}
+    views:
+      detail:
+        container: pane
+        regions:
+          detail:
+            - {id: cd-status, type: status-chip, bind: "states:claim"}
+            - {id: cd-deadline, type: chip, bind: "derived:filingDeadline", inv: [INV-FIN-05]}
+            - {id: cd-lines, type: table, bind: "Claim lines"}
+            - {id: cd-history, type: timeline, bind: "claim events (submitted, 999, 277CA, 835)"}
+            - {id: cd-rejection, type: link, label: "Fix rejection", go: billing.rejections, when: "rejected"}
+            - {id: cd-denial, type: link, label: "Work denial", go: billing.denials, when: "denied"}
+            - {id: cd-account, type: link, label: "Patient account", go: billing.patient-account}
+
+  billing.rejections:
+    route: /billing/rejections
+    pattern: billing-page
+    up: billing.claims
+    flows: ["flow:rcm/04", "flow:rcm/05"]
+    regions:
+      content:
+        - {id: rj-table, type: table, bind: "Claim[] rejected (999/277CA) with plain-language reason", each: true, be: logic, inv: [INV-FIN-05]}
+      detail:
+        - {id: rj-reason, type: card, bind: "plain-language reason + raw code + likely cause", be: logic}
+        - {id: rj-field, type: input, label: "Field to fix", bind: "mapped claim field (coverage, NPI, DOB, …)"}
+        - {id: rj-verify, type: button, label: "Verify eligibility", be: logic}
+        - {id: rj-open-coverage, type: link, label: "Open patient insurance", go: chart.demographics#coverage}
+        - {id: rj-history, type: timeline, bind: "claim events"}
+        - {id: rj-self-pay, type: button, label: "Bill patient instead", does: "transfer to patient responsibility", inv: [INV-FIN-01]}
+        - {id: rj-resubmit, type: button, label: "Correct & resubmit", primary: true, tr: "claim:rejected->submitted", be: logic}
+
+  billing.era-posting:
+    route: /billing/era
+    pattern: billing-page
+    up: null
+    wireframe: Era.dc.html
+    flows: ["flow:rcm/06"]
+    regions:
+      content:
+        - {id: era-list, type: link, each: true, bind: "Remittance[] (payer, EFT, amount, claims, posted/exceptions)", go: billing.era-posting#remit}
+    views:
+      remit:
+        container: pane
+        regions:
+          detail:
+            - {id: rm-header, type: heading, bind: "payer, EFT, received, deposit match", be: logic}
+            - {id: rm-balance, type: stat, bind: "payment vs posted vs difference", be: logic}
+            - {id: rm-plb, type: alert, bind: "provider-level adjustment (recoupment) with source claim", when: "PLB present", be: logic}
+            - {id: rm-post-plb, type: button, label: "Post recoupment", be: logic, inv: [INV-FIN-01]}
+            - id: rm-lines
+              type: table
+              bind: "claim payments (billed, allowed, paid, CARC adjustments, patient responsibility, status)"
+              cols:
+                - {id: rml-denied, type: chip, bind: "denied CARC", when: "denied"}
+                - {id: rml-underpaid, type: chip, bind: "derived:underpaidVsContract", be: logic}
+                - {id: rml-claim, type: link, label: "Claim", go: billing.claims#detail}
+            - {id: rm-view-835, type: button, label: "View 835"}
+            - {id: rm-finish, type: button, label: "Finish remit", primary: true, when: "balanced", does: "post; send exceptions to denials", tr: "claim:accepted->paid", be: logic, inv: [INV-FIN-01]}
+    states: [unbalanced, recoupment, unmatched-claim]
+
+  billing.denials:
+    route: /billing/denials
+    pattern: billing-page
+    up: null
+    wireframe: Denials.dc.html
+    flows: ["flow:rcm/07"]
+    regions:
+      content:
+        - {id: dn-summary, type: text, bind: "open count, $ at risk, near deadlines"}
+        - {id: dn-sort, type: select, label: "Sort"}
+        - {id: dn-cause, type: stat-filter, each: true, bind: "root-cause groups (CARC/RARC) with count and $", be: logic}
+        - id: dn-table
+          type: table
+          bind: "Denial[] (patient, claim, payer, DOS, amount, appeal deadline)"
+          cols:
+            - {id: dn-deadline, type: chip, bind: "derived:appealDeadline", inv: [INV-FIN-05]}
+            - {id: dn-open, type: link, label: "Work", go: billing.denials#work}
+    views:
+      work:
+        container: pane
+        regions:
+          detail:
+            - {id: wk-reason, type: text, bind: "plain-language denial reason + codes"}
+            - {id: wk-action, type: radio, label: "Appeal · Corrected claim · Write off"}
+            - {id: wk-letter, type: editor, label: "Appeal letter (payer template)", when: "appeal"}
+            - {id: wk-attach, type: checkbox, each: true, label: "Attachments (summary, eligibility response, full note needs provider release)", inv: [INV-SEC-05]}
+            - {id: wk-writeoff-approval, type: alert, when: "write off > threshold", label: "Needs manager approval"}
+            - {id: wk-snooze, type: button, label: "Snooze 7 days"}
+            - {id: wk-send, type: button, label: "Send appeal", primary: true, tr: "claim:denied->appealed", be: logic}
+            - {id: wk-corrected, type: button, label: "Submit corrected claim", tr: "claim:denied->submitted", when: "corrected claim"}
+
+  billing.statements:
+    route: /billing/statements
+    pattern: billing-page
+    up: null
+    flows: ["flow:rcm/08"]
+    regions:
+      content:
+        - {id: st-cycle, type: card, bind: "next statement run, patients included, delivery mix (text, email, mail)"}
+        - {id: st-run, type: button, label: "Run statements now", does: "generate and send", be: logic}
+        - {id: st-holds, type: table, bind: "accounts on hold (payment plan, dispute, collections hold)"}
+        - id: st-table
+          type: table
+          bind: "Statement[] sent (patient, amount, date, channel, opened, paid)"
+          cols:
+            - {id: st-account, type: link, bind: Patient.name, go: billing.patient-account}
+
+  billing.patient-account:
+    route: /billing/accounts/:patientId
+    pattern: billing-page
+    up: billing.statements
+    wireframe: PatientAccount.dc.html
+    flows: ["flow:rcm/08"]
+    regions:
+      banner:
+        - {id: pa-banner, type: card, bind: "Patient name, DOB, MRN, guarantor, coverage, card on file", inv: [INV-ID-01]}
+        - {id: pa-statement-status, type: chip, bind: "statement cycle position"}
+      totals:
+        - {id: pa-owes, type: stat, bind: "derived:patientBalance", inv: [INV-FIN-02]}
+        - {id: pa-insurance-pending, type: stat, bind: "derived:insurancePending"}
+        - {id: pa-paid-ytd, type: stat, bind: "derived:paidYtd"}
+        - {id: pa-credit, type: stat, bind: "derived:creditBalance"}
+      visits:
+        - {id: pa-send-statement, type: button, label: "Send statement now"}
+        - {id: pa-ledger-toggle, type: tabs, label: "By visit · Ledger"}
+        - id: pa-visit
+          type: card
+          each: true
+          bind: "Encounter with ledger lines (charges, insurance paid, adjustments, patient responsibility, payments)"
+          inv: [INV-FIN-01]
+          cols:
+            - {id: pav-claim, type: link, label: "Claim", go: billing.claims#detail}
+      actions:
+        - {id: pa-mode, type: tabs, label: "Take payment · Payment plan"}
+        - {id: pa-take-payment, type: button, label: "Take payment", go: billing.payment-capture}
+        - {id: pa-plan-months, type: select, label: "Months"}
+        - {id: pa-plan-amount, type: input, label: "Monthly"}
+        - {id: pa-plan-start, type: date, label: "First payment"}
+        - {id: pa-plan-card, type: select, label: "Autopay card"}
+        - {id: pa-plan-create, type: button, label: "Create plan & text patient", primary: true, does: "create PaymentPlan; pause statements", be: logic}
+    states: [credit-balance, collections-hold]
+
+  billing.day-close:
+    route: /billing/day-close
+    pattern: billing-page
+    up: null
+    flows: ["flow:rcm/09"]
+    regions:
+      content:
+        - {id: dc-date, type: date, label: "Business date"}
+        - {id: dc-by-user, type: table, bind: "payments by user and method (cash, check, card) vs drawer count"}
+        - {id: dc-count, type: input, each: true, label: "Counted amount per drawer/method"}
+        - {id: dc-deposit, type: stat, bind: "deposit total vs bank feed", be: logic}
+        - {id: dc-variance, type: alert, bind: "derived:variance", when: "variance ≠ 0", inv: [INV-FIN-04]}
+        - {id: dc-reason, type: textarea, label: "Variance reason (required)", when: "variance ≠ 0", inv: [INV-FIN-04]}
+        - {id: dc-close, type: button, label: "Close day", primary: true, does: "lock batch", be: logic, inv: [INV-FIN-04]}
+        - {id: dc-reports, type: link, label: "Collections report", go: reports.collections}

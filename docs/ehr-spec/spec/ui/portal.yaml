@@ -1,0 +1,193 @@
+# Patient portal (mobile-first). Pattern portal-mobile: top bar with proxy switch, content, bottom tabs.
+# Plain language; status labels from states.yaml; never more clinical detail in SMS/email than "you have a new message" (INV-SEC-06).
+screens:
+  portal.home:
+    route: /portal
+    pattern: portal-mobile
+    up: null
+    regions:
+      content:
+        - {id: greeting, type: heading, bind: "Patient.name (preferred)"}
+        - {id: next-visit, type: card, bind: "Appointment next (date, provider, location/video)", go: portal.appointments#detail}
+        - {id: next-checkin, type: button, label: "Check in now", go: portal.todos, when: "e-check-in open"}
+        - {id: next-join, type: button, label: "Join video visit", go: portal.appointments#join, when: "video and within window"}
+        - {id: todo-card, type: card, each: true, bind: "to-dos (forms, consents, payments, card upload)", go: portal.todos}
+        - {id: new-messages, type: card, bind: "unread message count", go: portal.messages}
+        - {id: new-results, type: card, bind: "new released results", go: portal.record#results}
+        - {id: balance, type: card, bind: "amount due", go: portal.billing}
+        - {id: profile-link, type: icon-button, label: "Profile", go: portal.profile}
+
+  portal.appointments:
+    route: /portal/visits
+    pattern: portal-mobile
+    up: portal.home
+    flows: ["flow:access/01"]
+    regions:
+      content:
+        - {id: upcoming, type: list, each: true, bind: "Appointment[] upcoming", go: portal.appointments#detail}
+        - {id: past, type: list, each: true, bind: "Encounter[] past with AVS", go: portal.record#visit}
+        - {id: book, type: button, label: "Book a visit", primary: true, go: portal.appointments#book}
+    views:
+      detail:
+        container: sheet
+        regions:
+          content:
+            - {id: ad-when, type: text, bind: "date, time, provider, location, directions or video"}
+            - {id: ad-status, type: status-chip, bind: "states:appointment"}
+            - {id: ad-checkin, type: button, label: "Check in", go: portal.todos}
+            - {id: ad-reschedule, type: button, label: "Reschedule", go: portal.appointments#book}
+            - {id: ad-cancel, type: button, label: "Cancel", tr: "appointment:confirmed->cancelled", when: "outside cancellation window"}
+            - {id: ad-calendar, type: button, label: "Add to calendar"}
+      book:
+        container: page
+        flows: ["flow:access/01"]
+        regions:
+          content:
+            - {id: bk-reason, type: radio, label: "What do you need?", bind: "VisitType[] allowed online"}
+            - {id: bk-provider, type: select, label: "Who", bind: "my care team / any"}
+            - {id: bk-modality, type: radio, label: "In person or video"}
+            - {id: bk-slot, type: button, each: true, bind: "available slots", be: logic}
+            - {id: bk-insurance, type: card, bind: "insurance on file", does: "update card"}
+            - {id: bk-confirm, type: button, label: "Request this time", primary: true, tr: "appointment:new->requested", be: logic}
+            - {id: bk-slot-taken, type: alert, when: "slot taken", bind: "next 3 alternatives"}
+      join:
+        container: page
+        regions:
+          content:
+            - {id: jn-device-check, type: card, label: "Camera, microphone and connection check", be: logic}
+            - {id: jn-consent, type: checkbox, label: "I agree to a video visit"}
+            - {id: jn-enter, type: button, label: "Enter waiting room", primary: true, does: "join virtual waiting room", go: telehealth.waiting-room}
+
+  portal.todos:
+    route: /portal/todos
+    pattern: portal-mobile
+    up: portal.home
+    flows: ["flow:access/05"]
+    regions:
+      content:
+        - {id: checkin-steps, type: stepper, label: "Details · Insurance · Health questions · Consents · Payment"}
+        - {id: details, type: card, bind: "demographics to confirm (staged on change)", inv: [INV-DATA-01]}
+        - {id: insurance-photo, type: upload, label: "Photo of insurance card (front, back)"}
+        - {id: id-photo, type: upload, label: "Photo ID"}
+        - {id: questionnaire, type: list, bind: "Questionnaire items for visit type", each: true}
+        - {id: med-review, type: list, bind: "my medications and allergies: still taking? anything new?", inv: [INV-DATA-01]}
+        - {id: consents, type: signature, label: "Sign consents"}
+        - {id: prepay, type: button, label: "Pay copay now", go: portal.billing#pay}
+        - {id: save-later, type: button, label: "Save and finish later", does: "save progress; resume link"}
+        - {id: finish, type: button, label: "Finish check-in", primary: true, does: "submit staged items for staff review"}
+    states: [abandoned-midway, resume-link]
+
+  portal.messages:
+    route: /portal/messages
+    pattern: portal-mobile
+    up: portal.home
+    flows: ["flow:refills/01", "flow:refills/05"]
+    regions:
+      content:
+        - {id: thread, type: list, each: true, bind: "my message threads", go: portal.messages#thread}
+        - {id: new-message, type: button, label: "New message", primary: true, go: portal.messages#new}
+        - {id: refill, type: button, label: "Request a refill", go: portal.messages#refill}
+    views:
+      thread:
+        container: page
+        regions:
+          content:
+            - {id: th-messages, type: list, each: true, bind: "Communication[]"}
+            - {id: th-reply, type: textarea, label: "Reply"}
+            - {id: th-send, type: button, label: "Send", primary: true}
+      new:
+        container: page
+        regions:
+          content:
+            - {id: nm-category, type: radio, label: "About: Medical question · Billing · Scheduling"}
+            - {id: nm-to, type: select, label: "To", bind: "care team"}
+            - {id: nm-body, type: textarea, label: "Message"}
+            - {id: nm-attach, type: upload, label: "Add photo or file"}
+            - {id: nm-urgent-guard, type: alert, label: "If this is an emergency call 911. Messages are answered within [SLA].", when: "urgent words typed", be: logic}
+            - {id: nm-expectation, type: text, bind: "response time from portal settings"}
+            - {id: nm-send, type: button, label: "Send", primary: true, does: "create Communication + Task"}
+      refill:
+        container: page
+        regions:
+          content:
+            - {id: rf-meds, type: checkbox, each: true, bind: "MedicationRequest[] renewable"}
+            - {id: rf-pharmacy, type: select, label: "Pharmacy"}
+            - {id: rf-send, type: button, label: "Request refill", primary: true, does: "create refill Task"}
+    states: [urgent-symptom-guard]
+
+  portal.record:
+    route: /portal/record
+    pattern: portal-mobile
+    up: portal.home
+    flows: ["flow:results/05"]
+    regions:
+      content:
+        - {id: rec-sections, type: list, label: "Results · Visits · Medications · Allergies · Immunizations · Problems"}
+        - {id: rec-download, type: button, label: "Download my record", does: "C-CDA / PDF; audited", inv: [INV-SEC-01]}
+        - {id: rec-apps, type: button, label: "Connect a health app", go: portal.profile#apps}
+    views:
+      results:
+        container: page
+        regions:
+          content:
+            - {id: rs-item, type: card, each: true, bind: "DiagnosticReport released + provider comment, plain-language range"}
+            - {id: rs-trend, type: chart, bind: "my values over time"}
+            - {id: rs-question, type: button, label: "Ask about this result", go: portal.messages#new}
+      visit:
+        container: page
+        regions:
+          content:
+            - {id: vs-avs, type: placeholder, bind: AfterVisitSummary}
+            - {id: vs-note, type: text, bind: "visit note when released (open notes)"}
+
+  portal.billing:
+    route: /portal/billing
+    pattern: portal-mobile
+    up: portal.home
+    flows: ["flow:rcm/08"]
+    regions:
+      content:
+        - {id: due, type: stat, bind: "amount due + due date"}
+        - {id: by-visit, type: list, each: true, bind: "visits: charged, insurance paid, you owe (plain language)"}
+        - {id: pay, type: button, label: "Pay now", primary: true, go: portal.billing#pay}
+        - {id: plan, type: button, label: "Set up a payment plan", go: portal.billing#plan}
+        - {id: statements, type: list, each: true, bind: "statements (PDF)"}
+        - {id: insurance, type: button, label: "Update insurance", go: portal.profile}
+    views:
+      pay:
+        container: sheet
+        regions:
+          content:
+            - {id: py-amount, type: input, label: "Amount"}
+            - {id: py-card, type: select, label: "Card"}
+            - {id: py-autopay, type: checkbox, label: "Use for autopay"}
+            - {id: py-submit, type: button, label: "Pay", primary: true, does: "PaymentGateway; ledger entry", be: logic, inv: [INV-FIN-01]}
+      plan:
+        container: sheet
+        regions:
+          content:
+            - {id: pl-months, type: radio, label: "3 · 6 · 12 months"}
+            - {id: pl-card, type: select, label: "Autopay card"}
+            - {id: pl-submit, type: button, label: "Start plan", primary: true, be: logic}
+
+  portal.profile:
+    route: /portal/profile
+    pattern: portal-mobile
+    up: portal.home
+    regions:
+      content:
+        - {id: pf-details, type: card, bind: "name, contact, address, language, pronouns (changes staged for staff)", inv: [INV-DATA-01]}
+        - {id: pf-insurance, type: card, bind: "insurance cards", does: "upload new card"}
+        - {id: pf-pharmacy, type: select, label: "Preferred pharmacy"}
+        - {id: pf-notifications, type: checkbox, each: true, label: "Text and email preferences"}
+        - {id: pf-proxies, type: list, bind: "people who can access my account / accounts I can access", does: "invite or remove proxy"}
+        - {id: pf-security, type: button, label: "Password and two-step sign-in"}
+        - {id: pf-apps-link, type: link, label: "Connected apps", go: portal.profile#apps}
+    views:
+      apps:
+        container: page
+        regions:
+          content:
+            - {id: ap-list, type: list, each: true, bind: "connected apps (FHIR / SMART) with scopes and last access"}
+            - {id: ap-revoke, type: button, label: "Disconnect", each: true}
+            - {id: ap-connect, type: button, label: "Connect an app", does: "SMART on FHIR authorisation", be: logic}

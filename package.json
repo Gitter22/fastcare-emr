@@ -1,0 +1,46 @@
+{
+  "name": "agile-emr",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Agile EMR v2 -- monorepo root. Product spec: docs/ehr-spec (read docs/ehr-spec/CLAUDE.md first). Design system: docs/design-system (Pine).",
+  "workspaces": [
+    "apps/web",
+    "apps/api",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:fhir": "bash apps/fhir/dev.sh",
+    "build": "npm run build --workspace packages/shared && npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "typecheck": "npm run typecheck --workspace apps/web && npm run typecheck --workspace apps/api",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:status": "prisma migrate status",
+    "prisma:seed": "prisma db seed",
+    "backfill:encounters": "tsx prisma/backfillEncounters.ts",
+    "audit:all": "npm audit --audit-level=high --workspaces --include-workspace-root",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  },
+  "devDependencies": {
+    "argon2": "0.45.1",
+    "dotenv": "^16.6.1",
+    "husky": "9.1.7",
+    "lint-staged": "^15.2.0",
+    "otplib": "12.0.1",
+    "oxfmt": "^0.64.0",
+    "prisma": "6.19.3",
+    "tsx": "4.23.11",
+    "typescript": "7.0.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,jsonc,json5}": "oxfmt --no-error-on-unmatched-pattern",
+    "*.{css,scss,less}": "oxfmt --no-error-on-unmatched-pattern",
+    "*.{md,mdx,yaml,yml,toml,html}": "oxfmt --no-error-on-unmatched-pattern"
+  }
+}

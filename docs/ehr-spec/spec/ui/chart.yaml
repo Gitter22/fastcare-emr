@@ -1,0 +1,443 @@
+# Patient chart context (ADR-001). Routes are /patient/:patientId/<section>.
+# Every screen here inherits patient-banner and chart-nav from the chart-context pattern (INV-ID-01).
+screens:
+  chart.summary:
+    route: /patient/:patientId/summary
+    pattern: chart-context
+    up: null
+    wireframe: ChartSummary.dc.html
+    regions:
+      header:
+        - {id: today-visit, type: text, bind: "Appointment today + status + room", when: "visit today"}
+        - {id: message, type: button, label: "Message", go: inbox.patient-messages#compose}
+        - {id: book, type: button, label: "Book", go: schedule.booking-drawer}
+        - {id: open-encounter, type: button, label: "Open today's encounter", primary: true, go: encounter.note, when: "visit today"}
+        - {id: start-encounter, type: button, label: "Start unscheduled encounter", does: "create Encounter (phone/portal)", go: encounter.note, when: "no visit today"}
+      restricted:
+        - {id: restricted-notice, type: alert, bind: "count restricted records hidden", when: "restricted records exist", go: chart.consents#break-glass, inv: [INV-SEC-03]}
+      cards:
+        - {id: card-problems, type: list, bind: "Condition[] problem-list active", go: chart.problems}
+        - {id: card-meds, type: list, bind: "MedicationStatement[] active + incoming count", go: chart.medications}
+        - {id: card-results, type: list, bind: "Observation[] recent key results with flags", go: chart.results}
+        - {id: card-vitals, type: list, bind: "Observation[] latest vitals", go: chart.vitals}
+        - {id: card-gaps, type: list, bind: "CareGap[] open", go: chart.care-gaps, be: logic}
+        - {id: card-visits, type: list, bind: "Encounter[] recent + Appointment[] upcoming", go: chart.timeline}
+    states: [new-patient-no-data, restricted-record, deceased]
+
+  chart.timeline:
+    route: /patient/:patientId/timeline
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: type-filter, type: menu, label: "Show", bind: "visits, results, documents, messages, orders"}
+      list:
+        - id: timeline
+          type: timeline
+          each: true
+          bind: "Encounter, DiagnosticReport, DocumentReference, Communication by date"
+          cols:
+            - {id: tl-open-visit, type: link, label: "Visit", go: chart.timeline#note, when: "item is Encounter"}
+            - {id: tl-open-result, type: link, label: "Result", go: chart.results, when: "item is DiagnosticReport"}
+            - {id: tl-open-doc, type: link, label: "Document", go: chart.documents, when: "item is DocumentReference"}
+    views:
+      note:
+        container: pane
+        regions:
+          detail:
+            - {id: signed-note, type: text, bind: "ClinicalNote signed + addenda", inv: [INV-SAFE-02]}
+            - {id: add-addendum, type: button, label: "Add addendum", go: chart.timeline#addendum, when: "role provider"}
+            - {id: print-note, type: button, label: "Print"}
+      addendum:
+        container: modal
+        regions:
+          body:
+            - {id: addendum-text, type: textarea, label: "Addendum", bind: Addendum.text}
+            - {id: addendum-cancel, type: button, label: "Cancel", go: back}
+            - {id: addendum-sign, type: button, label: "Sign addendum", primary: true, tr: "note:signed->addended", inv: [INV-SAFE-02, INV-SAFE-01]}
+
+  chart.problems:
+    route: /patient/:patientId/problems
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: show-resolved, type: toggle, label: "Show resolved"}
+        - {id: add-problem, type: button, label: "+ Add problem", primary: true, go: chart.problems#edit}
+      list:
+        - {id: incoming, type: card, bind: "Condition[] staged from outside records/portal", when: "incoming > 0", go: chart.problems#reconcile, inv: [INV-DATA-01]}
+        - id: problem-table
+          type: table
+          bind: "Condition[] problem-list (name, ICD-10, onset, status, last addressed)"
+          cols:
+            - {id: pr-edit, type: button, label: "Edit", go: chart.problems#edit}
+            - {id: pr-resolve, type: button, label: "Resolve", does: "set clinicalStatus resolved"}
+    views:
+      edit:
+        container: drawer
+        regions:
+          form:
+            - {id: pr-search, type: search, label: "Problem (plain language → ICD-10-CM + SNOMED)", be: logic}
+            - {id: pr-onset, type: date, label: "Onset"}
+            - {id: pr-status, type: select, label: "Status", bind: Condition.clinicalStatus}
+            - {id: pr-note, type: textarea, label: "Comment"}
+            - {id: pr-save, type: button, label: "Save", primary: true, does: "create/update Condition"}
+      reconcile:
+        container: drawer
+        regions:
+          list:
+            - {id: rec-item, type: card, bind: "Condition staged + Provenance + closest existing match", each: true, inv: [INV-DATA-01]}
+            - {id: rec-accept, type: button, label: "Accept", does: "move to active list keeping provenance"}
+            - {id: rec-merge, type: button, label: "Merge with existing"}
+            - {id: rec-reject, type: button, label: "Reject"}
+
+  chart.medications:
+    route: /patient/:patientId/medications
+    pattern: chart-list
+    up: chart.summary
+    wireframe: Medications.dc.html
+    flows: ["flow:checkin/04"]
+    regions:
+      header:
+        - {id: last-reconciled, type: text, bind: "derived:lastMedRec by whom"}
+        - {id: print-list, type: button, label: "Print list"}
+        - {id: add-patient-reported, type: button, label: "+ Patient-reported medication", go: chart.medications#edit}
+        - {id: prescribe, type: button, label: "+ Prescribe", primary: true, go: encounter.rx}
+      incoming:
+        - id: incoming-item
+          type: card
+          each: true
+          bind: "MedicationStatement staged + Provenance (portal, outside record, pharmacy fill)"
+          inv: [INV-DATA-01]
+          cols:
+            - {id: inc-compare, type: text, bind: "derived:duplicateOrConflict", be: logic}
+            - {id: inc-accept, type: button, label: "Accept", does: "add to active list with provenance"}
+            - {id: inc-merge, type: button, label: "Merge into existing", when: "possible duplicate"}
+            - {id: inc-edit-accept, type: button, label: "Edit & accept", go: chart.medications#edit}
+            - {id: inc-reject, type: button, label: "Reject"}
+        - {id: mark-all-reviewed, type: button, label: "Mark all reviewed", does: "record med reconciliation"}
+      list:
+        - {id: med-tabs, type: tabs, label: "Active · Inactive · Fill history"}
+        - {id: med-filter, type: search, label: "Filter medications"}
+        - id: med-table
+          type: table
+          bind: "MedicationStatement[] active (drug, sig, source, last fill, prescriber)"
+          cols:
+            - {id: med-source, type: chip, bind: "Provenance source"}
+            - {id: med-refill-flag, type: chip, bind: "derived:refillOverdue", be: logic}
+            - {id: med-renew, type: button, label: "Renew", go: encounter.rx, when: "prescribed here"}
+            - {id: med-menu, type: menu, label: "More actions", go: chart.medications#discontinue, does: "change dose; discontinue; mark not taking; history"}
+    views:
+      edit:
+        container: drawer
+        regions:
+          form:
+            - {id: me-drug, type: search, label: "Medication (RxNorm)", bind: MedicationStatement.medication}
+            - {id: me-sig, type: input, label: "How taken"}
+            - {id: me-start, type: date, label: "Started"}
+            - {id: me-source, type: select, label: "Source", bind: "patient-reported / outside prescriber"}
+            - {id: me-save, type: button, label: "Save", primary: true, does: "create MedicationStatement"}
+      discontinue:
+        container: modal
+        regions:
+          body:
+            - {id: dc-reason, type: select, label: "Reason", bind: "statusReason"}
+            - {id: dc-cancel-rx, type: checkbox, label: "Send cancel to pharmacy", when: "active eRx", be: logic}
+            - {id: dc-confirm, type: button, label: "Discontinue", primary: true, does: "set status stopped"}
+    states: [duplicate-therapy, outside-list-conflicts]
+
+  chart.allergies:
+    route: /patient/:patientId/allergies
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: nkda, type: button, label: "Mark no known allergies", does: "record NKA with date"}
+        - {id: add-allergy, type: button, label: "+ Add allergy", primary: true, go: chart.allergies#edit}
+      list:
+        - {id: incoming, type: card, bind: "AllergyIntolerance staged", when: "incoming > 0", inv: [INV-DATA-01], does: "accept / reject"}
+        - id: allergy-table
+          type: table
+          bind: "AllergyIntolerance[] (substance, reaction, severity, verified, recorded by/date)"
+          cols:
+            - {id: al-edit, type: button, label: "Edit", go: chart.allergies#edit}
+            - {id: al-inactivate, type: button, label: "Mark inactive / entered in error"}
+        - {id: reviewed-today, type: button, label: "Reviewed, no changes", does: "record review timestamp"}
+    views:
+      edit:
+        container: drawer
+        regions:
+          form:
+            - {id: al-substance, type: search, label: "Substance (drug class, drug, food, environmental)", be: logic}
+            - {id: al-reaction, type: select, label: "Reaction"}
+            - {id: al-severity, type: select, label: "Severity"}
+            - {id: al-verification, type: select, label: "Verification status"}
+            - {id: al-save, type: button, label: "Save", primary: true, does: "create/update AllergyIntolerance; refresh banner"}
+
+  chart.vitals:
+    route: /patient/:patientId/vitals
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: vitals-range, type: select, label: "Range"}
+        - {id: add-vitals, type: button, label: "+ Record vitals", go: encounter.rooming, when: "encounter today"}
+        - {id: flowsheet-picker, type: select, label: "Flowsheet", bind: "vitals, growth (pediatric), BP log, glucose log"}
+      list:
+        - {id: vitals-grid, type: table, bind: "Observation[] vitals by date (columns) and type (rows), flags"}
+        - {id: vitals-chart, type: chart, bind: "selected Observation trend"}
+        - {id: device-readings, type: list, bind: "Observation[] from devices (staged)", when: "RPM enrolled", go: telehealth.rpm}
+
+  chart.results:
+    route: /patient/:patientId/results
+    pattern: chart-list
+    up: chart.summary
+    wireframe: ResultsViewer.dc.html
+    flows: ["flow:results/05"]
+    regions:
+      toolbar:
+        - {id: type-seg, type: tabs, label: "All · Lab · Imaging · Other"}
+        - {id: view-seg, type: tabs, label: "By report · By test"}
+        - {id: range, type: select, label: "Range"}
+      list:
+        - {id: report-row, type: link, bind: "DiagnosticReport[] grouped by date (status, flags, pending)", each: true, go: chart.results#report}
+    views:
+      report:
+        container: pane
+        regions:
+          detail:
+            - {id: rep-header, type: heading, bind: "DiagnosticReport.code, collected, performer, orderer, reviewed by"}
+            - {id: rep-pdf, type: button, label: "Original report (PDF)"}
+            - {id: rep-send, type: button, label: "Send to patient", does: "release with comment", go: inbox.patient-messages#compose}
+            - {id: rep-corrected, type: alert, bind: "previous value vs corrected", when: "status corrected", be: logic}
+            - {id: rep-ack, type: button, label: "Acknowledge correction", when: "corrected after review", does: "record review of corrected result"}
+            - {id: rep-table, type: table, bind: "Observation[] (value, flag, reference range, previous)"}
+            - {id: rep-trend, type: chart, bind: "Observation trend for selected LOINC"}
+    states: [corrected-result, preliminary, pending]
+
+  chart.immunizations:
+    route: /patient/:patientId/immunizations
+    pattern: chart-list
+    up: chart.summary
+    flows: ["flow:checkin/05"]
+    regions:
+      toolbar:
+        - {id: query-registry, type: button, label: "Query state registry", does: "HL7 QBP via IisGateway", be: logic}
+        - {id: add-historical, type: button, label: "+ Historical dose", go: chart.immunizations#edit}
+        - {id: administer, type: button, label: "Administer", primary: true, go: encounter.rooming, when: "encounter today"}
+      list:
+        - {id: forecast, type: list, bind: "derived:immunizationForecast (due, overdue)", be: logic}
+        - {id: registry-incoming, type: card, bind: "Immunization staged from registry", when: "incoming > 0", does: "accept / reject", inv: [INV-DATA-01]}
+        - {id: imm-table, type: table, bind: "Immunization[] (vaccine CVX, date, lot, site, given by, source, VIS)"}
+    views:
+      edit:
+        container: drawer
+        regions:
+          form:
+            - {id: im-vaccine, type: search, label: "Vaccine (CVX)"}
+            - {id: im-date, type: date, label: "Date given"}
+            - {id: im-source, type: select, label: "Source (patient record, outside provider)"}
+            - {id: im-save, type: button, label: "Save", primary: true, does: "create Immunization (historical)"}
+
+  chart.history:
+    route: /patient/:patientId/history
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      list:
+        - {id: hist-tabs, type: tabs, label: "Medical · Surgical · Family · Social · SDOH"}
+        - {id: hist-medical, type: list, bind: "Condition[] past", does: "inline add/edit"}
+        - {id: hist-surgical, type: list, bind: "Procedure[] past", does: "inline add/edit"}
+        - {id: hist-family, type: list, bind: "FamilyMemberHistory[]", does: "inline add/edit"}
+        - {id: hist-social, type: list, bind: "Observation[] social (tobacco, alcohol, occupation)", does: "inline add/edit"}
+        - {id: hist-sdoh, type: list, bind: "QuestionnaireResponse SDOH + Observation[]", does: "start screening"}
+        - {id: hist-reviewed, type: button, label: "Mark history reviewed", does: "record review"}
+
+  chart.orders:
+    route: /patient/:patientId/orders
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: status-filter, type: select, label: "Status", bind: "states:order"}
+        - {id: type-filter, type: select, label: "Type (lab, imaging, procedure, referral)"}
+      list:
+        - id: order-table
+          type: table
+          bind: "ServiceRequest[] (test, ordered by/date, status, expected by, result link)"
+          cols:
+            - {id: ord-status, type: status-chip, bind: "states:order"}
+            - {id: ord-overdue, type: chip, bind: "derived:overdue", be: logic, inv: [INV-SAFE-07]}
+            - {id: ord-result, type: link, label: "Result", go: chart.results, when: "resulted"}
+            - {id: ord-cancel, type: button, label: "Cancel order", tr: "order:sent->cancelled", when: "not resulted"}
+            - {id: ord-reprint, type: button, label: "Reprint requisition"}
+
+  chart.referrals:
+    route: /patient/:patientId/referrals
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: dir-seg, type: tabs, label: "Outgoing · Incoming"}
+        - {id: new-referral, type: button, label: "+ Referral", go: encounter.orders, when: "role provider"}
+      list:
+        - id: referral-table
+          type: table
+          bind: "ServiceRequest[] referral (specialty, to, status, auth, appointment, consult received)"
+          cols:
+            - {id: ref-status, type: status-chip, bind: "states:referral"}
+            - {id: ref-open-worklist, type: link, label: "Open in worklist", go: referrals.worklist}
+            - {id: ref-consult, type: link, label: "Consult note", go: chart.documents, when: "consult received"}
+
+  chart.care-plan:
+    route: /patient/:patientId/care-plan
+    pattern: chart-list
+    up: chart.summary
+    flows: ["flow:quality/03"]
+    regions:
+      list:
+        - {id: ccm-consent, type: card, bind: "Consent CCM", when: "not enrolled", does: "record verbal/written consent"}
+        - {id: goals, type: list, bind: "Goal[] (target, status, due)", does: "add/edit goal"}
+        - {id: interventions, type: list, bind: "CarePlan.activity[]"}
+        - {id: time-log, type: table, bind: "TimeLog[] this month (who, minutes, activity)"}
+        - {id: log-time, type: button, label: "+ Log time", go: chart.care-plan#log}
+        - {id: threshold, type: meter, bind: "derived:ccmMinutesThisMonth vs billing threshold", be: logic}
+        - {id: generate-charge, type: button, label: "Create monthly charge", when: "threshold met", does: "create ChargeItem", be: logic}
+    views:
+      log:
+        container: modal
+        regions:
+          body:
+            - {id: tl-minutes, type: input, label: "Minutes"}
+            - {id: tl-activity, type: select, label: "Activity"}
+            - {id: tl-save, type: button, label: "Save", primary: true, does: "create TimeLog"}
+
+  chart.care-gaps:
+    route: /patient/:patientId/care-gaps
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      list:
+        - id: gap-table
+          type: table
+          bind: "CareGap[] (measure, due/overdue, last done, rule source)"
+          be: logic
+          cols:
+            - {id: gap-order, type: button, label: "Order", go: encounter.orders, when: "encounter open"}
+            - {id: gap-recorded-elsewhere, type: button, label: "Done elsewhere", does: "record outside result with document", go: chart.documents}
+            - {id: gap-not-today, type: menu, label: "Not today", does: "record reason (declined, contraindicated)"}
+
+  chart.documents:
+    route: /patient/:patientId/documents
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: doc-type-filter, type: select, label: "Type"}
+        - {id: upload, type: button, label: "+ Upload / scan", go: chart.documents#upload}
+      list:
+        - {id: doc-row, type: link, bind: "DocumentReference[] (type, date, source, filed by)", each: true, go: chart.documents#view}
+    views:
+      view:
+        container: pane
+        regions:
+          detail:
+            - {id: doc-viewer, type: placeholder, bind: DocumentReference.content}
+            - {id: doc-reclassify, type: button, label: "Change type / date"}
+            - {id: doc-misfiled, type: button, label: "Wrong patient", does: "move to filing queue; audit", go: inbox.documents}
+      upload:
+        container: drawer
+        regions:
+          form:
+            - {id: up-file, type: upload, label: "File or scan"}
+            - {id: up-type, type: select, label: "Document type"}
+            - {id: up-date, type: date, label: "Document date"}
+            - {id: up-save, type: button, label: "Save", primary: true, does: "create DocumentReference"}
+
+  chart.communications:
+    route: /patient/:patientId/communications
+    pattern: chart-list
+    up: chart.summary
+    regions:
+      toolbar:
+        - {id: new-message, type: button, label: "+ Message", go: inbox.patient-messages#compose}
+        - {id: log-call, type: button, label: "+ Log phone call", go: chart.communications#call}
+        - {id: letter, type: button, label: "+ Letter", does: "generate letter from template"}
+      list:
+        - {id: comm-row, type: link, bind: "Communication[] (portal threads, calls, letters, SMS log)", each: true, go: inbox.patient-messages}
+    views:
+      call:
+        container: drawer
+        regions:
+          form:
+            - {id: call-with, type: select, label: "Spoke with"}
+            - {id: call-summary, type: textarea, label: "Summary"}
+            - {id: call-followup, type: checkbox, label: "Create follow-up task"}
+            - {id: call-save, type: button, label: "Save", primary: true, does: "create Communication"}
+
+  chart.demographics:
+    route: /patient/:patientId/demographics
+    pattern: chart-context
+    up: chart.summary
+    regions:
+      content:
+        - {id: demo-identity, type: card, bind: "Patient identity + contact", does: "edit inline"}
+        - {id: demo-uscdi, type: card, bind: "race, ethnicity, language, SOGI, pronouns"}
+        - {id: demo-contacts, type: card, bind: "Patient.contact, RelatedPerson guarantor"}
+        - {id: demo-pharmacy, type: card, bind: "preferred pharmacy"}
+        - {id: demo-coverage, type: card, bind: "Coverage[] ordered + CoverageEligibility latest", go: chart.demographics#coverage}
+        - {id: demo-portal, type: card, bind: "portal account status, proxies", go: chart.consents}
+    views:
+      coverage:
+        container: drawer
+        regions:
+          form:
+            - {id: cov-scan, type: upload, label: "Scan card"}
+            - {id: cov-payer, type: select, label: "Payer"}
+            - {id: cov-member, type: input, label: "Member ID"}
+            - {id: cov-order, type: select, label: "Order (primary, secondary)"}
+            - {id: cov-end, type: date, label: "End date"}
+            - {id: cov-verify, type: button, label: "Verify eligibility", be: logic}
+            - {id: cov-save, type: button, label: "Save", primary: true, does: "update Coverage; re-run eligibility"}
+
+  chart.consents:
+    route: /patient/:patientId/consents
+    pattern: chart-context
+    up: chart.summary
+    regions:
+      content:
+        - {id: consent-list, type: table, bind: "Consent[] (type, signed, expires, document)"}
+        - {id: request-signature, type: button, label: "Request signature", does: "send to portal or tablet"}
+        - {id: restrictions, type: list, bind: "restricted records (Part 2, sensitive notes, adolescent)", inv: [INV-SEC-03]}
+        - {id: proxies, type: list, bind: "RelatedPerson[] with portal proxy access + scope", does: "grant / revoke proxy"}
+        - {id: comm-prefs, type: card, bind: "SMS/email consent (TCPA), opt-outs"}
+    views:
+      break-glass:
+        container: blocking-modal
+        regions:
+          body:
+            - {id: btg-what, type: text, bind: "what is restricted (type only)"}
+            - {id: btg-reason, type: select, label: "Reason (required)", bind: "emergency, treatment continuity, other"}
+            - {id: btg-comment, type: textarea, label: "Details"}
+            - {id: btg-cancel, type: button, label: "Cancel", go: back}
+            - {id: btg-open, type: button, label: "Open for 30 minutes", primary: true, does: "grant time-limited access; alert privacy officer", be: logic, inv: [INV-SEC-03, INV-SEC-01]}
+
+  chart.account:
+    route: /patient/:patientId/account
+    pattern: chart-context
+    up: chart.summary
+    regions:
+      content:
+        - {id: acct-balance, type: stat, bind: "derived:patientBalance + insurance pending", inv: [INV-FIN-02]}
+        - {id: acct-recent, type: list, bind: "recent payments and statements"}
+        - {id: acct-take-payment, type: button, label: "Take payment", go: billing.payment-capture}
+        - {id: acct-full, type: link, label: "Open full account", go: billing.patient-account}
+
+  chart.access-log:
+    route: /patient/:patientId/access-log
+    pattern: chart-context
+    up: chart.summary
+    regions:
+      content:
+        - {id: al-table, type: table, bind: "AuditEvent[] for this patient (who, when, action, what, from)", inv: [INV-SEC-01]}
+        - {id: al-open-audit, type: link, label: "Open in audit log", go: admin.audit-log}

@@ -1,0 +1,247 @@
+# Schedule module. All screens show nav.yaml#schedule-nav except the booking drawer and checkout.
+screens:
+  schedule.calendar:
+    route: /schedule
+    pattern: calendar
+    up: null
+    wireframe: Calendar.dc.html
+    flows: ["flow:access/02"]
+    regions:
+      schedule-nav: "nav.yaml#schedule-nav"
+      toolbar:
+        - {id: prev-day, type: icon-button, label: "Previous"}
+        - {id: today, type: button, label: "Today"}
+        - {id: next-day, type: icon-button, label: "Next"}
+        - {id: date-title, type: heading, bind: "selected date"}
+        - {id: view-switch, type: tabs, label: "Day · Week · Month"}
+        - {id: provider-picker, type: menu, label: "Providers", bind: "Practitioner[] / rooms"}
+        - {id: location-picker, type: select, label: "Location"}
+        - {id: book, type: button, label: "+ Book", primary: true, go: schedule.booking-drawer}
+      grid:
+        - {id: provider-column, type: list, bind: "Practitioner[] selected, with booked/open counts", each: true}
+        - {id: appt-block, type: card, bind: "Appointment[] in range (patient, visit type, status, modality)", each: true, go: schedule.appointment-detail, does: "drag to reschedule (respects template rules)"}
+        - {id: open-slot, type: button, bind: "derived:openSlots from schedule template", each: true, go: schedule.booking-drawer}
+        - {id: blocked-time, type: card, bind: "Schedule blocks (admin, lunch, rounds)", each: true}
+        - {id: overlap-flag, type: chip, bind: "derived:overlaps", when: "double-booked", be: logic}
+      side:
+        - {id: mini-month, type: chart, label: "Month picker"}
+        - {id: needs-look, type: list, bind: "overlaps + eligibility failures in range", be: logic}
+        - {id: legend, type: list, label: "Visit type legend"}
+        - {id: waitlist-card, type: link, label: "Waitlist", bind: "count", go: schedule.waitlist}
+    states: [template-gaps, blocked-time, double-book-warning]
+
+  schedule.booking-drawer:
+    route: /schedule/book
+    pattern: calendar
+    container: drawer
+    up: schedule.calendar
+    wireframe: Booking.dc.html
+    flows: ["flow:access/02", "flow:access/03", "flow:access/04"]
+    regions:
+      header:
+        - {id: book-title, type: heading, label: "Book appointment"}
+        - {id: book-close, type: icon-button, label: "Close", go: back}
+      patient:
+        - {id: patient-typeahead, type: search, label: "Patient", bind: "Patient[] by name, DOB, phone, MRN", inv: [INV-ID-02]}
+        - {id: patient-picked, type: card, bind: "Patient.name, birthDate, MRN, phone"}
+        - {id: register-new, type: link, label: "Register new patient", go: patients.registration}
+      details:
+        - {id: visit-type, type: select, label: "Visit type", bind: "VisitType[] (duration, allowed channels)"}
+        - {id: provider, type: select, label: "Provider", bind: "Practitioner[] allowed for visit type"}
+        - {id: modality, type: select, label: "Where", bind: "Location[] + video"}
+        - {id: reason, type: input, label: "Reason"}
+      slots:
+        - {id: time-of-day, type: tabs, label: "Any · Mornings · Afternoons"}
+        - {id: slot, type: button, bind: "derived:availableSlots grouped by provider and day", each: true, be: logic}
+        - {id: no-slots, type: alert, when: "no slots in range", bind: "earliest slot for preferred provider"}
+        - {id: add-waitlist, type: button, label: "Add to waitlist", does: "create waitlist entry", go: schedule.waitlist}
+      insurance:
+        - {id: coverage, type: text, bind: "Coverage primary"}
+        - {id: eligibility, type: chip, bind: "CoverageEligibility real-time", be: logic}
+      reminders:
+        - {id: reminder-preview, type: text, bind: "derived:reminderText (no clinical detail)", inv: [INV-SEC-06]}
+      footer:
+        - {id: book-summary, type: text, bind: "selected slot"}
+        - {id: book-cancel, type: button, label: "Cancel", go: back}
+        - {id: book-submit, type: button, label: "Book appointment", primary: true, tr: "appointment:new->booked", be: logic}
+    states: [new-vs-existing-patient, duplicate-match, no-slots-in-range]
+
+  schedule.appointment-detail:
+    route: /schedule/appointments/:appointmentId
+    pattern: calendar
+    container: drawer
+    up: schedule.calendar
+    regions:
+      header:
+        - {id: appt-patient, type: link, bind: "Patient.name, birthDate", go: chart.summary}
+        - {id: appt-status, type: status-chip, bind: "states:appointment"}
+        - {id: appt-close, type: icon-button, label: "Close", go: back}
+      details:
+        - {id: appt-when, type: text, bind: "Appointment.start, duration, provider, location, modality"}
+        - {id: appt-reason, type: text, bind: Appointment.reasonCode}
+        - {id: appt-eligibility, type: chip, bind: CoverageEligibility.status, be: logic}
+        - {id: appt-reminders, type: timeline, bind: "CommunicationLog[] reminders and replies"}
+        - {id: appt-notes, type: textarea, label: "Front-desk note", bind: Appointment.comment}
+        - {id: appt-history, type: timeline, bind: "Appointment change history"}
+      actions:
+        - {id: appt-arrive, type: button, label: "Arrive", primary: true, go: home.frontdesk-board#arrive, when: "status booked or confirmed and date today"}
+        - {id: appt-reschedule, type: button, label: "Reschedule", go: schedule.booking-drawer}
+        - {id: appt-cancel, type: button, label: "Cancel appointment", go: schedule.appointment-detail#cancel}
+        - {id: appt-no-show, type: button, label: "Mark no-show", tr: "appointment:confirmed->no-show", when: "past start, not arrived"}
+        - {id: appt-join-video, type: link, label: "Video link", go: telehealth.waiting-room, when: "modality video"}
+    views:
+      cancel:
+        container: modal
+        regions:
+          body:
+            - {id: cancel-reason, type: select, label: "Reason", bind: "cancellation reasons"}
+            - {id: cancel-offer-waitlist, type: checkbox, label: "Offer slot to waitlist"}
+            - {id: cancel-notify, type: checkbox, label: "Notify patient"}
+          footer:
+            - {id: cancel-back, type: button, label: "Keep appointment", go: back}
+            - {id: cancel-confirm, type: button, label: "Cancel appointment", primary: true, tr: "appointment:confirmed->cancelled"}
+
+  schedule.flow-board:
+    route: /schedule/flow
+    pattern: board
+    up: schedule.calendar
+    wireframe: FlowBoard.dc.html
+    flows: ["flow:checkin/02", "flow:checkin/03"]
+    regions:
+      schedule-nav: "nav.yaml#schedule-nav"
+      filters:
+        - {id: provider-seg, type: tabs, label: "All · per provider"}
+        - {id: my-patients, type: toggle, label: "My patients only"}
+        - {id: wait-target, type: text, bind: "Practice setting wait target"}
+      columns:
+        - {id: col-arrived, type: list, label: "Arrived", bind: "Appointment[] status arrived"}
+        - {id: col-roomed, type: list, label: "Roomed", bind: "Appointment[] status roomed"}
+        - {id: col-ready, type: list, label: "Ready for provider", bind: "Appointment[] status ready-for-provider"}
+        - {id: col-with, type: list, label: "With provider", bind: "Appointment[] status with-provider"}
+        - {id: col-checkout, type: list, label: "Checkout", bind: "Appointment[] status checkout"}
+        - id: patient-card
+          type: card
+          each: true
+          bind: "Appointment + Patient (name, age, sex, visit type, provider, room, MA, modality)"
+          cols:
+            - {id: card-name, type: link, bind: Patient.name, go: chart.summary}
+            - {id: card-timer, type: text, bind: "derived:minutesInStatus"}
+            - {id: card-over, type: chip, bind: "derived:overTarget", when: "over wait target", be: logic}
+            - {id: card-room, type: button, label: "Room", go: schedule.flow-board#room, when: "status arrived"}
+            - {id: card-open, type: button, label: "Open", go: encounter.rooming, when: "status roomed"}
+            - {id: card-checkout, type: button, label: "Check out", go: schedule.checkout, when: "status checkout"}
+            - {id: card-menu, type: menu, label: "More actions", does: "left without being seen; move back; reassign MA"}
+      footer:
+        - {id: counts, type: text, bind: "completed, no-show, left without being seen, still to arrive"}
+        - {id: avg-room-time, type: stat, bind: "derived:avgArriveToRoom"}
+    views:
+      room:
+        container: modal
+        flows: ["flow:checkin/03"]
+        regions:
+          body:
+            - {id: room-confirm-patient, type: heading, bind: "Patient.name + birthDate (confirm identity)", inv: [INV-ID-01]}
+            - {id: room-select, type: select, label: "Room", bind: "Location[] rooms free"}
+            - {id: room-ma, type: select, label: "MA", bind: "Practitioner[] MAs on shift"}
+          footer:
+            - {id: room-cancel, type: button, label: "Cancel", go: back}
+            - {id: room-submit, type: button, label: "Room & start intake", primary: true, tr: "appointment:arrived->roomed", go: encounter.rooming}
+    states: [threshold-exceeded, left-without-being-seen]
+
+  schedule.room-board:
+    route: /schedule/rooms
+    pattern: board
+    up: schedule.flow-board
+    regions:
+      schedule-nav: "nav.yaml#schedule-nav"
+      columns:
+        - id: room-card
+          type: card
+          each: true
+          bind: "Location rooms with current occupant, status, time, equipment"
+          cols:
+            - {id: room-occupant, type: link, bind: Patient.name, go: chart.summary}
+            - {id: room-status, type: chip, bind: "free / occupied / needs cleaning"}
+            - {id: room-mark-clean, type: button, label: "Mark ready", does: "set room ready", when: "needs cleaning"}
+        - {id: telehealth-links, type: list, bind: "video rooms in use", go: telehealth.waiting-room}
+
+  schedule.checkout:
+    route: /schedule/checkout/:appointmentId
+    pattern: chart-context
+    up: schedule.flow-board
+    wireframe: Checkout.dc.html
+    flows: ["flow:encounter/08"]
+    regions:
+      header:
+        - {id: checkout-title, type: heading, bind: "Encounter summary + note signed time"}
+        - {id: checkout-status, type: status-chip, bind: "states:appointment"}
+      follow-up:
+        - {id: fu-request, type: text, bind: "derived:followUpInstruction from note"}
+        - {id: fu-slot, type: button, bind: "derived:suggestedSlots", each: true, be: logic}
+        - {id: fu-other, type: button, label: "Other time…", go: schedule.booking-drawer}
+        - {id: fu-lab-before, type: checkbox, label: "Add lab draw before visit"}
+      coordinate:
+        - {id: coord-item, type: list, bind: "ServiceRequest[] + referrals from this encounter needing front-desk action", each: true}
+        - {id: coord-fit-kit, type: button, label: "Hand to patient / Mail", does: "record kit handoff"}
+        - {id: coord-referral, type: button, label: "Send to referrals worklist", go: referrals.worklist}
+      avs:
+        - {id: avs-preview, type: placeholder, bind: AfterVisitSummary, go: encounter.avs}
+        - {id: avs-print, type: button, label: "Print"}
+        - {id: avs-language, type: select, label: "Language"}
+      payment:
+        - {id: pay-summary, type: list, bind: "collected today + due now", inv: [INV-FIN-02]}
+        - {id: pay-collect, type: button, label: "Collect", go: billing.payment-capture, when: "due now > 0"}
+      action-bar:
+        - {id: left-before-checkout, type: button, label: "Patient left before checkout", does: "release AVS to portal; complete"}
+        - {id: checkout-complete, type: button, label: "Book & complete checkout", primary: true, tr: "appointment:checkout->completed"}
+
+  schedule.waitlist:
+    route: /schedule/waitlist
+    pattern: list-detail
+    up: schedule.calendar
+    regions:
+      schedule-nav: "nav.yaml#schedule-nav"
+      list:
+        - id: waitlist-table
+          type: table
+          bind: "WaitlistEntry[] (patient, visit type, provider preference, earliest/latest, added)"
+          cols:
+            - {id: wl-patient, type: link, bind: Patient.name, go: chart.summary}
+            - {id: wl-match, type: chip, bind: "derived:matchingOpenSlots", be: logic}
+            - {id: wl-offer, type: button, label: "Offer slot", does: "SMS offer with accept link", be: logic}
+            - {id: wl-book, type: button, label: "Book", go: schedule.booking-drawer}
+            - {id: wl-remove, type: icon-button, label: "Remove"}
+      toolbar:
+        - {id: wl-add, type: button, label: "+ Add to waitlist", go: schedule.waitlist#add}
+    views:
+      add:
+        container: drawer
+        regions:
+          form:
+            - {id: wl-form-patient, type: search, label: "Patient", bind: "Patient[]"}
+            - {id: wl-form-type, type: select, label: "Visit type"}
+            - {id: wl-form-provider, type: select, label: "Provider preference"}
+            - {id: wl-form-window, type: date, label: "Available between"}
+          footer:
+            - {id: wl-form-cancel, type: button, label: "Cancel", go: back}
+            - {id: wl-form-save, type: button, label: "Add", primary: true, does: "create WaitlistEntry"}
+
+  schedule.recall-list:
+    route: /schedule/recalls
+    pattern: list-detail
+    up: schedule.calendar
+    flows: ["flow:quality/02"]
+    regions:
+      schedule-nav: "nav.yaml#schedule-nav"
+      toolbar:
+        - {id: recall-reason-filter, type: select, label: "Reason", bind: "recall reasons (follow-up due, care gap)"}
+        - {id: recall-bulk-message, type: button, label: "Send booking link to selected", does: "portal + SMS campaign", inv: [INV-SEC-06], be: logic}
+      list:
+        - id: recall-table
+          type: table
+          bind: "Recall[] / CareGap[] due (patient, reason, due date, last contact, attempts)"
+          cols:
+            - {id: rc-select, type: checkbox}
+            - {id: rc-patient, type: link, bind: Patient.name, go: chart.summary}
+            - {id: rc-log-call, type: button, label: "Log call", does: "record outreach attempt"}
+            - {id: rc-book, type: button, label: "Book", go: schedule.booking-drawer}

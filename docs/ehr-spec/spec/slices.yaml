@@ -1,0 +1,39 @@
+# Build order. Narrative in docs/05-build-slices.md. Steps referenced as flow:<id>/<step>; "flow:<id>" means all steps.
+slices:
+  - id: S0
+    name: Foundation
+    invariants: [INV-SEC-01, INV-SEC-02, INV-SEC-04, INV-ID-02, INV-ID-04]
+    screens: [global.command-bar, patients.search, patients.registration, admin.users-roles, admin.security, admin.audit-log]
+  - id: S1
+    name: Patient access and front desk
+    flows: ["flow:access/01", "flow:access/02", "flow:access/03", "flow:access/04", "flow:access/06", "flow:checkin/01", "flow:checkin/02", "flow:checkin/03"]
+    invariants: [INV-ID-01, INV-FIN-01, INV-FIN-02]
+  - id: S2
+    name: Clinical core
+    flows: ["flow:checkin/04", "flow:checkin/05", "flow:encounter/01", "flow:encounter/02", "flow:encounter/03", "flow:encounter/07", "flow:encounter/08", "flow:access/07"]
+    invariants: [INV-ID-01, INV-ID-03, INV-SAFE-01, INV-SAFE-02, INV-SAFE-08, INV-DATA-01, INV-DATA-02, INV-DATA-03]
+  - id: S3
+    name: Orders and results
+    flows: ["flow:encounter/04", "flow:results"]
+    invariants: [INV-SAFE-03, INV-SAFE-04, INV-SAFE-07, INV-OPS-01]
+  - id: S4
+    name: Prescribing
+    flows: ["flow:encounter/05", "flow:refills"]
+    invariants: [INV-SAFE-05, INV-SAFE-06]
+  - id: S5
+    name: Revenue cycle
+    flows: ["flow:encounter/06", "flow:rcm"]
+    invariants: [INV-FIN-01, INV-FIN-02, INV-FIN-03, INV-FIN-04, INV-FIN-05, INV-SEC-05]
+  - id: S6
+    name: Inbox, referrals, documents
+    flows: ["flow:referral"]
+    invariants: [INV-SEC-06, INV-OPS-01]
+  - id: S7
+    name: Patient portal
+    flows: ["flow:access/05"]
+    screens: [portal.home, portal.appointments, portal.todos, portal.messages, portal.record, portal.billing, portal.profile]
+    invariants: [INV-DATA-01, INV-SEC-03, INV-SEC-06]
+  - id: S8
+    name: Reporting, quality, telehealth, admin
+    flows: ["flow:quality"]
+    invariants: [INV-OPS-02]

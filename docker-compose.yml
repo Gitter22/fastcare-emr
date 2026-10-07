@@ -1,0 +1,144 @@
+version: "3.6"
+x-logging: &my-logging
+  options:
+    max-size: "100m"
+    max-file: "2"
+services:
+  # ==========================================================
+  # DATABASE MIGRATION
+  # ==========================================================
+  agile-emr-migrate:
+    image: reg-harbor.agiletechnologies.in/agile-emr-api/agile-emr-api:latest
+    hostname: agile-emr-migrate
+    container_name: agile-emr-migrate
+    logging: *my-logging
+    networks:
+      - emr
+    env_file:
+      - .env
+        # command: >
+    #   sh -c "
+    #     echo 'Generating Prisma client...' &&
+    #     npx prisma generate &&
+    #     echo 'Running migrations on existing database...' &&
+    #     npx prisma migrate deploy &&
+    #     echo 'Running seed...' &&
+    #     npx prisma db seed &&
+    #     echo 'Migration completed successfully.'
+    #   "
+    command: >
+      sh -c "
+        echo '========================================' &&
+        echo 'Generating Prisma client...' &&
+        echo '========================================' &&
+        npx prisma generate &&
+
+        echo '========================================' &&
+        echo 'Running Prisma migrations...' &&
+        echo '========================================' &&
+        npx prisma migrate deploy &&
+
+        echo '========================================' &&
+        echo 'Running Prisma seed...' &&
+        echo '========================================' &&
+        npx tsx prisma/seed.ts &&
+
+        echo '========================================' &&
+        echo 'Database migration completed successfully.' &&
+        echo '========================================'
+      "
+    restart: "no"
+
+  # ==========================================================
+  # BACKEND API
+  # ==========================================================
+  agile-emr-backend:
+    image: reg-harbor.agiletechnologies.in/agile-emr-api/agile-emr-api:latest
+    hostname: agile-emr-backend
+    container_name: agile-emr-backend
+    logging: *my-logging
+    networks:
+      - emr
+    ports:
+      - "7499:4000"
+    env_file:
+      - .env
+    # Uploaded/generated files and daily DB backups live on a named volume so
+    # they survive `docker compose down` + `up --force-recreate` (every
+    # pipeline deploy). `environment:` takes precedence over `env_file:`, so
+    # these override any /tmp values in the Vault-generated .env.
+    environment:
+      LAB_REPORT_UPLOADS_DIR: /data/uploads/lab-reports
+      GENERATED_DOCS_DIR: /data/generated-docs
+      ID_PHOTO_UPLOADS_DIR: /data/uploads/id-photos
+      PATIENT_DOCUMENT_UPLOADS_DIR: /data/uploads/patient-documents
+      BACKUP_DIR: /data/backups
+    volumes:
+      - agile-emr-data:/data
+    restart: unless-stopped
+    depends_on:
+      agile-emr-migrate:
+        condition: service_completed_successfully
+    command:
+      - node
+      - apps/api/dist/server.js
+
+  # ==========================================================
+  # FHIR JAVA SERVICE
+  # ==========================================================
+  agile-emr-java:
+    image: reg-harbor.agiletechnologies.in/agile-emr-java/agile-emr-java:latest
+    hostname: agile-emr-java
+    container_name: agile-emr-java
+    logging: *my-logging
+    networks:
+      - emr
+    ports:
+      - "7501:8081"
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      agile-emr-migrate:
+        condition: service_completed_successfully
+
+  # ==========================================================
+  # FRONTEND
+  # ==========================================================
+  agile-emr-web:
+    image: reg-harbor.agiletechnologies.in/agile-emr-web/agile-emr-web:latest
+    hostname: agile-emr-web
+    container_name: agile-emr-web
+    logging: *my-logging
+    networks:
+      - emr
+    ports:
+      - "7500:80"
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      agile-emr-backend:
+        condition: service_started
+# ==========================================================
+# NETWORK
+# ==========================================================
+
+networks:
+  emr:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 20.0.11.96/29
+          ip_range: 20.0.11.97/29
+          gateway: 20.0.11.97
+
+# ==========================================================
+# VOLUMES
+# ==========================================================
+# Persistent storage for the API (uploads, generated documents, backups).
+# Only `docker compose down -v` (never used by the pipeline) deletes it.
+
+volumes:
+  agile-emr-data:

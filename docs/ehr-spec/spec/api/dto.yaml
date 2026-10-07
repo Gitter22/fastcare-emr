@@ -1,0 +1,778 @@
+# Request and response shapes that are not a single Prisma model. tools/build-openapi.mjs expands this into
+# components.schemas next to the schemas it generates from data/schema.prisma (Model, ModelCreate, ModelUpdate, enums).
+#
+# Field type grammar
+#   string text uuid int number money bool date datetime time email phone uri password binary json
+#   Name        $ref to a Prisma model, Prisma enum or another DTO in this file
+#   T[]         array of T
+#   T?          optional (omitted from `required`)
+#   a|b|c       inline string enum (lower-case wire values)
+#   {k: T}      inline object, same grammar
+#   =Value      constant
+# Keys starting with `_` are not fields: `_` = description, `_base` = allOf with a model or DTO, `_phi` = false marks a
+# shape that never carries PHI (default: inherits the operation's x-phi).
+# money = decimal string ("123.45"); never a float.
+
+# ---------- shared ----------
+ReasonRequest: {reason: text}
+IdsRequest: {ids: "uuid[]"}
+CommentRequest: {comment: text}
+DateRangeRequest: {from: date, to: date}
+TextRequest: {text: text}
+ChannelRequest: {channel: CommChannel, to: string?}
+TransitionRequest:
+  _: Generic state change. The server checks the transition exists in spec/states.yaml and the caller's role may perform it.
+  to: string
+  reason: text?
+  version: int
+SnoozeRequest: {until: datetime, reason: text?}
+AssignRequest: {assigneeUserId: uuid?, workPoolId: uuid?, note: text?}
+BulkResult:
+  succeeded: "uuid[]"
+  failed: "{id: uuid, code: string, detail: string}[]"
+ExportRequest:
+  _: One export job. CSV takes a report key and filters; EHI_PATIENT and C_CDA take patientId; BULK_FHIR and EHI_PRACTICE cover the practice.
+  type: ExportType
+  report: string?
+  filters: json?
+  patientId: uuid?
+  since: datetime?
+  reason: text
+HealthStatus: {_phi: false, status: ok|degraded|down, version: string, checks: "{name: string, status: ok|degraded|down}[]"}
+
+# ---------- auth (staff and portal) ----------
+LoginRequest: {_phi: false, email: email, password: password, deviceName: string?}
+LoginResult:
+  _phi: false
+  _: Password accepted. MFA is always required (INV-SEC-04); either a challenge or, with no factor yet, an enrolment token.
+  next: mfa|enroll
+  challengeId: uuid?
+  factors: "MfaFactorInfo[]?"
+  defaultFactorId: uuid?
+  enrollmentToken: string?
+  passwordExpired: bool
+SessionTokens:
+  _phi: false
+  _: Access token in the body; refresh token only as an httpOnly, Secure, SameSite=Strict cookie.
+  accessToken: string
+  tokenType: "=Bearer"
+  expiresIn: int
+  idleTimeoutSeconds: int
+  absoluteExpiresAt: datetime
+ChallengeRef: {_phi: false, challengeId: uuid, factorId: uuid?}
+MfaVerifyRequest: {_phi: false, challengeId: uuid, factorId: uuid?, code: string?, webauthnAssertion: json?, recoveryCode: string?, rememberDevice: bool?}
+WebAuthnOptions: {_phi: false, publicKey: json}
+MfaFactorInfo: {_phi: false, id: uuid, type: MfaFactorType, label: string, maskedTarget: string?, isDefault: bool, createdAt: datetime, lastUsedAt: datetime?}
+MfaEnrollmentStart: {_phi: false, type: MfaFactorType, phone: phone?, email: email?, label: string?}
+MfaEnrollmentChallenge:
+  _phi: false
+  factorId: uuid
+  type: MfaFactorType
+  otpauthUri: uri?
+  secretBase32: string?
+  webauthnCreationOptions: json?
+  codeSentTo: string?
+MfaEnrollmentConfirm: {_phi: false, code: string?, webauthnAttestation: json?}
+MfaEnrollmentResult: {_phi: false, factor: MfaFactorInfo, recoveryCodes: "string[]?", session: SessionTokens?}
+RecoveryCodes: {_phi: false, codes: "string[]", generatedAt: datetime}
+Me:
+  _phi: false
+  user: {id: uuid, name: string, email: email, practitionerId: uuid?}
+  practice: {id: uuid, name: string, timezone: string}
+  roles: "Role[]"
+  activeRole: Role
+  locations: "{id: uuid, name: string}[]"
+  activeLocationId: uuid?
+  permissions: "string[]"
+  canSign: "{notes: bool, orders: bool, prescriptions: bool, controlledSubstances: bool}"
+  session: {idleTimeoutSeconds: int, absoluteExpiresAt: datetime, stepUpValidUntil: datetime?}
+  homeScreen: string
+ActiveRoleRequest: {_phi: false, role: Role, locationId: uuid?}
+StepUpRequest: {_phi: false, password: password, factorId: uuid?, code: string?, webauthnAssertion: json?, purpose: string}
+StepUpResult: {_phi: false, validUntil: datetime, purpose: string}
+EmailRequest: {_phi: false, email: email}
+PasswordCandidate: {_phi: false, password: password, email: email?}
+PasswordCheckResult: {_phi: false, ok: bool, score: int, failures: "minLength|breached|containsName|reused[]"}
+PasswordResetRequest: {_phi: false, token: string, newPassword: password}
+PasswordChangeRequest: {_phi: false, currentPassword: password, newPassword: password}
+InvitationInfo: {_phi: false, practiceName: string, email: email, name: string, roles: "Role[]", expiresAt: datetime}
+AcceptInvitationRequest: {_phi: false, password: password, acceptTerms: bool}
+EnrollmentToken: {_phi: false, enrollmentToken: string, expiresAt: datetime}
+SessionInfo: {_phi: false, id: uuid, current: bool, deviceName: string?, userAgent: string?, ipAddress: string?, createdAt: datetime, lastSeenAt: datetime}
+AuditEventEntry:
+  id: string
+  at: datetime
+  action: AuditAction
+  outcome: AuditOutcome
+  actor: {userId: uuid?, name: string?, role: Role?}
+  entityType: string?
+  entityId: string?
+  patientId: uuid?
+  ipAddress: string?
+  userAgent: string?
+  reason: text?
+  emergencyAccessGrantId: uuid?
+ActivationInfo: {_phi: false, practiceName: string, maskedContact: string, relationship: PortalRelationship, expiresAt: datetime}
+ActivationIdentity: {code: string, lastName: string, birthDate: date}
+ActivationVerified: {_phi: false, registrationToken: string, email: email?, attemptsRemaining: int}
+PortalRegistration: {registrationToken: string, email: email, password: password, phone: phone?, acceptTerms: bool, mfa: MfaEnrollmentStart?}
+
+# ---------- workspace ----------
+PatientSummary:
+  _: Minimum-necessary patient reference used in lists and search.
+  id: uuid
+  mrn: string
+  name: string
+  preferredName: string?
+  birthDate: date
+  sexForClinicalUse: SexForClinicalUse?
+  phoneMasked: string?
+  flags: "string[]"
+AppointmentView:
+  id: uuid
+  status: AppointmentStatus
+  start: datetime
+  end: datetime
+  modality: Modality
+  visitType: {id: uuid, name: string, color: string?}
+  practitioner: {id: uuid, name: string}
+  location: {id: uuid, name: string}
+  room: "{id: uuid, name: string}?"
+  patient: PatientSummary
+  reason: text?
+  eligibility: EligibilityStatus?
+  copayDue: money?
+  balanceDue: money?
+  checkinStatus: CheckinStatus?
+  formsOutstanding: int
+  minutesInStatus: int?
+  version: int
+FrontDeskBoard:
+  date: date
+  locationId: uuid
+  counts: {booked: int, confirmed: int, arrived: int, noShow: int, cancelled: int}
+  columns: "{status: AppointmentStatus, appointments: 'AppointmentView[]'}[]"
+  alerts: "{kind: eligibility|forms|balance|unconfirmed, appointmentId: uuid, text: string}[]"
+ClinicalDayList:
+  date: date
+  rows: "{appointment: AppointmentView, prechartReady: bool, careGaps: int, pendingOrders: int, roomedAt: datetime?}[]"
+ProviderWorklist:
+  date: date
+  practitionerId: uuid
+  schedule: "AppointmentView[]"
+  unsignedNotes: "ClinicalNoteSummary[]"
+  pendingCosign: int
+  resultsToReview: int
+  rxRequests: int
+  messages: int
+  overdueOrders: int
+RunningLateNotice: {practitionerId: uuid, minutes: int, notifyPatients: bool, channel: CommChannel?}
+RcmQueues:
+  _phi: false
+  queues: "{key: eligibility|charge-review|rejections|era-exceptions|denials|statements|day-close, count: int, amount: money?, oldestDays: int?}[]"
+  cleanClaimRate: number?
+  daysInAr: number?
+PracticeKpis:
+  _phi: false
+  period: string
+  visits: int
+  noShowRate: number
+  charges: money
+  collections: money
+  daysInAr: number
+  cleanClaimRate: number
+  denialRate: number
+  openCareGaps: int
+  trend: "{date: date, visits: int, collections: money}[]"
+InboxCounts:
+  _phi: false
+  tasks: int
+  results: int
+  criticalResults: int
+  messages: int
+  rxRequests: int
+  cosign: int
+  documents: int
+  byPool: "{workPoolId: uuid, name: string, count: int, overdue: int}[]"
+SearchResults:
+  patients: "PatientSummary[]"
+  screens: "{id: string, label: string, route: string}[]"
+  actions: "{id: string, label: string}[]"
+NotificationReadRequest: {ids: "uuid[]?", all: bool?}
+
+# ---------- patients ----------
+PatientMatchInput: {firstName: string, lastName: string, birthDate: date, phone: phone?, email: email?, ssnLast4: string?}
+DuplicateCheckResult: {candidates: "{patient: PatientSummary, score: number, matchedOn: 'string[]'}[]", blocking: bool}
+PatientCreateRequest:
+  _: Registration. Demographics follow USCDI v3 (race and ethnicity as CDC REC codes, sex for clinical use, preferred language).
+  patient: PatientCreate
+  addresses: "PatientAddressCreate[]?"
+  contactPoints: "PatientContactPointCreate[]?"
+  relatedPersons: "RelatedPersonCreate[]?"
+  coverages: "CoverageCreate[]?"
+  consents: "ConsentSignatureRequest[]?"
+  duplicateOverrideReason: text?
+PatientBanner:
+  id: uuid
+  mrn: string
+  name: string
+  preferredName: string?
+  pronouns: string?
+  birthDate: date
+  age: string
+  sexForClinicalUse: SexForClinicalUse?
+  photoFileId: uuid?
+  allergies: "{display: string, criticality: AllergyCriticality?}[]"
+  noKnownAllergies: bool
+  codeStatus: string?
+  pcp: string?
+  primaryCoverage: string?
+  flags: "string[]"
+  restricted: bool
+  part2: bool
+PatientDetail:
+  _base: Patient
+  addresses: "PatientAddress[]"
+  contactPoints: "PatientContactPoint[]"
+  identifiers: "PatientIdentifier[]"
+  relatedPersons: "RelatedPerson[]"
+  preferredPharmacy: Pharmacy?
+  portalStatus: none|invited|active|locked
+ChartSummary:
+  banner: PatientBanner
+  problems: "Condition[]"
+  medications: "MedicationStatementView[]"
+  allergies: "AllergyIntolerance[]"
+  recentVitals: "Observation[]"
+  recentResults: "DiagnosticReportSummary[]"
+  immunizationsDue: "ImmunizationForecastItem[]"
+  careGaps: "CareGapView[]"
+  upcomingAppointments: "AppointmentView[]"
+  openOrders: "ServiceRequestView[]"
+  stagedItems: int
+TimelineItem:
+  id: uuid
+  at: datetime
+  kind: encounter|note|result|order|rx|message|document|immunization|procedure|communication|claim
+  title: string
+  summary: text?
+  status: string?
+  author: string?
+  entityType: string
+  entityId: uuid
+  restricted: bool
+EmergencyAccessRequest: {reason: text, reasonCategory: emergency|continuity|other, durationMinutes: int}
+AmendmentDecision: {decision: accept|deny, explanation: text, denialStatementFileId: uuid?}
+CoverageView:
+  _base: Coverage
+  payer: Payer
+  plan: PayerPlan?
+  lastEligibility: EligibilityCheck?
+  cardFront: FileObject?
+  cardBack: FileObject?
+CardScanResult:
+  _: OCR suggestions only. Staff confirm each field before it is saved.
+  frontFileId: uuid
+  backFileId: uuid?
+  suggestions: {payerName: string?, payerId: uuid?, memberId: string?, groupNumber: string?, subscriberName: string?, rxBin: string?, rxPcn: string?, copays: string?}
+  confidence: number
+EligibilityCheckRequest: {serviceTypeCodes: "string[]?", dateOfService: date?, practitionerId: uuid?}
+EligibilityCheckDetail:
+  _base: EligibilityCheck
+  benefits: "{serviceType: string, inNetwork: bool?, copay: money?, coinsurancePercent: number?, deductible: money?, deductibleRemaining: money?, oopRemaining: money?, authRequired: bool?}[]"
+  messages: "string[]"
+ConsentSignatureRequest: {type: ConsentType, signerName: string, signerRelationship: PortalRelationship, signatureFileId: uuid?, documentVersion: string, expiresAt: date?}
+PortalAccessView: {id: uuid, portalUserName: string, email: email, relationship: PortalRelationship, scopes: "string[]", status: AccountStatus, lastSignInAt: datetime?, patient: PatientSummary}
+PortalInvitationRequest: {email: email?, phone: phone?, relationship: PortalRelationship, scopes: "messages|appointments|records|billing|proxy-admin[]", name: string?, expiresInDays: int?}
+DuplicateCandidateView: {id: uuid, score: number, status: DuplicateStatus, a: PatientSummary, b: PatientSummary, matchedOn: "string[]", createdAt: datetime}
+DuplicateComparison:
+  candidate: DuplicateCandidateView
+  fields: "{field: string, a: string?, b: string?, same: bool}[]"
+  recordCounts: "{type: string, a: int, b: int}[]"
+MergeRequest:
+  survivorId: uuid
+  mergedId: uuid
+  fieldChoices: "{field: string, from: a|b}[]"
+  reason: text
+  version: int
+RegistryRow: {patient: PatientSummary, measureOrCondition: string, lastValue: string?, lastDate: date?, gaps: int, nextAppointment: datetime?}
+StagedChangeView:
+  _base: StagedChange
+  patient: PatientSummary
+  diffs: "{path: string, current: json?, proposed: json, source: ProvenanceSource}[]"
+StagedChangeDecision: {decision: accept|reject|partial, acceptPaths: "string[]?", reason: text?, version: int}
+
+# ---------- scheduling ----------
+SlotSearchResult:
+  _phi: false
+  slots: "{start: datetime, end: datetime, practitionerId: uuid, practitionerName: string, locationId: uuid, modality: Modality, visitTypeId: uuid}[]"
+  nextAvailable: datetime?
+BookAppointmentRequest:
+  patientId: uuid
+  visitTypeId: uuid
+  practitionerId: uuid
+  locationId: uuid
+  start: datetime
+  modality: Modality
+  reason: text?
+  coverageId: uuid?
+  referralId: uuid?
+  waitlistEntryId: uuid?
+  recallId: uuid?
+  sendConfirmation: bool?
+  overbookReason: text?
+AppointmentDetail:
+  appointment: AppointmentView
+  statusHistory: "AppointmentStatusEvent[]"
+  communications: "CommunicationLog[]"
+  encounterId: uuid?
+  checkin: PortalCheckin?
+  eligibility: EligibilityCheck?
+  estimate: Estimate?
+  allowedTransitions: "string[]"
+RescheduleRequest: {start: datetime, practitionerId: uuid?, locationId: uuid?, modality: Modality?, reason: text?, notify: bool?, version: int}
+ArriveRequest: {version: int, identityVerified: bool, coverageVerified: bool, consentsSigned: "ConsentType[]?", copayCollected: PaymentCreateRequest?}
+ArriveResult: {appointment: AppointmentView, encounterId: uuid, warnings: "string[]"}
+RoomRequest: {roomId: uuid, version: int}
+CancelAppointmentRequest: {reason: text, reasonCode: patient|provider|weather|other, notify: bool, offerToWaitlist: bool?, version: int}
+EncounterDetail:
+  _base: Encounter
+  appointment: AppointmentView?
+  patient: PatientBanner
+  note: ClinicalNoteSummary?
+  diagnoses: "Condition[]"
+  orders: "ServiceRequestView[]"
+  prescriptions: "MedicationRequest[]"
+  charges: "ChargeItem[]"
+  allowedTransitions: "string[]"
+CheckoutView:
+  appointment: AppointmentView
+  avs: AfterVisitSummary?
+  followUps: "{text: string, interval: string?, visitTypeId: uuid?}[]"
+  ordersToSchedule: "ServiceRequestView[]"
+  referrals: "ReferralView[]"
+  balance: PatientBalance
+  copayDue: money?
+CheckoutRequest: {version: int, payment: PaymentCreateRequest?, followUpAppointment: BookAppointmentRequest?, avsDelivery: "print|portal|email[]?"}
+FlowBoard:
+  locationId: uuid
+  rows: "{appointment: AppointmentView, stage: AppointmentStatus, enteredStageAt: datetime, waitMinutes: int, overThreshold: bool}[]"
+  thresholds: "{status: AppointmentStatus, minutes: int}[]"
+RoomBoard: {locationId: uuid, rooms: "{room: Room, appointment: AppointmentView?, since: datetime?}[]"}
+WaitlistView: {_base: WaitlistEntry, patient: PatientSummary, visitType: VisitType?, practitionerName: string?}
+SlotOfferRequest: {start: datetime, practitionerId: uuid, locationId: uuid, visitTypeId: uuid, channel: CommChannel, expiresInMinutes: int}
+RecallView: {_base: Recall, patient: PatientSummary, attempts: "OutreachAttempt[]"}
+RecallCreateRequest: {patientId: uuid, reason: string, dueDate: date, visitTypeId: uuid?, practitionerId: uuid?}
+OutreachAttempt: {at: datetime, channel: CommChannel, outcome: sent|reached|left-message|no-answer|booked|declined, note: text?}
+OutreachCampaignRequest: {recallIds: "uuid[]", channel: CommChannel, templateId: uuid}
+
+# ---------- encounters and documentation ----------
+EncounterCreateRequest: {patientId: uuid, class: EncounterClass, practitionerId: uuid, locationId: uuid?, appointmentId: uuid?, reason: text?, noteTemplateId: uuid?}
+PrechartView:
+  encounterId: uuid
+  banner: PatientBanner
+  reasonForVisit: text?
+  sinceLastVisit: "TimelineItem[]"
+  stagedOutside: "StagedChangeView[]"
+  careGaps: "CareGapView[]"
+  dueImmunizations: "ImmunizationForecastItem[]"
+  questionnaires: "QuestionnaireResponse[]"
+  plannedOrders: "ServiceRequestView[]"
+RoomingView:
+  encounterId: uuid
+  banner: PatientBanner
+  vitals: "Observation[]"
+  allergiesReviewedAt: datetime?
+  medicationsReviewedAt: datetime?
+  screenings: "QuestionnaireResponse[]"
+  pocOrders: "ServiceRequestView[]"
+  vaccinesDue: "ImmunizationForecastItem[]"
+  checklist: "{key: string, label: string, done: bool}[]"
+VitalsInput:
+  takenAt: datetime?
+  systolic: int?
+  diastolic: int?
+  position: sitting|standing|lying?
+  heartRate: int?
+  respiratoryRate: int?
+  temperature: number?
+  temperatureUnit: cel|degf?
+  spo2: int?
+  heightCm: number?
+  weightKg: number?
+  painScore: int?
+  headCircumferenceCm: number?
+  note: text?
+VitalsResult: {observations: "Observation[]", bmi: number?, percentiles: json?, alerts: "string[]"}
+PocResultInput: {serviceRequestId: uuid?, loinc: string, value: string, unit: string?, interpretation: ResultFlag?, lotNumber: string?, performedAt: datetime}
+AdministerVaccineRequest:
+  cvx: string
+  vaccineLotId: uuid
+  doseNumber: int?
+  route: string
+  site: string
+  doseQuantity: number
+  administeredAt: datetime
+  visGivenDate: date
+  visEditionDate: date
+  fundingSource: private|vfc|state|other
+  vfcEligibility: string?
+  orderedById: uuid
+  reportToIis: bool
+ClinicalNoteSummary: {id: uuid, encounterId: uuid, patient: PatientSummary, status: NoteStatus, title: string, authorName: string, dateOfService: date, updatedAt: datetime, ageHours: int}
+ClinicalNoteDetail:
+  _base: ClinicalNote
+  sections: "NoteSection[]"
+  aiSegments: "AiDraftSegment[]"
+  addenda: "Addendum[]"
+  lock: NoteLock?
+  allowedTransitions: "string[]"
+NoteSectionsUpdate: {version: int, sections: "{key: string, text: text, structured: json?}[]"}
+NoteLock: {heldBy: string, userId: uuid, acquiredAt: datetime, expiresAt: datetime}
+TemplateApplyRequest: {noteTemplateId: uuid, mode: replace|append, version: int}
+CopyForwardResult: {sections: "NoteSection[]", sourceNoteId: uuid, staleItems: "string[]"}
+AiSegmentDecision: {decision: accept|edit|discard, editedText: text?, version: int}
+SignPreflight:
+  _: Everything that blocks or warns before signing (INV-SAFE-01, INV-DOC-*).
+  canSign: bool
+  blockers: "{code: string, text: string, sectionKey: string?}[]"
+  warnings: "{code: string, text: string}[]"
+  requiresCosign: bool
+  cosigner: "{userId: uuid, name: string}?"
+SignNoteRequest: {version: int, attest: bool, cosignerUserId: uuid?, acknowledgedWarnings: "string[]?"}
+SignResult: {note: ClinicalNoteSummary, chargesCreated: int, tasksCreated: int, avsId: uuid?}
+AddendumCreate: {text: text, reason: text}
+EncounterDiagnosisCreate: {icd10Code: string, display: string?, rank: int?, addToProblemList: bool?, conditionId: uuid?}
+EncounterDiagnosisUpdate: {rank: int?, icd10Code: string?, version: int}
+EncounterCharges:
+  encounterId: uuid
+  diagnoses: "Condition[]"
+  lines: "ChargeItem[]"
+  emSuggestion: EmSuggestion?
+  holds: "{code: string, text: string}[]"
+  readyForClaim: bool
+EmLevelInput: {basis: mdm|time, totalMinutes: int?, problems: low|moderate|high?, data: minimal|limited|moderate|extensive?, risk: minimal|low|moderate|high?, newPatient: bool}
+EmSuggestion: {code: string, basis: mdm|time, rationale: "string[]", alternatives: "string[]"}
+CdsCard:
+  firingId: uuid
+  ruleId: uuid
+  severity: CdsSeverity
+  summary: string
+  detail: text?
+  source: string
+  suggestions: "{label: string, action: json}[]"
+  overrideReasons: "string[]"
+CdsOutcomeRequest: {outcome: accepted|overridden|dismissed, overrideReason: string?, suggestionIndex: int?}
+
+# ---------- clinical ----------
+ReconcileDecision:
+  _: Reconcile staged outside or patient-reported items into the active list (INV-DATA-01).
+  items: "{stagedId: uuid, action: accept|reject|merge, mergeIntoId: uuid?}[]"
+  reviewedComplete: bool
+AllergyReviewRequest: {noKnownAllergies: bool?, reviewedAt: datetime}
+MedicationStatementView: {_base: MedicationStatement, lastFill: MedicationFill?, activeRequest: MedicationRequest?, source: ProvenanceSource}
+DiscontinueRequest: {reason: text, effective: date?, cancelAtPharmacy: bool?}
+MedicationFill: {filledAt: date, pharmacy: string, quantity: number, daysSupply: int, prescriber: string?, source: erx|pdmp|claims}
+ObservationTrend: {code: string, display: string, unit: string?, referenceRange: string?, points: "{at: datetime, value: number, flag: ResultFlag?, observationId: uuid}[]"}
+DiagnosticReportSummary: {id: uuid, patientId: uuid, code: string, display: string, status: DiagnosticReportStatus, issuedAt: datetime?, flag: ResultFlag, reviewed: bool, released: bool, performer: string?}
+DiagnosticReportDetail:
+  _base: DiagnosticReport
+  observations: "Observation[]"
+  serviceRequest: ServiceRequestView?
+  priorResults: "ObservationTrend[]"
+  criticalContacts: "CriticalResultContact[]"
+  pdf: FileObject?
+ResultReleaseRequest: {release: bool, patientComment: text?, notifyChannel: CommChannel?}
+ImmunizationForecastItem: {vaccineGroup: string, cvxOptions: "string[]", doseNumber: int?, dueDate: date, overdue: bool, source: cds|iis}
+HistoryView:
+  medical: "Condition[]"
+  surgical: "Procedure[]"
+  family: "FamilyMemberHistory[]"
+  social: "Observation[]"
+  sdoh: "QuestionnaireResponse[]"
+  reviewedAt: datetime?
+TimeLogSummary: {patientId: uuid, program: string, month: string, totalMinutes: int, billableThresholds: "{code: string, minutes: int, met: bool}[]", entries: 'TimeLog[]'}
+CareManagementChargeRequest: {month: string, program: string, code: string, practitionerId: uuid}
+CareGapView: {_base: CareGap, measure: {id: uuid, name: string}, patient: PatientSummary?, lastDone: date?, closesWith: "string[]"}
+CareGapDecision: {action: close|exclude|defer, reason: text?, until: date?, evidenceEntityId: uuid?}
+
+# ---------- orders, results, referrals ----------
+OrderCatalogItem: {id: uuid, kind: lab|imaging|procedure|referral|order-set, code: string, display: string, lab: string?, specimen: string?, aoe: "string[]", requiresAuth: bool?}
+ServiceRequestView:
+  _base: ServiceRequest
+  reasons: "ServiceRequestReason[]"
+  specimen: Specimen?
+  results: "DiagnosticReportSummary[]"
+  authorization: Authorization?
+  allowedTransitions: "string[]"
+OrderValidation:
+  ok: bool
+  issues: "{serviceRequestId: uuid, severity: error|warning, code: missing-dx|medical-necessity|aoe|duplicate|auth-required|abn, text: string}[]"
+SignOrdersRequest: {ids: "uuid[]", abnSigned: bool?, acknowledgedWarnings: "string[]?"}
+ExpectedDateRequest: {expectedBy: date}
+KitHandoffRequest: {instructionsGiven: bool, kitLot: string?, expectedReturnBy: date?}
+CollectionItem: {serviceRequest: ServiceRequestView, patient: PatientSummary, tube: string?, fasting: bool?, dueAt: datetime?}
+SpecimenCollectionRequest: {serviceRequestIds: "uuid[]", collectedAt: datetime, collectorId: uuid?, type: string, container: string?, volume: string?, bodySite: string?, printLabels: bool}
+OverdueOrderRow: {serviceRequest: ServiceRequestView, patient: PatientSummary, daysOverdue: int, lastOutreach: OutreachAttempt?}
+ResultInboxItem: {report: DiagnosticReportSummary, patient: PatientSummary, orderingProvider: string, critical: bool, assignedToMe: bool, taskId: uuid?}
+ReviewResultRequest: {comment: text?, patientComment: text?, release: bool?, followUp: "{kind: task|order|appointment|message, detail: text}?", version: int}
+BulkReviewRequest: {ids: "uuid[]", release: bool?, comment: text?}
+InboundResultDetail: {_base: InboundResult, candidates: "{patient: PatientSummary, score: number, orderId: uuid?}[]", rawPreview: text}
+MatchResultRequest: {patientId: uuid, serviceRequestId: uuid?, reason: text}
+ReferralView:
+  _base: Referral
+  patient: PatientSummary
+  serviceRequest: ServiceRequestView?
+  authorization: Authorization?
+  documents: "DocumentReference[]"
+  allowedTransitions: "string[]"
+SendReferralRequest: {channel: direct|fax|portal|print, recipientNpi: string?, directAddress: string?, faxNumber: phone?, includeDocumentIds: "uuid[]", ccdaIncluded: bool, coverLetter: text?}
+SpecialistAppointmentRequest: {start: datetime, location: string?, notes: text?}
+AttachDocumentRequest: {documentReferenceId: uuid?, incomingDocumentId: uuid?}
+AuthorizationView: {_base: Authorization, patient: PatientSummary, payerName: string, daysPending: int}
+
+# ---------- prescribing ----------
+RxCheckResult:
+  alerts: "DurAlert[]"
+  formulary: "{status: preferred|on-formulary|non-formulary|unknown, tier: int?, alternatives: 'string[]', priorAuthRequired: bool?}?"
+  pdmpRequired: bool
+  epcsRequired: bool
+DurDecision: {action: override|cancel, reason: string?}
+PdmpQueryRequest: {patientId: uuid, state: string, purpose: string}
+SignPrescriptionRequest:
+  ids: "uuid[]"
+  pharmacyId: uuid?
+  pdmpQueryId: uuid?
+  epcsToken: string?
+  acknowledgedAlertIds: "uuid[]?"
+RxRequestView: {_base: RxRequest, patient: PatientSummary, medication: MedicationRequest?, lastVisit: date?, protocolMet: bool?, protocolNotes: "string[]"}
+RxRequestApproval: {decision: approve|deny|change|needs-visit, quantity: number?, refills: int?, daysSupply: int?, denialReason: string?, note: text?}
+
+# ---------- inbox ----------
+TaskView: {_base: Task, patient: PatientSummary?, assigneeName: string?, poolName: string?, overdue: bool, comments: "TaskComment[]?"}
+CosignItem: {note: ClinicalNoteSummary, author: string, waitingHours: int}
+ThreadSummary: {id: uuid, subject: string, category: MessageCategory, patient: PatientSummary?, lastMessageAt: datetime, lastSnippet: string, unread: bool, assigneeName: string?, slaDueAt: datetime?}
+StaffNewThread: {patientId: uuid, subject: string, category: MessageCategory, body: text, attachmentFileIds: "uuid[]?", internal: bool?}
+ThreadDetail: {thread: ThreadSummary, messages: "Message[]", taskId: uuid?, eVisit: EVisitView?}
+StaffMessageCreate: {body: text, kind: PATIENT|INTERNAL_NOTE, attachmentFileIds: "uuid[]?", templateId: uuid?, closeThread: bool?}
+EVisitView: {_base: EVisit, questionnaire: QuestionnaireResponse?, cumulativeMinutes: int, billable: bool}
+MessageTemplate: {_phi: false, id: uuid, name: string, category: MessageCategory, body: text}
+PhoneCallCreate: {patientId: uuid, direction: inbound|outbound, callerName: string?, phone: phone?, summary: text, createTask: bool?, routeToPoolId: uuid?}
+LetterRequest: {patientId: uuid, templateKey: string, fields: json?, delivery: print|portal|email|fax}
+
+# ---------- documents ----------
+IncomingDocumentView: {_base: IncomingDocument, file: FileObject, suggestedPatients: "{patient: PatientSummary, score: number}[]", pages: int}
+SplitRequest: {ranges: "{from: int, to: int}[]"}
+RotateRequest: {page: int?, degrees: int}
+FileIncomingRequest: {patientId: uuid, documentType: string, loinc: string?, title: string, date: date, encounterId: uuid?, referralId: uuid?, serviceRequestId: uuid?, routeToUserId: uuid?, restricted: bool?}
+
+# ---------- billing ----------
+EligibilityRow: {appointment: AppointmentView, coverage: CoverageView?, status: EligibilityStatus, checkedAt: datetime?, issue: string?}
+PatientBalance: {patientId: uuid, insurancePending: money, patientDue: money, credit: money, inCollections: bool, oldestDays: int?}
+PaymentCreateRequest:
+  amount: money
+  method: PaymentMethodType
+  paymentMethodId: uuid?
+  hostedFieldsToken: string?
+  checkNumber: string?
+  appointmentId: uuid?
+  allocations: "{chargeItemId: uuid, amount: money}[]?"
+  savePaymentMethod: bool?
+  idempotencyKey: string
+RefundRequest: {amount: money, reason: text, toOriginalMethod: bool}
+PaymentMethodCreateRequest: {_phi: false, hostedFieldsToken: string, autopay: bool?, consentToCardOnFile: bool}
+ChargeReviewRow: {encounterId: uuid, patient: PatientSummary, dateOfService: date, practitioner: string, total: money, holds: "string[]", ageDays: int}
+ChargeReviewDetail: {charges: EncounterCharges, note: ClinicalNoteSummary, coverage: CoverageView?, edits: "{code: string, severity: error|warning, text: string, lineId: uuid?}[]"}
+ClaimSummary: {id: uuid, number: string, status: ClaimStatus, patient: PatientSummary, payerName: string, dateOfService: date, billed: money, paid: money, balance: money, ageDays: int, lastEventAt: datetime}
+ClaimPipeline: {_phi: false, buckets: "{status: ClaimStatus, count: int, amount: money}[]"}
+ClaimDetail:
+  _base: Claim
+  lines: "ClaimLine[]"
+  events: "ClaimEvent[]"
+  denials: "Denial[]"
+  remittances: "RemittanceSummary[]"
+  ledger: "LedgerEntry[]"
+  allowedTransitions: "string[]"
+ClaimSubmitRequest: {ids: "uuid[]", scrubOnly: bool?}
+ClaimCorrection: {frequencyCode: "7|8", changes: json, reason: text, version: int}
+RejectionRow: {claim: ClaimSummary, source: 999|277CA, code: string, text: string, rejectedAt: datetime}
+RemittanceSummary: {id: uuid, payerName: string, checkNumber: string, paidAt: date, amount: money, status: RemittanceStatus, claims: int, exceptions: int}
+RemittanceDetail: {_base: Remittance, claimPayments: "{payment: RemittanceClaimPayment, claim: ClaimSummary?, adjustments: 'RemittanceAdjustment[]'}[]", providerLevelAdjustments: 'ProviderLevelAdjustment[]'}
+ClaimRefRequest: {claimId: uuid}
+DenialGroup: {_phi: false, key: string, label: string, count: int, amount: money}
+DenialRow: {denial: Denial, claim: ClaimSummary, carc: string, rarc: "string[]", amount: money, appealDeadline: date?}
+DenialDetail: {_base: Denial, claim: ClaimDetail, adjustments: "RemittanceAdjustment[]", appeals: "Appeal[]", suggestedAction: DenialAction?}
+AppealLetterRequest: {denialId: uuid, level: int, points: "string[]?"}
+AppealDraft: {text: text, attachmentsSuggested: "string[]"}
+AppealCreateRequest: {level: int, letter: text, attachmentFileIds: "uuid[]", submittedVia: portal|fax|mail|edi}
+WriteOffRequest: {amount: money, reasonCode: string, note: text?}
+StatementCycle: {_phi: false, id: uuid, runAt: datetime, statements: int, total: money, status: JobStatus}
+PatientAccount:
+  patient: PatientSummary
+  guarantor: string?
+  balance: PatientBalance
+  ledger: "LedgerEntry[]"
+  payments: "Payment[]"
+  paymentPlans: "PaymentPlan[]"
+  statements: "Statement[]"
+  paymentMethods: "PaymentMethod[]"
+DepositBatchView: {_base: DepositBatch, payments: "Payment[]", expected: money, counted: money?}
+DrawerCounts: {cash: money, checks: money, cardTerminal: money?}
+DayCloseRequest: {locationId: uuid, date: date, counts: DrawerCounts, varianceReason: text?}
+
+# ---------- reports (aggregates; minimum necessary) ----------
+ArAgingRow: {_phi: false, key: string, label: string, b0_30: money, b31_60: money, b61_90: money, b91_120: money, b120plus: money, total: money}
+ArAgingReport: {_phi: false, asOf: date, groupBy: string, rows: "ArAgingRow[]", totals: ArAgingRow}
+CollectionsReport: {_phi: false, period: string, rows: "{key: string, charges: money, payments: money, adjustments: money, netCollectionRate: number}[]"}
+ChargeLagReport: {_phi: false, medianDays: number, rows: "{practitioner: string, encounters: int, medianLagDays: number, over3Days: int}[]"}
+NoShowReport: {_phi: false, rate: number, rows: "{key: string, booked: int, noShow: int, rate: number}[]"}
+CycleTimeReport: {_phi: false, rows: "{stage: AppointmentStatus, medianMinutes: number, p90Minutes: number}[]"}
+ProductivityReport: {_phi: false, rows: "{practitionerId: uuid, name: string, visits: int, rvu: number, charges: money, collections: money}[]"}
+QualityReport: {_phi: false, period: string, measures: "{measureId: uuid, name: string, numerator: int, denominator: int, exclusions: int, rate: number, benchmark: number?}[]"}
+MeasureGapRow: {patient: PatientSummary, measureId: uuid, gap: string, lastDone: date?, nextAppointment: datetime?}
+QrdaExportRequest: {measureIds: "uuid[]", period: string, category: QRDA_I|QRDA_III, practitionerIds: "uuid[]?"}
+CareGapReportRow: {patient: PatientSummary, gaps: "CareGapView[]", pcp: string?}
+RpmRow: {patient: PatientSummary, program: string, month: string, readingsDays: int, minutes: int, billable: bool}
+
+# ---------- telehealth ----------
+VirtualVisitRow: {appointment: AppointmentView, session: TelehealthSessionView?, patientReady: bool, deviceCheckPassed: bool?}
+TelehealthSessionView: {_base: TelehealthSession, participants: "{name: string, role: patient|proxy|interpreter|provider|staff, joinedAt: datetime?}[]"}
+TelehealthJoin: {_phi: false, roomName: string, token: string, expiresAt: datetime, provider: string}
+ParticipantInvite: {name: string, role: proxy|interpreter|staff, phone: phone?, email: email?}
+
+# ---------- admin ----------
+UserView:
+  _phi: false
+  id: uuid
+  name: string
+  email: email
+  status: AccountStatus
+  roles: "Role[]"
+  locations: "{id: uuid, name: string}[]"
+  practitionerId: uuid?
+  mfaEnrolled: bool
+  mfaTypes: "MfaFactorType[]"
+  lastSignInAt: datetime?
+  lockedUntil: datetime?
+  canSign: "{notes: bool, orders: bool, prescriptions: bool, controlledSubstances: bool}"
+InviteUserRequest: {_phi: false, name: string, email: email, phone: phone?, roles: "Role[]", locationIds: "uuid[]", practitionerId: uuid?}
+UserRolesRequest: {_phi: false, roles: "Role[]", reason: text}
+PractitionerDetail:
+  _base: Practitioner
+  licenses: "PractitionerLicense[]"
+  deaRegistrations: "DeaRegistration[]"
+  payerEnrollments: "PayerEnrollment[]"
+  epcs: EpcsProofingStatus
+  nppes: NpiRegistryEntry?
+EpcsProofingStatus: {_phi: false, status: not-started|pending|proofed|failed, vendorReference: string?, logicalAccessGrantedBy: "{userId: uuid, at: datetime}[]", twoFactorDeviceBound: bool}
+WorkPoolView: {_base: WorkPool, members: "{userId: uuid, name: string}[]", openTasks: int}
+SettingValue: {_phi: false, value: json, reason: text?}
+CdsRuleView: {_base: CdsRule, firings30d: int, overrideRate: number}
+AuditExportRequest: {from: datetime, to: datetime, userId: uuid?, patientId: uuid?, actions: "AuditAction[]?", format: csv|json, reason: text}
+BreakGlassReview: {outcome: BreakGlassOutcome, note: text}
+IntegrationView: {_phi: false, id: uuid, kind: IntegrationKind, name: string, health: IntegrationHealth, enabled: bool, baaOnFile: bool, lastSuccessAt: datetime?, failures24h: int, queueDepth: int}
+IntegrationDetail: {_base: IntegrationConnection, recentMessages: "InterfaceMessage[]", secretsSet: "string[]"}
+IntegrationUpdate: {_phi: false, enabled: bool?, config: json?, baaOnFile: bool?, baaSignedAt: date?, version: int}
+SecretWrite: {_phi: false, value: password}
+SmartClientRegistration: {_phi: false, name: string, redirectUris: "uri[]", scopes: "string[]", confidential: bool, jwksUri: uri?, backendService: bool}
+
+# ---------- portal ----------
+PortalMe:
+  user: {id: uuid, email: email, name: string}
+  patients: "{patientId: uuid, name: string, birthDate: date, relationship: PortalRelationship, scopes: 'string[]'}[]"
+  session: {idleTimeoutSeconds: int, absoluteExpiresAt: datetime}
+PortalAppointment:
+  id: uuid
+  status: AppointmentStatus
+  start: datetime
+  end: datetime
+  modality: Modality
+  visitTypeName: string
+  practitionerName: string
+  location: "{name: string, address: string, phone: phone?}?"
+  canCancel: bool
+  cancelDeadline: datetime?
+  checkinStatus: CheckinStatus?
+  videoJoinOpensAt: datetime?
+PortalHome:
+  nextAppointment: PortalAppointment?
+  todos: "PortalTodo[]"
+  unreadMessages: int
+  newResults: int
+  balanceDue: money
+PortalVisitType: {_phi: false, id: uuid, name: string, durationMinutes: int, modalities: "Modality[]", instructions: text?}
+PortalBookingRequest: {visitTypeId: uuid, practitionerId: uuid?, start: datetime, modality: Modality, reason: text?}
+PortalCheckin: {appointmentId: uuid, status: CheckinStatus, steps: "{key: details|insurance|questionnaire|medications|consents|payment, done: bool, required: bool}[]"}
+CheckinStepPayload: {data: json, questionnaireResponse: json?, fileIds: "uuid[]?"}
+PortalVideoJoinRequest: {telehealthConsent: bool, deviceCheckPassed: bool}
+PortalTodo: {id: string, kind: form|consent|payment|insurance-card|checkin, title: string, dueAt: datetime?, appointmentId: uuid?}
+PortalConsentSignature: {type: ConsentType, documentVersion: string, signerName: string, relationship: PortalRelationship, agree: bool}
+UrgencyCheck: {_phi: false, urgent: bool, message: string?}
+PortalNewThread: {subject: string, category: MessageCategory, body: text, attachmentFileIds: "uuid[]?", acknowledgedNotForEmergencies: bool}
+PortalMessageCreate: {body: text, attachmentFileIds: "uuid[]?"}
+PortalMedication: {medicationRequestId: uuid, display: string, sig: string, lastFilled: date?, refillsRemaining: int?, pharmacyName: string?}
+PortalRefillRequest: {medicationRequestIds: "uuid[]", pharmacyId: uuid?, note: text?}
+PortalRecord:
+  problems: "{display: string, onset: date?}[]"
+  medications: "{display: string, sig: string?}[]"
+  allergies: "{display: string, reaction: string?}[]"
+  immunizations: "{display: string, date: date}[]"
+  vitals: "{display: string, value: string, date: date}[]"
+PortalResult: {id: uuid, name: string, date: date, providerComment: text?, observations: "{name: string, value: string, unit: string?, range: string?, flag: ResultFlag?, plainLanguage: string?}[]", trend: 'ObservationTrend[]?'}
+PortalVisit: {encounterId: uuid, date: date, practitionerName: string, visitTypeName: string, avsFileId: uuid?, noteReleased: bool, noteText: text?}
+PortalRecordExportRequest: {format: c-cda|pdf|fhir-ndjson, from: date?, to: date?, sendTo: "{directAddress: string?, email: email?}?"}
+PortalAmendmentRequest: {what: text, why: text, entityType: string?, entityId: uuid?}
+PortalBilling:
+  balanceDue: money
+  byVisit: "{date: date, description: string, billed: money, insurancePaid: money, adjustments: money, youOwe: money}[]"
+  statements: "{id: uuid, date: date, amount: money}[]"
+  paymentPlan: PaymentPlan?
+  autopay: bool
+PortalPaymentRequest: {amount: money, paymentMethodId: uuid?, hostedFieldsToken: string?, savePaymentMethod: bool?, idempotencyKey: string}
+PortalPaymentPlanRequest: {months: int, paymentMethodId: uuid, startDate: date}
+PortalProfile:
+  name: string
+  preferredName: string?
+  pronouns: string?
+  birthDate: date
+  address: PatientAddress?
+  phones: "PatientContactPoint[]"
+  email: email?
+  preferredPharmacy: Pharmacy?
+  coverages: "{payerName: string, memberIdMasked: string}[]"
+  preferences: PortalPreferences
+  pendingChanges: int
+ProfileChangeRequest: {changes: "{path: string, value: json}[]", note: text?}
+PortalPreferences: {smsConsent: bool, emailConsent: bool, appointmentReminders: sms|email|both|none, preferredPharmacyId: uuid?, language: string?}
+SmartGrantView: {_phi: false, id: uuid, appName: string, scopes: "string[]", grantedAt: datetime, lastAccessAt: datetime?}
+
+# ---------- reference ----------
+CodeHit: {_phi: false, system: CodeSystem, code: string, display: string, billable: bool?, children: int?, version: string?}
+DrugConcept:
+  _phi: false
+  rxcui: string
+  name: string
+  tty: string
+  ingredients: "string[]"
+  strength: string?
+  doseForm: string?
+  deaSchedule: string?
+  ndcs: "string[]?"
+  related: "{rxcui: string, name: string, tty: string}[]?"
+DirectAddress: {_phi: false, address: string, name: string, npi: string?, organization: string?, city: string?, state: string?}
+CodeSystemVersion: {_phi: false, system: CodeSystem, version: string, loadedAt: datetime, concepts: int, effectiveFrom: date?}
+
+# ---------- OAuth / SMART ----------
+OAuthToken:
+  _phi: false
+  access_token: string
+  token_type: "=Bearer"
+  expires_in: int
+  scope: string
+  refresh_token: string?
+  id_token: string?
+  patient: uuid?
+  need_patient_banner: bool?
+  smart_style_url: uri?
+OAuthIntrospection: {_phi: false, active: bool, scope: string?, client_id: string?, sub: string?, patient: uuid?, exp: int?}
+Jwks: {_phi: false, keys: "json[]"}

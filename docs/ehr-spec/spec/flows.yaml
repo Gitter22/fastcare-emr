@@ -1,0 +1,449 @@
+# Business flows. Step IDs are referenced as flow:<flow-id>/<step-id> (e.g. flow:encounter/05).
+# screen: where the step happens (null for background system steps).
+# writes: domain entities created/changed (glossary names). external: gateway + standard.
+# transition: state machine change, as <machine>:<from>-><to> (see states.yaml).
+# failure: what the user sees and where the work goes when this step fails.
+flows:
+  - id: access
+    name: Patient access
+    outcome: Booked, eligible, pre-registered patient before arrival.
+    measures: [no-show rate, eligibility failures at check-in]
+    steps:
+      - id: "01"
+        role: patient
+        action: Request appointment
+        screen: portal.appointments
+        behaviour: Self-schedule against allowed visit types, or call. New patients give reason, insurance and referring provider.
+        writes: [Appointment]
+        transition: "appointment:new->requested"
+        failure: Slot taken between view and confirm; show next three alternatives.
+      - id: "02"
+        role: frontdesk
+        action: Book and register
+        screen: schedule.booking-drawer
+        behaviour: Search before create. Pick visit type; slot finder respects provider templates. Capture insurance and guarantor.
+        writes: [Patient, Coverage, Guarantor, Appointment]
+        transition: "appointment:requested->booked"
+        failure: Possible duplicate; side-by-side compare before continuing.
+        invariants: [INV-ID-02]
+      - id: "03"
+        role: system
+        action: Verify eligibility
+        screen: null
+        surface: billing.eligibility
+        behaviour: Real-time check at booking and batch 48h before the visit. Store copay, deductible remaining, PCP on file, auth requirements.
+        writes: [CoverageEligibility]
+        external: ClearinghouseGateway (X12 270/271)
+        failure: Inactive or unknown coverage flagged on home.frontdesk-board; patient prompted to update insurance or proceed self-pay.
+        invariants: [INV-OPS-01]
+      - id: "04"
+        role: system
+        action: Remind and confirm
+        screen: null
+        surface: schedule.appointment-detail
+        behaviour: SMS/email at 72h and 24h with confirm, cancel, reschedule. Cancelled slots offered to waitlist.
+        writes: [Appointment, CommunicationLog]
+        external: MessagingGateway (SMS/email)
+        transition: "appointment:booked->confirmed"
+        failure: Opt-out respected; fall back to voice call list.
+        invariants: [INV-SEC-06]
+      - id: "05"
+        role: patient
+        action: Pre-visit e-check-in
+        screen: portal.todos
+        behaviour: Review demographics, upload insurance card and ID, intake questionnaire, consents, med and allergy review, optional copay prepay.
+        writes: [QuestionnaireResponse, Consent, staged Provenance items, Payment]
+        external: PaymentGateway
+        failure: Abandoned midway; progress saved with resume link.
+        invariants: [INV-DATA-01]
+      - id: "06"
+        role: frontdesk
+        action: Reconcile patient-entered data
+        screen: inbox.previsit-queue
+        behaviour: Accept or reject demographic and insurance changes. Patient-reported meds and allergies go to MA reconciliation, not straight into the chart.
+        writes: [Patient, Coverage]
+        failure: Changed insurance triggers a new eligibility check (step 03).
+        invariants: [INV-DATA-01]
+      - id: "07"
+        role: provider
+        action: Pre-chart
+        screen: encounter.prechart
+        behaviour: Review care gaps, outstanding results, outside records; pend standing orders.
+        writes: [Encounter (planned), ServiceRequest (pended)]
+        external: HIE query (optional)
+
+  - id: checkin
+    name: Check-in and rooming
+    outcome: Patient in a room with intake data ready for the provider.
+    measures: [arrive-to-room time, copay collection rate]
+    steps:
+      - id: "01"
+        role: frontdesk
+        action: Arrive patient
+        screen: home.frontdesk-board
+        behaviour: Verify photo ID and insurance card; collect copay and prior balance; sign outstanding consents.
+        writes: [Appointment, Payment, Consent]
+        external: PaymentGateway
+        transition: "appointment:confirmed->arrived"
+        failure: Copay declined; allow arrival, record balance, flag.
+        invariants: [INV-FIN-01]
+      - id: "02"
+        role: system
+        action: Update flow board
+        screen: null
+        surface: schedule.flow-board
+        behaviour: Wait timer starts; colour changes after threshold; MA pool notified.
+      - id: "03"
+        role: ma
+        action: Room patient
+        screen: schedule.flow-board
+        behaviour: Assign room; opens encounter rooming.
+        writes: [Encounter]
+        transition: "appointment:arrived->roomed"
+        failure: Identity confirmation (name + DOB) required on open.
+        invariants: [INV-ID-01]
+      - id: "04"
+        role: ma
+        action: Intake
+        screen: encounter.rooming
+        behaviour: Vitals, chief complaint, med reconciliation, allergy review, screenings, point-of-care tests.
+        writes: [Observation, MedicationStatement, AllergyIntolerance, QuestionnaireResponse]
+        failure: Out-of-range vital prompts re-measure.
+        invariants: [INV-DATA-01]
+      - id: "05"
+        role: ma
+        action: Protocols and hand-off
+        screen: encounter.rooming
+        behaviour: Give standing-order vaccines (VIS documented); pend orders for provider; mark ready.
+        writes: [Immunization, ServiceRequest (pended)]
+        external: IisGateway (HL7 v2 VXU)
+        transition: "appointment:roomed->ready-for-provider"
+        failure: Expired vaccine lot blocks administration.
+
+  - id: encounter
+    name: Provider encounter
+    outcome: Signed note, linked orders, clean charge.
+    measures: [note close time, charge lag, alert override rate]
+    steps:
+      - id: "01"
+        role: provider
+        action: Review
+        screen: encounter.note
+        behaviour: Summary, rooming data, prior note and new results in the context drawer.
+        transition: "appointment:ready-for-provider->with-provider"
+      - id: "02"
+        role: provider
+        action: Document
+        screen: encounter.note
+        behaviour: HPI, ROS, exam via templates, smart phrases, voice or ambient draft.
+        writes: [ClinicalNote]
+        transition: "note:new->draft"
+        failure: Copy-forward shows a diff and stale-data warning.
+        invariants: [INV-DATA-02]
+      - id: "03"
+        role: provider
+        action: Assess and plan
+        screen: encounter.dx-coding
+        behaviour: ICD-10-CM search in plain language with specificity prompts; update problem list; plan per problem.
+        writes: [Condition]
+        failure: Unspecified code prompts for specificity (soft).
+      - id: "04"
+        role: provider
+        action: Order
+        screen: encounter.orders
+        behaviour: Labs from compendium with AOE questions, imaging, referrals, procedures; order sets; ABN prompt for Medicare where needed.
+        writes: [ServiceRequest]
+        external: LabGateway (HL7 v2 ORM)
+        transition: "order:pended->signed"
+        failure: Missing AOE answer or diagnosis link blocks send.
+        invariants: [INV-SAFE-01, INV-ID-03]
+      - id: "05"
+        role: provider
+        action: Prescribe
+        screen: encounter.rx
+        behaviour: Formulary and real-time benefit check, DUR checks, PDMP review for controlled substances, EPCS signing, send.
+        writes: [MedicationRequest]
+        external: ErxGateway (NCPDP SCRIPT), PdmpGateway
+        failure: Pharmacy rejection returns as a change request in inbox.rx-requests.
+        invariants: [INV-SAFE-05, INV-SAFE-06, INV-ID-03]
+      - id: "06"
+        role: provider
+        action: Code
+        screen: encounter.charges
+        behaviour: E/M by MDM or total time, CPT/HCPCS, modifiers, units, diagnosis pointers. Coding assistant explains its suggestion.
+        writes: [ChargeItem]
+        failure: Modifier 25 without separate diagnosis warns.
+        invariants: [INV-FIN-03]
+      - id: "07"
+        role: provider
+        action: Sign
+        screen: encounter.sign
+        behaviour: Pre-flight blockers, then lock. Supervised clinicians route to co-sign when rules require.
+        writes: [ClinicalNote, ChargeItem]
+        transition: "note:draft->signed"
+        failure: Each blocker listed with a link to fix it.
+        invariants: [INV-SAFE-01, INV-SAFE-02, INV-SAFE-08, INV-DATA-02]
+      - id: "08"
+        role: frontdesk
+        action: Checkout
+        screen: schedule.checkout
+        behaviour: Release AVS, book follow-up, schedule referral/imaging, collect remaining balance.
+        writes: [AfterVisitSummary, Appointment, Payment]
+        transition: "appointment:checkout->completed"
+        failure: Patient leaves before checkout; AVS auto-released to portal.
+
+  - id: results
+    name: Orders and results
+    outcome: Every order closes with a reviewed result and a notified patient.
+    measures: [result-to-sign time, overdue orders]
+    steps:
+      - id: "01"
+        role: provider
+        action: Order sent
+        screen: encounter.orders
+        behaviour: Electronic order or printed requisition and labels.
+        writes: [ServiceRequest]
+        external: LabGateway (HL7 v2 ORM)
+        transition: "order:signed->sent"
+        failure: Interface down; print requisition and queue resend.
+        invariants: [INV-OPS-01]
+      - id: "02"
+        role: ma
+        action: Collect specimen
+        screen: orders.collection
+        behaviour: In-house draw or send-out; record collection time.
+        writes: [Specimen]
+        transition: "order:sent->collected"
+      - id: "03"
+        role: system
+        action: Receive result
+        screen: null
+        surface: inbox.results
+        behaviour: Parse ORU, match by accession and demographics, map LOINC for trending.
+        writes: [DiagnosticReport, Observation]
+        external: LabGateway (HL7 v2 ORU)
+        transition: "order:collected->resulted-final"
+        failure: Unmatched or ambiguous goes to orders.result-reconciliation, never auto-filed.
+        invariants: [INV-SAFE-03]
+      - id: "04"
+        role: provider
+        action: Review and sign
+        screen: inbox.results
+        behaviour: Critical and abnormal first; trend and compare; sign, comment, choose next action.
+        writes: [result review, Task]
+        transition: "order:resulted-final->reviewed"
+        failure: Critical result requires documented communication before closing.
+        invariants: [INV-SAFE-04, INV-SAFE-01]
+      - id: "05"
+        role: patient
+        action: See result
+        screen: portal.record
+        behaviour: Released per practice release rules; provider comment attached when present.
+        failure: Delay exception recorded with reason when applied (see OPEN-Q6).
+      - id: "06"
+        role: system
+        action: Close the loop
+        screen: null
+        surface: orders.tracking
+        behaviour: Orders past expected date without result surface for follow-up.
+        failure: Escalates to ordering provider's pool.
+        invariants: [INV-SAFE-07]
+
+  - id: rcm
+    name: Revenue cycle
+    outcome: Paid claim, posted payment, collected patient balance.
+    measures: [clean-claim rate, days in AR, denial rate]
+    steps:
+      - id: "01"
+        role: system
+        action: Create charge
+        screen: null
+        surface: billing.charge-review
+        behaviour: On note sign, charges pass to claim if edits pass, otherwise to charge review.
+        writes: [ChargeItem]
+      - id: "02"
+        role: biller
+        action: Charge review
+        screen: billing.charge-review
+        behaviour: Fix NCCI pairs, MUEs, missing modifiers, missing auth, diagnosis pointers, rendering vs billing provider, POS.
+        writes: [ChargeItem]
+        failure: Needs provider input; query task with return link.
+        invariants: [INV-FIN-03]
+      - id: "03"
+        role: system
+        action: Scrub and submit
+        screen: null
+        surface: billing.claims
+        behaviour: Payer-specific rules, build 837P, batch to clearinghouse.
+        writes: [Claim]
+        external: ClearinghouseGateway (X12 837P)
+        transition: "claim:ready->submitted"
+      - id: "04"
+        role: system
+        action: Acknowledgement
+        screen: null
+        surface: billing.rejections
+        behaviour: Process 999 and 277CA.
+        external: ClearinghouseGateway (X12 999, 277CA)
+        transition: "claim:submitted->accepted"
+        failure: Rejection becomes a work item with plain-language reason and the field to fix.
+        invariants: [INV-FIN-05]
+      - id: "05"
+        role: biller
+        action: Fix and resubmit
+        screen: billing.rejections
+        behaviour: Correct and resubmit with correct frequency code.
+        writes: [Claim]
+        transition: "claim:rejected->submitted"
+      - id: "06"
+        role: system
+        action: Post remittance
+        screen: null
+        surface: billing.era-posting
+        behaviour: Auto-post 835; contractual adjustments; transfer patient responsibility.
+        writes: [Remittance, Payment, Adjustment]
+        external: ClearinghouseGateway (X12 835)
+        transition: "claim:accepted->paid"
+        failure: Unbalanced ERA or unmatched claim goes to exception queue.
+        invariants: [INV-FIN-01]
+      - id: "07"
+        role: biller
+        action: Denials and appeals
+        screen: billing.denials
+        behaviour: Group by CARC/RARC root cause; correct and resubmit or appeal; detect underpayment vs fee schedule.
+        writes: [Denial, Appeal]
+        transition: "claim:denied->appealed"
+        failure: Filing deadline countdown visible on every item.
+        invariants: [INV-FIN-05]
+      - id: "08"
+        role: patient
+        action: Pay balance
+        screen: portal.billing
+        behaviour: Statement by text/email, pay online, payment plan, autopay.
+        writes: [Payment]
+        external: PaymentGateway
+        failure: Failed autopay retries and notifies.
+      - id: "09"
+        role: manager
+        action: Close and review
+        screen: billing.day-close
+        behaviour: Reconcile deposits; review AR aging.
+        writes: [DepositBatch]
+        failure: Variance requires a reason before close.
+        invariants: [INV-FIN-04]
+
+  - id: refills
+    name: Refills and messages
+    outcome: Every request answered within the practice's SLA.
+    measures: [message turnaround, refill turnaround]
+    steps:
+      - id: "01"
+        role: patient
+        action: Request
+        screen: portal.messages
+        behaviour: Structured refill request or categorised message (clinical, billing, scheduling). Pharmacies send renewal requests.
+        writes: [Communication, Task]
+        external: ErxGateway (NCPDP RxRenewal)
+        failure: Urgent symptom keywords show an emergency banner.
+      - id: "02"
+        role: system
+        action: Route
+        screen: null
+        surface: inbox.tasks
+        behaviour: Route to pool by category and care team; due time by SLA.
+        transition: "task:new->open"
+        failure: Unowned past SLA escalates.
+      - id: "03"
+        role: ma
+        action: Triage
+        screen: inbox.rx-requests
+        behaviour: Apply refill protocol (last visit, required labs); pend for provider or answer within scope.
+        writes: [MedicationRequest (pended)]
+        transition: "task:open->pended-to-provider"
+        failure: Protocol fails; book visit and request short supply.
+      - id: "04"
+        role: provider
+        action: Approve
+        screen: inbox.rx-requests
+        behaviour: Approve, modify or deny with reason. Messages can convert to a billable e-visit.
+        writes: [MedicationRequest, Communication]
+        external: ErxGateway (NCPDP SCRIPT)
+        transition: "task:pended-to-provider->completed"
+        invariants: [INV-SAFE-01]
+      - id: "05"
+        role: patient
+        action: Notified
+        screen: portal.messages
+        behaviour: Status and reply visible in the thread; SMS nudge with no clinical detail.
+        invariants: [INV-SEC-06]
+
+  - id: referral
+    name: Referrals
+    outcome: Outbound referral completed and consult note filed.
+    measures: [referral loop closure rate]
+    steps:
+      - id: "01"
+        role: provider
+        action: Order referral
+        screen: encounter.orders
+        behaviour: Specialty, preferred provider, reason, urgency, linked diagnosis.
+        writes: [ServiceRequest (referral)]
+        transition: "referral:new->ordered"
+      - id: "02"
+        role: frontdesk
+        action: Authorise and send
+        screen: referrals.worklist
+        behaviour: Check payer referral and auth rules; obtain auth; send with clinical summary.
+        writes: [Referral, Authorization]
+        external: DirectGateway (C-CDA), fax, ePA
+        transition: "referral:ordered->sent"
+        failure: Auth denied routes to provider.
+      - id: "03"
+        role: frontdesk
+        action: Schedule and track
+        screen: referrals.worklist
+        behaviour: Record specialist appointment; remind patient.
+        transition: "referral:sent->scheduled"
+        failure: No response in N days creates a follow-up task.
+      - id: "04"
+        role: system
+        action: Close the loop
+        screen: null
+        surface: inbox.documents
+        behaviour: Consult note received, matched, provider notified.
+        writes: [DocumentReference]
+        external: DirectGateway, fax
+        transition: "referral:scheduled->consult-received"
+
+  - id: quality
+    name: Care gaps and quality
+    outcome: Proactive outreach and reportable quality measures.
+    measures: [measure performance, CCM enrolment]
+    steps:
+      - id: "01"
+        role: system
+        action: Identify gaps
+        screen: null
+        surface: patients.registries
+        behaviour: Rules over problems, results, immunizations and claims (A1c due, screenings, BP control).
+        writes: [CareGap]
+      - id: "02"
+        role: ma
+        action: Outreach
+        screen: schedule.recall-list
+        behaviour: Bulk SMS/portal campaigns, call lists, booking links.
+        writes: [CommunicationLog]
+        external: MessagingGateway
+        invariants: [INV-SEC-06]
+      - id: "03"
+        role: ma
+        action: Care management
+        screen: chart.care-plan
+        behaviour: CCM consent, care plan, monthly time tracking, charge when threshold met.
+        writes: [CarePlan, TimeLog, ChargeItem]
+      - id: "04"
+        role: manager
+        action: Report
+        screen: reports.quality
+        behaviour: Measure dashboards with patient drill-down; QRDA export.
+        external: QRDA I/III export

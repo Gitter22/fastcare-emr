@@ -1,0 +1,138 @@
+/* Pine — Tailwind CSS v4 theme
+   Usage: in your global stylesheet (e.g. app/globals.css)
+     @import "tailwindcss";
+     @import "tw-animate-css";      // shadcn's animation utilities
+     @import "./pine-theme.css";
+   Load Figtree 400–800 (next/font/google or a <link>). */
+
+@theme {
+  /* Kill Tailwind's default palette, radii and shadows. Off-system classes
+     like bg-gray-100, text-indigo-600, rounded-lg, shadow-md generate nothing. */
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  /* Font */
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  /* Neutrals: 60% dominant + 30% structure */
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-surface: #ffffff;
+  --color-canvas: #f4f5f4;
+  --color-surface-hover: #f1f3f2;
+  --color-surface-muted: #edf0ee;
+  --color-surface-active: #e6eae8;
+  --color-ink: #111412;     /* titles, body           18.5:1 */
+  --color-ink-2: #353b37;   /* hints, headers, meta   11.5:1 */
+  --color-ink-3: #565e59;   /* lightest text allowed   6.7:1 */
+  --color-line: #e4e8e6;    /* table row hairlines only */
+  --color-line-strong: #868e89; /* input borders 3.4:1 */
+
+  /* Accent: 10% */
+  --color-pine-50: #edf4f1;
+  --color-pine-100: #d3e6dd;
+  --color-pine-200: #a7cdbb;
+  --color-pine-600: #145c48; /* primary */
+  --color-pine-700: #0f4a3a;
+  --color-pine-800: #0b3a2d;
+  --color-on-primary: #ffffff;
+  --color-focus: #145c48;
+
+  /* Clinical signal only */
+  --color-danger: #b3261e;
+  --color-danger-hover: #96201a;
+  --color-danger-ink: #9b1f18;
+  --color-danger-bg: #fbecea;
+  --color-caution-ink: #7a4f00;
+  --color-caution-bg: #fbf1db;
+  --color-scrim: rgb(17 20 18 / 0.4);
+
+  /* Type scale: text-display, text-h1 … text-caption */
+  --text-display: 32px;  --text-display--line-height: 38px; --text-display--font-weight: 800; --text-display--letter-spacing: -0.02em;
+  --text-h1: 26px;       --text-h1--line-height: 32px;      --text-h1--font-weight: 700;      --text-h1--letter-spacing: -0.015em;
+  --text-h2: 20px;       --text-h2--line-height: 26px;      --text-h2--font-weight: 700;      --text-h2--letter-spacing: -0.01em;
+  --text-h3: 16px;       --text-h3--line-height: 22px;      --text-h3--font-weight: 700;
+  --text-body-lg: 16px;  --text-body-lg--line-height: 24px;
+  --text-body: 14px;     --text-body--line-height: 20px;
+  --text-label: 13px;    --text-label--line-height: 18px;   --text-label--font-weight: 600;
+  --text-small: 13px;    --text-small--line-height: 18px;   --text-small--font-weight: 500;
+  --text-caption: 12px;  --text-caption--line-height: 16px; --text-caption--font-weight: 600;
+
+  /* Sizes: h-control-md, w-sidebar, w-dialog-sm … (4px spacing base kept: p-6 = 24px) */
+  --spacing-control-sm: 32px;
+  --spacing-control-md: 40px;
+  --spacing-control-lg: 48px;
+  --spacing-row-compact: 36px;
+  --spacing-row-default: 44px;
+  --spacing-sidebar: 248px;
+  --spacing-dialog-sm: 440px;
+
+  /* Shape and elevation */
+  --radius-xs: 2px; /* checkbox only. rounded-none / rounded-full stay available */
+  --shadow-overlay: 0 12px 32px -8px rgb(17 20 18 / 0.22), 0 2px 6px rgb(17 20 18 / 0.08);
+  --shadow-sticky: 0 1px 0 rgb(17 20 18 / 0.10);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* duration-fast | duration-base | duration-slow (also drive tw-animate-css) */
+@utility duration-fast { --tw-duration: 100ms; transition-duration: 100ms; }
+@utility duration-base { --tw-duration: 140ms; transition-duration: 140ms; }
+@utility duration-slow { --tw-duration: 180ms; transition-duration: 180ms; }
+
+/* shadcn/ui variables mapped onto Pine, so untouched shadcn code lands on-system */
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-pine-600);
+  --primary-foreground: var(--color-on-primary);
+  --secondary: var(--color-surface-muted);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-ink-2);
+  --accent: var(--color-surface-hover);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-danger);
+  --border: var(--color-line);
+  --input: var(--color-line-strong);
+  --ring: var(--color-focus);
+  --radius: 0px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body { @apply bg-surface font-sans text-body text-ink; }
+  * { border-color: var(--color-line); }
+  ::placeholder { color: var(--color-ink-3); }
+  :focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}

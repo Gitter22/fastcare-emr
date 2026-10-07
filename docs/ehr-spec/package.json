@@ -1,0 +1,21 @@
+{
+  "name": "ehr-spec",
+  "scripts": {
+    "validate": "node tools/validate.mjs && node tools/prisma-check.mjs && node tools/build-openapi.mjs --check",
+    "db:check": "node tools/prisma-check.mjs",
+    "api": "node tools/build-openapi.mjs && redocly lint api/openapi.yaml --format=summary",
+    "ui-docs": "node tools/validate.mjs && node tools/ui-docs.mjs",
+    "bundle": "node tools/validate.mjs && node tools/bundle.mjs",
+    "docs": "npm run ui-docs && npm run api"
+  },
+  "dependencies": {
+    "js-yaml": "^4.3.2"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@prisma/internals": "^6.19.3",
+    "@redocly/cli": "^1.34.20",
+    "prisma": "^6.19.3"
+  }
+}

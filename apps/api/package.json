@@ -1,0 +1,40 @@
+{
+  "name": "@agile-emr/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/server.js",
+    "test": "node --test --test-concurrency=1 test/"
+  },
+  "dependencies": {
+    "@agile-emr/shared": "0.0.1",
+    "@fastify/cookie": "11.1.2",
+    "@fastify/cors": "11.3.0",
+    "@fastify/multipart": "^10.1.0",
+    "@fastify/rate-limit": "11.2.0",
+    "ajv": "^8.20.0",
+    "argon2": "0.45.1",
+    "bullmq": "6.0.9",
+    "fastify": "5.11.2",
+    "fastify-plugin": "6.0.0",
+    "ioredis": "6.0.0",
+    "nodemailer": "6.9.14",
+    "otplib": "12.0.1",
+    "pdfkit": "^0.19.1",
+    "qrcode": "1.5.4",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "@types/nodemailer": "6.4.15",
+    "@types/pdfkit": "^0.17.6",
+    "@types/qrcode": "1.5.6",
+    "tsx": "4.23.11",
+    "typescript": "7.0.2"
+  }
+}

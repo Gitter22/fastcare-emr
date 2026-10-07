@@ -1,0 +1,17 @@
+tag: Telehealth
+description: Video visits are a modality of the same appointment and encounter (ADR-006). Join tokens come from VideoGateway; no media passes through this API.
+defaults: {auth: staff, roles: [ma, provider], audit: READ}
+ops:
+  - {id: getVirtualWaitingRoom, m: GET, p: "/telehealth/waiting-room", sum: "Today's video visits with device check, consent and interpreter status", q: [date, practitionerId], res: "list:VirtualVisitRow", screens: [telehealth.waiting-room, schedule.room-board, schedule.appointment-detail]}
+  - {id: createTelehealthSession, m: POST, p: "/appointments/{appointmentId}/telehealth-session", sum: "Create the video room for an appointment", res: TelehealthSessionView, roles: [frontdesk, ma, provider], screens: [telehealth.waiting-room], integ: VideoGateway, audit: CREATE}
+  - {id: joinTelehealthSession, m: POST, p: "/telehealth-sessions/{telehealthSessionId}/join", sum: "Staff join token", res: TelehealthJoin, roles: [ma, provider], screens: [telehealth.waiting-room, telehealth.visit], integ: VideoGateway, audit: READ}
+  - {id: resendVideoLink, m: POST, p: "/appointments/{appointmentId}/telehealth/resend-link", sum: "Text the join link again", res: accepted, roles: [frontdesk, ma, provider], screens: [telehealth.waiting-room], integ: MessagingGateway}
+  - {id: addTelehealthParticipant, m: POST, p: "/telehealth-sessions/{telehealthSessionId}/participants", sum: "Invite an interpreter or caregiver", body: ParticipantInvite, res: TelehealthSessionView, screens: [telehealth.visit, telehealth.waiting-room], integ: VideoGateway, audit: DISCLOSE}
+  - {id: switchToAudioOnly, m: POST, p: "/telehealth-sessions/{telehealthSessionId}/audio-only", sum: "Record switch to audio-only (affects coding)", res: TelehealthSessionView, roles: [provider], screens: [telehealth.visit], audit: UPDATE}
+  - {id: endTelehealthSession, m: POST, p: "/telehealth-sessions/{telehealthSessionId}/end", sum: "End the video visit; appointment moves to checkout", res: TelehealthSessionView, roles: [provider], screens: [telehealth.visit], tr: ["appointment:with-provider->checkout"], integ: VideoGateway, audit: UPDATE}
+
+  - {id: listEVisits, m: GET, p: "/evisits", sum: "E-visit requests with cumulative time", q: [status], res: "page:EVisitView", roles: [provider], screens: [telehealth.evisit]}
+  - {id: getEVisit, m: GET, p: "/evisits/{eVisitId}", sum: "Questionnaire answers, attachments and thread", res: EVisitView, roles: [provider], screens: [telehealth.evisit]}
+  - {id: replyEVisit, m: POST, p: "/evisits/{eVisitId}/reply", sum: "Send assessment and plan to the patient", body: StaffMessageCreate, res: EVisitView, roles: [provider], screens: [telehealth.evisit], integ: MessagingGateway, audit: DISCLOSE}
+  - {id: completeEVisit, m: POST, p: "/evisits/{eVisitId}/complete", sum: "Complete and bill (creates encounter and charge)", res: EVisitView, roles: [provider], screens: [telehealth.evisit], audit: SIGN}
+  - {id: convertEVisitToVisit, m: POST, p: "/evisits/{eVisitId}/convert", sum: "Needs a visit: close e-visit without billing and book", res: EVisitView, roles: [provider], screens: [telehealth.evisit], audit: UPDATE}

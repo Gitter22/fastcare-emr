@@ -1,0 +1,20 @@
+# Open questions
+
+The agent adds questions here instead of guessing. Humans answer them; answered items move to an ADR or the spec and are marked Resolved with a link.
+
+| ID | Question | Blocks | Safe default until answered | Status |
+|---|---|---|---|---|
+| OPEN-Q1 | Tech stack and hosting (language, framework, cloud, HIPAA-eligible services). Database decided: PostgreSQL + Prisma (ADR-009) | All slices | None — must be answered before S0 | Partly resolved |
+| OPEN-Q2 | Confirm vendors. Tentative: Stedi (clearinghouse), LogiCoy (eRx/EPCS), Health Gorilla or Quest/LabCorp direct (labs), Twilio + SMTP (messaging), 2FA service TBD; still open: payments, fax, video, HISP | S3–S6 | Fake gateways (ADR-005) | Open |
+| OPEN-Q3 | Will we pursue ONC certification in v1, and for which criteria? | S2, S7, S8 | Build to US Core / USCDI shapes anyway | Open |
+| OPEN-Q4 | Single-tenant per practice or multi-tenant? | S0 | Multi-tenant with Postgres RLS (ADR-009) | Default implemented |
+| OPEN-Q5 | Which states' NP/PA supervision and co-sign rules must be supported at launch? | S2 | Co-sign rule config exists; no rules seeded | Open |
+| OPEN-Q6 | Result release timing to portal (immediate vs configured delays and exceptions) | S3, S7 | Immediate release; provider can apply documented exception | Open |
+| OPEN-Q7 | Launch specialties (primary care only?) — drives templates, order sets, measures | S2, S8 | Primary care | Open |
+| OPEN-Q8 | Ambient AI documentation in v1? Which vendor? | S2 | Off; note editor supports provenance markers | Open |
+| OPEN-Q9 | Max simultaneously open charts | S2 | 3 | Open |
+| OPEN-Q10 | Adolescent confidentiality rules for proxy access (age thresholds by state) | S7 | Proxy access ends at 12; adolescent account separate | Open |
+| OPEN-Q11 | Record retention periods by state (adult and minor records) | S0 retention job | Keep everything; no purge job enabled | Open |
+| OPEN-Q12 | Key management: cloud KMS, or a local KMS for on-prem Docker deployments? | S0 | Single master key from the secret store, rotated yearly | Open |
+| OPEN-Q13 | Session timeouts (idle and absolute) per role, and whether "remember this device" may skip MFA | S0 | 15 min idle, 12 h absolute; MFA every sign-in | Open |
+| OPEN-Q14 | Operations list roles in `x-roles` that the state machine `by` does not (24 transitions, e.g. manager on arriveAppointment, ma/provider on bookAppointment). Which wins? | S1, S5, S6 | Follow `states.yaml` (precedence rule); extra roles get 403 | Open |

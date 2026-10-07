@@ -1,0 +1,51 @@
+# FHIR R4 facade (ADR-004). Read-only projection of the relational model; the generator expands each resource
+# into search, read, vread and history operations under /fhir/r4. Mapping detail: docs/09-data-model.md.
+# Profiles are US Core 6.1.0 unless noted. Only rows with stagingStatus ACTIVE are exposed; restricted records
+# (securityLabels) are filtered unless the token's scopes and consents allow them.
+base: /fhir/r4
+version: 4.0.1
+us_core: 6.1.0
+resources:
+  Patient:            {model: Patient, profile: us-core-patient, search: [_id, identifier, name, family, given, birthdate, gender, _lastUpdated]}
+  Practitioner:       {model: Practitioner, profile: us-core-practitioner, search: [_id, identifier, name]}
+  PractitionerRole:   {model: "Practitioner + UserRole + Location", profile: us-core-practitionerrole, search: [practitioner, specialty]}
+  Organization:       {model: "Practice, Payer, Pharmacy", profile: us-core-organization, search: [_id, identifier, name]}
+  Location:           {model: Location, profile: us-core-location, search: [_id, name, address]}
+  Encounter:          {model: Encounter, profile: us-core-encounter, search: [_id, patient, date, status, class, type]}
+  Condition:          {model: Condition, profile: "us-core-condition-problems-health-concerns | us-core-condition-encounter-diagnosis", search: [_id, patient, category, clinical-status, code, onset-date, encounter, _lastUpdated]}
+  AllergyIntolerance: {model: AllergyIntolerance, profile: us-core-allergyintolerance, search: [_id, patient, clinical-status]}
+  MedicationRequest:  {model: "MedicationRequest + MedicationStatement (intent=plan, reportedBoolean)", profile: us-core-medicationrequest, search: [_id, patient, intent, status, authoredon, encounter]}
+  Observation:        {model: Observation, profile: "us-core-vital-signs | us-core-observation-lab | us-core-smokingstatus | us-core-observation-screening-assessment | us-core-observation-sdoh", search: [_id, patient, category, code, date, status, _lastUpdated]}
+  DiagnosticReport:   {model: DiagnosticReport, profile: "us-core-diagnosticreport-lab | us-core-diagnosticreport-note", search: [_id, patient, category, code, date, status]}
+  DocumentReference:  {model: "DocumentReference + ClinicalNote + AfterVisitSummary", profile: us-core-documentreference, search: [_id, patient, category, type, date, status]}
+  Immunization:       {model: Immunization, profile: us-core-immunization, search: [_id, patient, date, status]}
+  Procedure:          {model: "Procedure + ChargeItem (performed in office)", profile: us-core-procedure, search: [_id, patient, date, code, status]}
+  ServiceRequest:     {model: "ServiceRequest + Referral", profile: us-core-servicerequest, search: [_id, patient, category, code, authored, status]}
+  CarePlan:           {model: CarePlan, profile: us-core-careplan, search: [_id, patient, category, status]}
+  CareTeam:           {model: "WorkPool + Patient PCP", profile: us-core-careteam, search: [_id, patient, status]}
+  Goal:               {model: Goal, profile: us-core-goal, search: [_id, patient, lifecycle-status]}
+  Coverage:           {model: Coverage, profile: us-core-coverage, search: [_id, patient]}
+  Device:             {model: Device, profile: us-core-implantable-device (non-implantable devices as base Device), search: [_id, patient, type]}
+  Specimen:           {model: Specimen, profile: us-core-specimen, search: [_id, patient]}
+  QuestionnaireResponse: {model: QuestionnaireResponse, profile: us-core-questionnaireresponse, search: [_id, patient, authored, questionnaire]}
+  RelatedPerson:      {model: RelatedPerson, profile: us-core-relatedperson, search: [_id, patient, name]}
+  FamilyMemberHistory: {model: FamilyMemberHistory, profile: base, search: [_id, patient]}
+  Provenance:         {model: ProvenanceRecord, profile: us-core-provenance, search: [_id, target]}
+  Appointment:        {model: Appointment, profile: base, search: [_id, patient, date, status]}
+  Consent:            {model: Consent, profile: base, search: [_id, patient, category, status]}
+operations:
+  - {id: fhirCapabilityStatement, m: GET, p: "/metadata", sum: "CapabilityStatement (US Core server, SMART security)", auth: none}
+  - {id: fhirSmartConfiguration, m: GET, p: "/.well-known/smart-configuration", sum: "SMART App Launch discovery", auth: none}
+  - {id: fhirPatientEverything, m: GET, p: "/Patient/{id}/$everything", sum: "All active records for a patient (patient-access and EHI)", audit: EXPORT}
+  - {id: fhirBulkExportPatients, m: GET, p: "/Patient/$export", sum: "Bulk Data kick-off for all patients (backend services)", audit: EXPORT}
+  - {id: fhirBulkExportGroup, m: GET, p: "/Group/{id}/$export", sum: "Bulk Data kick-off for a group (panel, registry)", audit: EXPORT}
+  - {id: fhirBulkExportStatus, m: GET, p: "/$export-status/{jobId}", sum: "Bulk Data status polling; manifest of NDJSON files on completion"}
+  - {id: fhirBulkExportCancel, m: DELETE, p: "/$export-status/{jobId}", sum: "Cancel a bulk export"}
+  - {id: fhirBulkFile, m: GET, p: "/$export-files/{fileId}", sum: "Download an NDJSON output file", audit: EXPORT}
+  - {id: fhirBinaryRead, m: GET, p: "/Binary/{id}", sum: "Document content referenced by DocumentReference", audit: READ}
+oauth:
+  - {id: oauthAuthorize, m: GET, p: "/oauth2/authorize", sum: "SMART authorization (patient signs in with portal credentials and approves scopes)", auth: none, res: redirect, screens: [portal.profile, portal.sign-in]}
+  - {id: oauthToken, m: POST, p: "/oauth2/token", sum: "Token endpoint: authorization_code (PKCE), refresh_token, client_credentials with private_key_jwt for backend services", auth: none, body: form, res: OAuthToken, screens: [portal.profile, reports.export]}
+  - {id: oauthIntrospect, m: POST, p: "/oauth2/introspect", sum: "Token introspection (confidential clients)", auth: none, body: form, res: OAuthIntrospection, screens: [admin.portal-settings]}
+  - {id: oauthRevoke, m: POST, p: "/oauth2/revoke", sum: "Revoke a token", auth: none, body: form, res: none, screens: [portal.profile]}
+  - {id: jwks, m: GET, p: "/.well-known/jwks.json", sum: "Public signing keys for ID tokens", auth: none, res: Jwks, screens: [admin.portal-settings]}

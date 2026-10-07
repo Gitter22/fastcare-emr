@@ -1,0 +1,329 @@
+# Encounter workspace. Routes are /patient/:patientId/encounter/:encounterId/<section>.
+# Inherits encounter-header, section-tabs, context-drawer and action-bar from the pattern.
+screens:
+  encounter.prechart:
+    route: /patient/:patientId/encounter/:encounterId/prechart
+    pattern: encounter-workspace
+    up: chart.summary
+    flows: ["flow:access/07"]
+    regions:
+      content:
+        - {id: since-last, type: list, bind: "results, documents, messages since last visit"}
+        - {id: open-gaps, type: list, bind: "CareGap[] open", be: logic}
+        - {id: outside-records, type: button, label: "Query HIE", does: "fetch outside records into staging", be: logic, inv: [INV-DATA-01]}
+        - {id: standing-orders, type: list, bind: "protocol orders due", does: "pend", be: logic}
+        - {id: prechart-note, type: textarea, label: "Note for MA", bind: "Encounter prechart note"}
+      action-bar:
+        - {id: prechart-done, type: button, label: "Mark pre-charted", primary: true, does: "set readiness flag"}
+
+  encounter.rooming:
+    route: /patient/:patientId/encounter/:encounterId/rooming
+    pattern: encounter-workspace
+    up: chart.summary
+    wireframe: Rooming.dc.html
+    flows: ["flow:checkin/04", "flow:checkin/05"]
+    regions:
+      reason:
+        - {id: chief-complaint, type: input, label: "Chief complaint", bind: Encounter.reasonCode}
+        - {id: patient-words, type: input, label: "Patient's words"}
+      vitals:
+        - {id: bp, type: input, label: "BP", bind: "Observation BP"}
+        - {id: pulse, type: input, label: "Pulse", bind: "Observation HR"}
+        - {id: temp, type: input, label: "Temp", bind: "Observation temp"}
+        - {id: resp, type: input, label: "Resp", bind: "Observation RR"}
+        - {id: spo2, type: input, label: "SpO₂", bind: "Observation SpO2"}
+        - {id: height, type: input, label: "Height", bind: "Observation height"}
+        - {id: weight, type: input, label: "Weight", bind: "Observation weight"}
+        - {id: bmi, type: text, label: "BMI", bind: "derived:bmi"}
+        - {id: pain, type: input, label: "Pain", bind: "Observation pain"}
+        - {id: last-value, type: text, bind: "previous value under each field", each: true}
+        - {id: out-of-range, type: alert, bind: "derived:vitalAlerts", when: "value outside alert range", be: logic}
+        - {id: repeat-reading, type: button, label: "Add repeat reading", does: "second Observation; both kept"}
+      checklist:
+        - {id: allergies-reviewed, type: button, label: "Allergies reviewed", go: chart.allergies}
+        - {id: med-rec, type: button, label: "Reconcile medications", go: chart.medications, inv: [INV-DATA-01]}
+        - {id: phq, type: button, label: "PHQ-2/9", go: encounter.rooming#questionnaire}
+        - {id: tobacco, type: select, label: "Tobacco"}
+        - {id: sdoh, type: button, label: "SDOH screening", go: encounter.rooming#questionnaire}
+        - {id: poc-test, type: button, label: "Point-of-care test", go: encounter.rooming#poc}
+      standing-orders:
+        - {id: vaccine-due, type: card, bind: "derived:protocolVaccinesDue", each: true, be: logic}
+        - {id: vaccine-lot, type: select, label: "Lot", bind: "inventory lots (expired lots blocked)", be: logic}
+        - {id: vaccine-site, type: select, label: "Site"}
+        - {id: vaccine-administer, type: button, label: "Administer", does: "create Immunization; VIS recorded; send VXU", be: logic}
+        - {id: pended-orders, type: list, bind: "ServiceRequest[] pended", each: true}
+      context-drawer:
+        - {id: bp-trend, type: chart, bind: "Observation BP last 5"}
+        - {id: gaps, type: list, bind: "CareGap[] open", be: logic}
+        - {id: prechart-note, type: text, bind: "Encounter prechart note"}
+      action-bar:
+        - {id: rooming-save, type: button, label: "Save"}
+        - {id: pend-orders, type: button, label: "Pend orders for provider", tr: "order:new->pended"}
+        - {id: ready-for-provider, type: button, label: "Mark ready for provider", primary: true, tr: "appointment:roomed->ready-for-provider"}
+    views:
+      questionnaire:
+        container: drawer
+        regions:
+          form:
+            - {id: q-items, type: list, bind: "Questionnaire items", each: true}
+            - {id: q-score, type: stat, bind: "derived:score"}
+            - {id: q-save, type: button, label: "Save", primary: true, does: "create QuestionnaireResponse"}
+      poc:
+        container: drawer
+        regions:
+          form:
+            - {id: poc-test-type, type: select, label: "Test (glucose, strep, UA, …)"}
+            - {id: poc-result, type: input, label: "Result"}
+            - {id: poc-lot, type: input, label: "Kit lot"}
+            - {id: poc-save, type: button, label: "Save", primary: true, does: "create Observation (POC)"}
+    states: [out-of-range-vital, expired-lot]
+
+  encounter.note:
+    route: /patient/:patientId/encounter/:encounterId/note
+    pattern: encounter-workspace
+    up: chart.summary
+    wireframe: Note.dc.html
+    flows: ["flow:encounter/01", "flow:encounter/02", "flow:encounter/03"]
+    regions:
+      section-index:
+        - {id: idx-item, type: link, bind: "note sections with completion", each: true}
+        - {id: template-name, type: text, bind: "template in use"}
+      toolbar:
+        - {id: template-menu, type: menu, label: "Template", bind: "NoteTemplate[]"}
+        - {id: smart-phrase, type: button, label: "Smart phrase", does: "insert phrase by typing ."}
+        - {id: dictate, type: button, label: "Dictate"}
+        - {id: copy-forward, type: button, label: "Copy forward", does: "copy last note with diff and stale-data warning"}
+        - {id: ambient-status, type: chip, bind: "ambient draft on/off (OPEN-Q8)"}
+      editor:
+        - {id: sec-cc, type: editor, label: "Chief complaint", bind: "ClinicalNote section"}
+        - {id: sec-hpi, type: editor, label: "History of present illness"}
+        - {id: ai-segment, type: card, bind: "AI-drafted text with source links", each: true, when: "ambient on", inv: [INV-DATA-02]}
+        - {id: ai-accept, type: button, label: "Accept", does: "mark segment accepted"}
+        - {id: ai-edit, type: button, label: "Edit"}
+        - {id: ai-discard, type: button, label: "Discard"}
+        - {id: sec-ros, type: editor, label: "Review of systems"}
+        - {id: sec-exam, type: editor, label: "Exam", bind: "includes vitals from rooming"}
+        - {id: sec-data, type: editor, label: "Data reviewed"}
+        - id: problem-block
+          type: card
+          each: true
+          label: "Assessment & plan per problem"
+          bind: "Condition encounter-diagnosis + plan text"
+          cols:
+            - {id: pb-code, type: text, bind: "ICD-10-CM code", go: encounter.dx-coding}
+            - {id: pb-linked, type: chip, bind: "ServiceRequest/MedicationRequest linked to this problem", each: true}
+            - {id: pb-add-order, type: button, label: "+ Order", go: encounter.orders#add}
+            - {id: pb-add-rx, type: button, label: "+ Rx", go: encounter.rx#new}
+        - {id: add-problem, type: button, label: "+ Add problem", go: encounter.dx-coding}
+      context-drawer:
+        - {id: cds-card, type: card, bind: "CareGap / CDS suggestions", each: true, be: logic}
+        - {id: cds-why, type: button, label: "Why?"}
+        - {id: cds-not-today, type: menu, label: "Not today", does: "record reason"}
+        - {id: glance, type: list, bind: "key results, meds count"}
+      action-bar:
+        - {id: open-items, type: text, bind: "derived:encounterOpenItems"}
+        - {id: save-draft, type: button, label: "Save draft", tr: "note:new->draft"}
+        - {id: preview-avs, type: button, label: "Preview AVS", go: encounter.avs}
+        - {id: sign, type: button, label: "Sign & lock…", primary: true, go: encounter.sign}
+    states: [draft, signed, addended, pending-cosign, locked-by-another-user]
+
+  encounter.orders:
+    route: /patient/:patientId/encounter/:encounterId/orders
+    pattern: encounter-workspace
+    up: encounter.note
+    wireframe: Orders.dc.html
+    flows: ["flow:encounter/04", "flow:results/01", "flow:referral/01"]
+    regions:
+      catalog:
+        - {id: order-search, type: search, label: "Search orders", bind: "OrderCatalog (lab compendium, imaging, procedures, referrals)", be: logic}
+        - {id: order-set, type: button, label: "Add set", bind: "OrderSet[]", each: true}
+        - {id: favourite, type: button, label: "+ Add", bind: "favourites", each: true}
+        - {id: encounter-dx, type: list, bind: "Condition[] encounter-diagnosis"}
+      cart:
+        - {id: cart-summary, type: text, bind: "count orders + count needing attention"}
+        - id: order-card
+          type: card
+          each: true
+          bind: "ServiceRequest draft/pended this encounter"
+          cols:
+            - {id: oc-type, type: chip, bind: "category + performer lab"}
+            - {id: oc-status, type: status-chip, bind: "states:order"}
+            - {id: oc-dx, type: select, label: "Linked diagnosis", bind: ServiceRequest.reasonReference, inv: [INV-SAFE-08]}
+            - {id: oc-aoe, type: select, label: "Ask-at-order-entry questions", bind: "lab AOE", each: true}
+            - {id: oc-priority, type: select, label: "Priority"}
+            - {id: oc-collection, type: select, label: "Collection"}
+            - {id: oc-expected, type: date, label: "Expected result by", inv: [INV-SAFE-07]}
+            - {id: oc-duplicate, type: alert, bind: "derived:duplicateOrders", when: "same test active", be: logic}
+            - {id: oc-abn, type: alert, bind: "derived:abnRequired", when: "Medicare and not covered for Dx", be: logic}
+            - {id: oc-remove, type: icon-button, label: "Remove"}
+      action-bar:
+        - {id: after-sign-note, type: text, bind: "where orders go after signing"}
+        - {id: pend-all, type: button, label: "Pend all", tr: "order:new->pended"}
+        - {id: sign-orders, type: button, label: "Sign orders", primary: true, tr: "order:pended->signed", when: "no blocking issues", be: logic, inv: [INV-SAFE-01, INV-ID-03]}
+    views:
+      add:
+        container: drawer
+        regions:
+          form:
+            - {id: add-search, type: search, label: "Order", be: logic}
+            - {id: add-dx, type: select, label: "For problem", bind: "Condition[] encounter-diagnosis"}
+            - {id: add-referral-fields, type: list, label: "Referral: specialty, preferred provider, urgency, reason", when: "referral"}
+            - {id: add-save, type: button, label: "Add to orders", primary: true, does: "create ServiceRequest draft"}
+    states: [duplicate-order, out-of-network-lab, missing-diagnosis]
+
+  encounter.rx:
+    route: /patient/:patientId/encounter/:encounterId/rx
+    pattern: encounter-workspace
+    up: encounter.note
+    wireframe: Rx.dc.html
+    flows: ["flow:encounter/05"]
+    regions:
+      rx-list:
+        - {id: rx-item, type: link, bind: "MedicationRequest[] this encounter with status", each: true}
+        - {id: new-rx, type: button, label: "+ New prescription", go: encounter.rx#new}
+      composer:
+        - {id: drug, type: search, label: "Medication", bind: "RxNorm drug + strength + form", be: logic}
+        - {id: dose, type: input, label: "Dose"}
+        - {id: route, type: select, label: "Route"}
+        - {id: frequency, type: select, label: "Frequency"}
+        - {id: duration, type: input, label: "Duration"}
+        - {id: quantity, type: input, label: "Quantity"}
+        - {id: refills, type: input, label: "Refills"}
+        - {id: sig-preview, type: text, bind: "derived:sigText"}
+        - {id: rx-dx, type: select, label: "Diagnosis", bind: MedicationRequest.reasonReference}
+        - {id: pharmacy, type: select, label: "Pharmacy", bind: "patient preferred pharmacy"}
+        - {id: note-to-pharmacist, type: input, label: "Note to pharmacist"}
+      coverage:
+        - {id: formulary, type: stat, bind: "formulary tier, est. copay, prior auth needed (RTBC)", be: logic}
+        - {id: alternatives, type: list, bind: "covered alternatives", be: logic}
+        - {id: pdmp, type: card, bind: "PDMP report", when: "controlled substance", be: logic, inv: [INV-SAFE-05]}
+      action-bar:
+        - {id: rx-save, type: button, label: "Save draft"}
+        - {id: rx-sign-send, type: button, label: "Sign & send", primary: true, does: "DUR checks; EPCS 2FA if controlled; send NewRx", opens: [encounter.rx#alert, encounter.rx#epcs], be: logic, inv: [INV-SAFE-01, INV-SAFE-05, INV-SAFE-06, INV-ID-03]}
+    views:
+      new:
+        container: pane
+        regions:
+          composer:
+            - {id: new-drug, type: search, label: "Medication", be: logic}
+            - {id: new-from-favourites, type: list, bind: "favourite prescriptions"}
+      alert:
+        container: blocking-modal
+        wireframe: Rx.dc.html
+        regions:
+          body:
+            - {id: alert-title, type: heading, bind: "DUR finding (allergy, interaction, dose)", be: logic, inv: [INV-SAFE-06]}
+            - {id: alert-evidence, type: text, bind: "AllergyIntolerance or interacting drug, source"}
+            - {id: alert-alternative, type: card, bind: "covered alternatives", each: true}
+            - {id: alert-switch, type: button, label: "Switch to this", primary: true, does: "replace drug in composer", go: encounter.rx}
+            - {id: alert-reason, type: select, label: "Reason for override (required)"}
+            - {id: alert-remove, type: button, label: "Remove prescription", go: encounter.rx}
+            - {id: alert-override, type: button, label: "Override and continue", when: "reason chosen", does: "store override reason (reportable)", go: encounter.rx}
+      epcs:
+        container: blocking-modal
+        regions:
+          body:
+            - {id: epcs-summary, type: text, bind: "controlled Rx summary"}
+            - {id: epcs-pdmp-ack, type: checkbox, label: "PDMP reviewed", inv: [INV-SAFE-05]}
+            - {id: epcs-token, type: input, label: "Second factor code"}
+            - {id: epcs-sign, type: button, label: "Sign controlled prescription", primary: true, be: logic, inv: [INV-SAFE-05]}
+    states: [controlled-substance, prior-auth-required, pharmacy-offline]
+
+  encounter.dx-coding:
+    route: /patient/:patientId/encounter/:encounterId/dx
+    pattern: encounter-workspace
+    up: encounter.note
+    flows: ["flow:encounter/03"]
+    regions:
+      content:
+        - {id: dx-search, type: search, label: "Diagnosis in plain language", bind: "ICD-10-CM + SNOMED", be: logic}
+        - {id: specificity-prompt, type: alert, bind: "missing laterality/episode/type", when: "unspecified code", be: logic}
+        - {id: dx-list, type: list, bind: "Condition[] encounter-diagnosis, ordered", each: true, does: "reorder; remove"}
+        - {id: add-to-problem-list, type: checkbox, each: true, label: "Add to problem list"}
+        - {id: problem-list, type: list, bind: "Condition[] problem-list", does: "address this visit (adds to encounter diagnoses)"}
+
+  encounter.charges:
+    route: /patient/:patientId/encounter/:encounterId/charges
+    pattern: encounter-workspace
+    up: encounter.note
+    wireframe: Charges.dc.html
+    flows: ["flow:encounter/06", "flow:rcm/01"]
+    regions:
+      diagnoses:
+        - {id: dx-pointer, type: list, bind: "Condition[] encounter-diagnosis with pointer letters", each: true, does: "drag to reorder"}
+        - {id: add-dx, type: button, label: "+ Add diagnosis", go: encounter.dx-coding}
+      level:
+        - {id: method, type: tabs, label: "Medical decision making · Total time"}
+        - {id: mdm-problems, type: select, label: "Problems", bind: "derived:mdmProblems", be: logic}
+        - {id: mdm-data, type: select, label: "Data", bind: "derived:mdmData", be: logic}
+        - {id: mdm-risk, type: select, label: "Risk", bind: "derived:mdmRisk", be: logic}
+        - {id: total-time, type: input, label: "Total time (minutes)", when: "method time"}
+        - {id: suggested-level, type: stat, bind: "derived:suggestedEM", be: logic}
+        - {id: show-evidence, type: button, label: "Show evidence in note", go: encounter.note}
+      edits:
+        - {id: modifier-alert, type: alert, bind: "derived:codingEdits (modifier 25/59, NCCI)", each: true, be: logic}
+        - {id: add-modifier, type: button, label: "Add modifier", does: "apply suggested modifier"}
+        - {id: dismiss-edit, type: button, label: "Dismiss with reason"}
+      lines:
+        - id: charge-table
+          type: table
+          bind: "ChargeItem[] (code, description, modifiers, units, Dx pointers, fee)"
+          cols:
+            - {id: line-edit, type: button, label: "Edit", go: encounter.charges#line}
+        - {id: add-charge, type: button, label: "+ Add charge", go: encounter.charges#line}
+        - {id: total, type: text, bind: "derived:chargeTotal"}
+      action-bar:
+        - {id: no-charge, type: button, label: "Mark no-charge visit"}
+        - {id: save-charges, type: button, label: "Save charges", primary: true, does: "save ChargeItem drafts (released on note sign)", inv: [INV-FIN-03]}
+    views:
+      line:
+        container: drawer
+        regions:
+          form:
+            - {id: line-code, type: search, label: "CPT/HCPCS"}
+            - {id: line-mods, type: input, label: "Modifiers"}
+            - {id: line-units, type: input, label: "Units"}
+            - {id: line-pointers, type: checkbox, each: true, label: "Diagnosis pointers", inv: [INV-FIN-03]}
+            - {id: line-save, type: button, label: "Save line", primary: true}
+    states: [edit-failure, no-charge-visit, global-period]
+
+  encounter.avs:
+    route: /patient/:patientId/encounter/:encounterId/avs
+    pattern: encounter-workspace
+    up: encounter.note
+    flows: ["flow:encounter/08"]
+    regions:
+      content:
+        - {id: avs-preview, type: placeholder, bind: "AfterVisitSummary (plain language: diagnoses, med changes, orders, follow-up, instructions)"}
+        - {id: avs-instructions, type: editor, label: "Patient instructions"}
+        - {id: avs-education, type: list, label: "Attach education materials", each: true}
+        - {id: avs-language, type: select, label: "Language"}
+        - {id: avs-print, type: button, label: "Print"}
+        - {id: avs-release, type: button, label: "Release to portal", primary: true, does: "publish AVS to portal"}
+
+  encounter.sign:
+    route: /patient/:patientId/encounter/:encounterId/sign
+    pattern: encounter-workspace
+    container: blocking-modal
+    up: encounter.note
+    wireframe: SignPreflight.dc.html
+    flows: ["flow:encounter/07"]
+    regions:
+      header:
+        - {id: sign-title, type: heading, bind: "count blockers"}
+        - {id: sign-patient, type: text, bind: "Patient.name + MRN + encounter date", inv: [INV-ID-03]}
+        - {id: sign-close, type: icon-button, label: "Close", go: encounter.note}
+      blocking:
+        - {id: blocker, type: card, bind: "derived:preflightBlockers (unlinked orders, unsigned Rx, unaccepted AI text, stopped Rx, missing Dx pointers)", each: true, be: logic, inv: [INV-SAFE-08, INV-DATA-02]}
+        - {id: blocker-fix-orders, type: button, label: "Fix", go: encounter.orders, when: "blocker is order"}
+        - {id: blocker-fix-note, type: button, label: "Review", go: encounter.note, when: "blocker is AI text"}
+        - {id: blocker-fix-rx, type: button, label: "Open Rx", go: encounter.rx, when: "blocker is prescription"}
+      warnings:
+        - {id: warning, type: card, bind: "derived:preflightWarnings (coding, duplicates)", each: true, be: logic}
+        - {id: warning-open, type: button, label: "Open", go: encounter.charges, when: "warning is coding"}
+      passed:
+        - {id: passed-check, type: list, bind: "checks passed incl. patient context match and co-sign rule", be: logic}
+      footer:
+        - {id: back-to-note, type: button, label: "Back to note", go: encounter.note}
+        - {id: route-cosign, type: button, label: "Sign & route for co-sign", tr: "note:draft->pending-cosign", when: "co-sign rule applies", be: logic}
+        - {id: sign-lock, type: button, label: "Sign & lock", primary: true, tr: "note:draft->signed", when: "no blockers", does: "lock note; release charges; move appointment to checkout", opens: [auth.step-up], go: home.provider-worklist, be: logic, inv: [INV-SAFE-01, INV-SAFE-02, INV-SAFE-08, INV-ID-03]}

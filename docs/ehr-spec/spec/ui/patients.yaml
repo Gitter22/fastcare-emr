@@ -1,0 +1,169 @@
+# Patients module: find, register, merge, populations.
+screens:
+  patients.search:
+    route: /patients
+    pattern: list-detail
+    up: null
+    regions:
+      patients-nav: "nav.yaml#patients-nav"
+      toolbar:
+        - {id: search-box, type: search, label: "Name, DOB, phone or MRN", bind: "Patient[] fuzzy match"}
+        - {id: new-patient, type: button, label: "+ New patient", primary: true, go: patients.registration}
+      list:
+        - id: results-table
+          type: table
+          bind: "Patient[] matches (name, DOB shown on every row, MRN, phone, PCP, last visit)"
+          cols:
+            - {id: res-open, type: link, bind: "Patient.name + birthDate", go: chart.summary, inv: [INV-ID-01]}
+            - {id: res-book, type: button, label: "Book", go: schedule.booking-drawer}
+        - {id: recent-patients, type: list, bind: "Patient[] recently opened by me", each: true, go: chart.summary, when: "search empty"}
+    states: [no-match-offer-register]
+
+  patients.registration:
+    route: /patients/new
+    pattern: form-page
+    up: patients.search
+    wireframe: Registration.dc.html
+    flows: ["flow:access/02"]
+    regions:
+      steps:
+        - {id: step-identity, type: link, label: "Identity & contact", go: patients.registration}
+        - {id: step-demographics, type: link, label: "Demographics", go: patients.registration#demographics}
+        - {id: step-guarantor, type: link, label: "Guarantor", go: patients.registration#guarantor}
+        - {id: step-insurance, type: link, label: "Insurance", go: patients.registration#insurance}
+        - {id: step-consents, type: link, label: "Consents", go: patients.registration#consents}
+      form:
+        - {id: first-name, type: input, label: "Legal first name", bind: Patient.name.given}
+        - {id: middle-name, type: input, label: "Middle", bind: "Patient.name.given[1]"}
+        - {id: last-name, type: input, label: "Legal last name", bind: Patient.name.family}
+        - {id: preferred-name, type: input, label: "Preferred name", bind: "Patient.name (usual)"}
+        - {id: dob, type: date, label: "Date of birth", bind: Patient.birthDate}
+        - {id: sex-clinical, type: select, label: "Sex for clinical use", bind: "Patient.extension sex-for-clinical-use"}
+        - {id: phone, type: input, label: "Mobile phone", bind: Patient.telecom}
+        - {id: email, type: input, label: "Email", bind: Patient.telecom}
+        - {id: address, type: input, label: "Home address", bind: Patient.address}
+        - {id: contact-pref, type: select, label: "Contact preference"}
+        - {id: language, type: select, label: "Preferred language", bind: Patient.communication}
+      aside:
+        - {id: dup-panel, type: card, bind: "derived:possibleDuplicates (score, compare table)", when: "match found", be: logic, inv: [INV-ID-02]}
+        - {id: dup-use-existing, type: button, label: "Use existing record", go: chart.summary}
+        - {id: dup-not-same, type: button, label: "Not the same person · create new", does: "log decision; send to duplicate review queue"}
+      action-bar:
+        - {id: reg-cancel, type: button, label: "Cancel", go: back}
+        - {id: reg-save-book, type: button, label: "Save & book appointment", does: "create Patient", go: schedule.booking-drawer, inv: [INV-ID-02]}
+        - {id: reg-continue, type: button, label: "Continue", primary: true, go: patients.registration#demographics}
+    views:
+      demographics:
+        container: pane
+        regions:
+          form:
+            - {id: race, type: select, label: "Race (multi)", bind: "US Core race"}
+            - {id: ethnicity, type: select, label: "Ethnicity", bind: "US Core ethnicity"}
+            - {id: gender-identity, type: select, label: "Gender identity"}
+            - {id: pronouns, type: select, label: "Pronouns"}
+            - {id: sexual-orientation, type: select, label: "Sexual orientation"}
+            - {id: interpreter, type: checkbox, label: "Needs interpreter"}
+            - {id: decline-note, type: text, label: "Every field offers 'Chose not to answer'"}
+          action-bar:
+            - {id: demo-next, type: button, label: "Continue", primary: true, go: patients.registration#guarantor}
+      guarantor:
+        container: pane
+        regions:
+          form:
+            - {id: guarantor-self, type: radio, label: "Self / Another person"}
+            - {id: guarantor-person, type: search, label: "Guarantor", bind: "RelatedPerson / Patient", when: "another person"}
+            - {id: minor-guardian, type: alert, label: "Patient is a minor: guardian required", when: "age < 18"}
+            - {id: emergency-contact, type: input, label: "Emergency contact", bind: Patient.contact}
+          action-bar:
+            - {id: guar-next, type: button, label: "Continue", primary: true, go: patients.registration#insurance}
+      insurance:
+        container: pane
+        regions:
+          form:
+            - {id: card-scan, type: upload, label: "Scan card front and back", does: "OCR payer, member ID, group"}
+            - {id: payer, type: select, label: "Payer", bind: "Coverage.payor"}
+            - {id: member-id, type: input, label: "Member ID", bind: Coverage.subscriberId}
+            - {id: group, type: input, label: "Group", bind: "Coverage.class group"}
+            - {id: subscriber, type: select, label: "Subscriber", bind: "Coverage.subscriber"}
+            - {id: add-secondary, type: button, label: "+ Secondary insurance"}
+            - {id: self-pay, type: button, label: "Self-pay", does: "mark self-pay; offer estimate", go: billing.estimates}
+            - {id: check-eligibility, type: button, label: "Check eligibility", be: logic}
+          action-bar:
+            - {id: ins-next, type: button, label: "Continue", primary: true, go: patients.registration#consents}
+      consents:
+        container: pane
+        regions:
+          form:
+            - {id: consent-npp, type: checkbox, label: "Notice of privacy practices acknowledged", bind: Consent}
+            - {id: consent-financial, type: checkbox, label: "Financial policy", bind: Consent}
+            - {id: consent-sms, type: checkbox, label: "OK to text (TCPA)", bind: Consent}
+            - {id: consent-portal, type: button, label: "Send portal invite", does: "email/SMS invite"}
+            - {id: consent-sign, type: signature, label: "Signature (tablet)"}
+          action-bar:
+            - {id: reg-finish, type: button, label: "Create patient", primary: true, does: "create Patient, Coverage, Consent", go: chart.summary, inv: [INV-ID-02]}
+    states: [possible-duplicate, minor-patient, self-pay]
+
+  patients.merge-review:
+    route: /patients/duplicates
+    pattern: list-detail
+    up: patients.search
+    regions:
+      patients-nav: "nav.yaml#patients-nav"
+      list:
+        - {id: pair-row, type: list, bind: "derived:duplicatePairs (score, created by, reason)", each: true, be: logic, go: patients.merge-review#compare}
+    views:
+      compare:
+        container: pane
+        regions:
+          detail:
+            - {id: compare-table, type: table, bind: "Patient A vs B field by field, with encounters, coverage, documents counts"}
+            - {id: survivor-pick, type: radio, label: "Keep record A / B"}
+            - {id: field-pick, type: radio, each: true, label: "Per field: keep A / keep B"}
+            - {id: not-duplicate, type: button, label: "Not duplicates", does: "dismiss pair"}
+            - {id: merge, type: button, label: "Merge records", primary: true, does: "reversible merge, audited", be: logic, inv: [INV-ID-04, INV-SEC-01]}
+            - {id: unmerge, type: link, label: "Unmerge (history)", be: logic, inv: [INV-ID-04]}
+
+  patients.lists:
+    route: /patients/lists
+    pattern: list-detail
+    up: patients.search
+    regions:
+      patients-nav: "nav.yaml#patients-nav"
+      toolbar:
+        - {id: list-picker, type: select, label: "List", bind: "saved lists + my panel"}
+        - {id: list-new, type: button, label: "+ New list", go: patients.lists#edit}
+      list:
+        - id: list-table
+          type: table
+          bind: "Patient[] matching saved filter"
+          cols:
+            - {id: pl-patient, type: link, bind: Patient.name, go: chart.summary}
+            - {id: pl-message, type: button, label: "Message", go: inbox.patient-messages#compose}
+    views:
+      edit:
+        container: drawer
+        regions:
+          form:
+            - {id: pl-name, type: input, label: "List name"}
+            - {id: pl-criteria, type: list, label: "Criteria (provider, problem, age, last visit, payer)", each: true}
+            - {id: pl-share, type: checkbox, label: "Share with care team"}
+            - {id: pl-save, type: button, label: "Save", primary: true, does: "save PatientList"}
+
+  patients.registries:
+    route: /patients/registries
+    pattern: list-detail
+    up: patients.search
+    flows: ["flow:quality/01"]
+    regions:
+      patients-nav: "nav.yaml#patients-nav"
+      toolbar:
+        - {id: registry-picker, type: select, label: "Registry", bind: "Diabetes, Hypertension, CCM-eligible, …"}
+      list:
+        - id: registry-table
+          type: table
+          bind: "Patient[] in registry with key values (last A1c, last BP, gaps)"
+          cols:
+            - {id: rg-patient, type: link, bind: Patient.name, go: chart.summary}
+            - {id: rg-gaps, type: chip, bind: "CareGap[] open", be: logic, go: chart.care-gaps}
+            - {id: rg-recall, type: button, label: "Add to recall", go: schedule.recall-list}
+            - {id: rg-enrol-ccm, type: button, label: "Enrol in CCM", go: chart.care-plan, when: "registry CCM-eligible"}

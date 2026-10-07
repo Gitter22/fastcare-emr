@@ -1,0 +1,83 @@
+# Gateways (ADR-005). Domain code depends on these interfaces only. Each needs a fake for tests/local dev.
+# `vendors` are the tentative choices (OPEN-Q2); swapping a vendor means a new adapter, not new domain code.
+# Every vendor that touches PHI needs a signed BAA before production (IntegrationConnection.baaOnFile).
+gateways:
+  - id: ClearinghouseGateway
+    vendors: [Stedi]
+    standards: [X12 270/271, X12 837P, X12 999, X12 277CA, X12 276/277, X12 835]
+    used_by: ["flow:access/03", "flow:rcm/03", "flow:rcm/04", "flow:rcm/06"]
+    phi: true
+  - id: LabGateway
+    vendors: [Health Gorilla, Quest Diagnostics (direct), LabCorp (direct)]
+    standards: [HL7 v2 ORM, HL7 v2 ORU, FHIR R4 ServiceRequest/DiagnosticReport (Health Gorilla), LOINC, lab compendium]
+    used_by: ["flow:encounter/04", "flow:results/01", "flow:results/03"]
+    phi: true
+  - id: ErxGateway
+    vendors: [LogiCoy]
+    standards: [NCPDP SCRIPT (NewRx, RxRenewal, RxChange, CancelRx, RxFill), EPCS, real-time benefit check, ePA, pharmacy directory]
+    used_by: ["flow:encounter/05", "flow:refills/01", "flow:refills/04"]
+    phi: true
+  - id: PdmpGateway
+    vendors: [State PDMP via eRx vendor or state hub]
+    standards: [state PDMP query]
+    used_by: ["flow:encounter/05"]
+    phi: true
+  - id: IisGateway
+    vendors: [State immunization registry]
+    standards: [HL7 v2 VXU/QBP/RSP, CVX]
+    used_by: ["flow:checkin/05"]
+    phi: true
+  - id: DirectGateway
+    vendors: [HISP (Direct secure messaging)]
+    standards: [Direct secure messaging, C-CDA]
+    used_by: ["flow:referral/02", "flow:referral/04"]
+    phi: true
+  - id: HieGateway
+    vendors: [Regional HIE / national network (optional)]
+    standards: [IHE XCA/XDS or FHIR, C-CDA]
+    used_by: ["flow:access/07"]
+    phi: true
+  - id: FaxGateway
+    vendors: [Cloud fax provider]
+    standards: [inbound/outbound fax as PDF/TIFF]
+    used_by: ["flow:referral/04"]
+    phi: true
+  - id: PaymentGateway
+    vendors: [Card processor with hosted fields / terminals (PCI scope stays with processor)]
+    standards: [card-present and card-not-present payments, tokenised card on file]
+    used_by: ["flow:access/05", "flow:checkin/01", "flow:rcm/08"]
+    phi: false
+  - id: MessagingGateway
+    vendors: [Twilio (SMS, voice), SMTP relay (email)]
+    standards: [SMS, email, voice]
+    used_by: ["flow:access/04", "flow:quality/02"]
+    phi: minimum-necessary   # bodies carry no clinical detail (INV-SEC-06)
+  - id: VideoGateway
+    vendors: [HIPAA-eligible video vendor]
+    standards: [WebRTC rooms, join tokens]
+    used_by: ["flow:encounter/01"]
+    phi: true
+  - id: MfaGateway
+    vendors: [TOTP (built-in RFC 6238), WebAuthn (built-in), SMS/voice/push via 2FA service]
+    standards: [RFC 6238 TOTP, WebAuthn Level 2]
+    used_by: []
+    phi: false
+  - id: ReferenceDataGateway
+    vendors: [NPPES NPI Registry API, NLM RxNav (RxNorm), CMS ICD-10-CM release files, CDC CVX/MVX, CMS Place of Service, LOINC, X12 CARC/RARC, NUCC taxonomy, AMA CPT (licensed)]
+    standards: [REST lookups, bulk file imports]
+    used_by: []
+    phi: false
+  - id: FileStore
+    vendors: [Docker volume (encrypted, per-file data keys)]
+    standards: [content-addressed files, envelope encryption]
+    used_by: []
+    phi: true
+apis:
+  - id: fhir-patient-access
+    standards: [FHIR R4, US Core, SMART App Launch]
+    purpose: Patient-facing third-party app access (portal.profile#apps)
+  - id: fhir-bulk
+    standards: [FHIR Bulk Data]
+    purpose: Population export (reports.export)
+  - id: ehi-export
+    purpose: Full electronic health information export per patient and practice

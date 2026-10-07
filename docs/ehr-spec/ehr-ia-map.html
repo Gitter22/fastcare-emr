@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clinic EHR — Information Architecture & UX Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF2F1; --sheet:#FFFFFF; --ink:#16232F; --ink-2:#4A5763; --rule:#D3DBDA; --accent:#0E6E68;
+  --fd:#2F64A3; --ma:#23845F; --pr:#6E46B0; --bl:#B36A12; --pm:#56606B; --pt:#B83A63; --sys:#7C8792;
+  --tint:.10;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --paper:#111A20; --sheet:#18232B; --ink:#E4EBEE; --ink-2:#9EABB4; --rule:#2B3942; --accent:#4FC2B8;
+  --fd:#6E9FDB; --ma:#5CC296; --pr:#A98BE3; --bl:#E3A24E; --pm:#9AA5B0; --pt:#E77C9F; --sys:#8C98A3; --tint:.18;
+}}
+:root[data-theme="dark"]{
+  --paper:#111A20; --sheet:#18232B; --ink:#E4EBEE; --ink-2:#9EABB4; --rule:#2B3942; --accent:#4FC2B8;
+  --fd:#6E9FDB; --ma:#5CC296; --pr:#A98BE3; --bl:#E3A24E; --pm:#9AA5B0; --pt:#E77C9F; --sys:#8C98A3; --tint:.18;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 "Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+h1,h2,h3,h4{line-height:1.2;margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--paper);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;gap:16px;align-items:center;min-height:56px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.brand{font-weight:800;letter-spacing:-.01em;margin-right:auto}
+.brand span{font-weight:500;color:var(--ink-2)}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--rule);background:var(--sheet);border-radius:999px;padding:4px 10px 4px 8px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.chip[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c);font-weight:600}
+.theme{border:1px solid var(--rule);background:var(--sheet);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px}
+
+/* hero */
+.hero{padding:44px 0 28px}
+.hero h1{font-size:clamp(30px,5vw,52px);font-weight:800;letter-spacing:-.025em;max-width:18ch}
+.hero p{max-width:68ch;color:var(--ink-2);font-size:17px;margin:14px 0 0}
+.journey{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;margin-top:28px}
+.journey div{background:var(--sheet);border-top:4px solid var(--c);padding:10px 10px 12px;font-size:13px;font-weight:600}
+.journey small{display:block;font-weight:400;color:var(--ink-2);margin-top:2px}
+@media (max-width:860px){.journey{grid-template-columns:repeat(2,1fr)}}
+
+/* layout */
+.layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;padding-bottom:80px}
+.toc{position:sticky;top:80px;align-self:start;font-size:14px}
+.toc a{display:block;padding:6px 0 6px 12px;border-left:2px solid var(--rule);color:var(--ink-2);text-decoration:none}
+.toc a:hover{color:var(--ink);border-color:var(--ink-2)}
+@media (max-width:900px){.layout{grid-template-columns:1fr}.toc{display:none}}
+section{padding-top:36px}
+section>h2{font-size:26px;font-weight:800;letter-spacing:-.015em}
+section>p.lede{color:var(--ink-2);max-width:72ch;margin:8px 0 18px}
+
+/* role cards */
+.rolegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.role{background:var(--sheet);border-left:4px solid var(--c);padding:14px 16px}
+.role h3{font-size:16px}
+.role p{margin:6px 0 0;font-size:14px;color:var(--ink-2)}
+.role .home{font-size:13px;margin-top:8px}
+
+/* sitemap */
+.globalnav{display:flex;gap:2px;background:var(--ink);color:var(--paper);padding:6px;border-radius:6px 6px 0 0;overflow-x:auto}
+.globalnav button{background:none;border:0;color:inherit;opacity:.75;padding:6px 12px;border-radius:4px;cursor:pointer;white-space:nowrap;font-size:14px}
+.globalnav button[aria-selected="true"]{opacity:1;background:color-mix(in srgb,var(--paper) 16%,transparent);font-weight:600}
+.mod{background:var(--sheet);padding:18px;border-radius:0 0 6px 6px}
+.mod .why{color:var(--ink-2);margin:0 0 14px;max-width:72ch}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px 24px}
+.group h4{font-size:14px;padding-bottom:6px;border-bottom:1px solid var(--rule);margin-bottom:6px}
+.group ul{list-style:none;margin:0;padding:0}
+.group li{font-size:14px;padding:4px 0;display:flex;gap:8px;align-items:baseline}
+.dots{display:inline-flex;gap:3px;flex:none}
+.dots b{width:7px;height:7px;border-radius:50%;background:var(--c);display:inline-block}
+.group li em{font-style:normal;color:var(--ink-2);font-size:12.5px;display:block}
+
+/* chart anatomy */
+.anat{display:grid;grid-template-columns:190px 1fr 280px;grid-template-rows:auto 1fr auto;gap:6px;background:var(--rule);padding:6px;border-radius:6px;font-size:13px}
+.anat>div{background:var(--sheet);padding:12px}
+.anat h4{font-size:13px;margin-bottom:6px;color:var(--accent)}
+.anat .banner{grid-column:1/-1;border-left:5px solid var(--accent)}
+.anat .foot{grid-column:1/-1}
+.anat ul{margin:0;padding-left:16px}
+.anat li{margin:2px 0}
+@media (max-width:820px){.anat{grid-template-columns:1fr}.anat .banner,.anat .foot{grid-column:auto}}
+.bannerrow{display:flex;flex-wrap:wrap;gap:6px 18px}
+.bannerrow span{white-space:nowrap}
+.flag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:12px;font-weight:600;background:color-mix(in srgb,var(--pt) 18%,transparent);color:var(--pt)}
+
+/* flows: the swimlane is the centrepiece */
+.flowtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.flowtabs button{border:1px solid var(--rule);background:var(--sheet);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:14px}
+.flowtabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.flowmeta{display:flex;gap:24px;flex-wrap:wrap;font-size:14px;color:var(--ink-2);margin-bottom:12px}
+.flowmeta b{color:var(--ink);font-weight:600}
+.lanes{overflow-x:auto;background:var(--sheet);border-radius:6px;border:1px solid var(--rule)}
+.lanegrid{display:grid;min-width:max-content}
+.lanehead{position:sticky;left:0;z-index:2;background:var(--sheet);padding:10px 12px;font-size:13px;font-weight:700;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:8px;width:150px}
+.lanehead i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.cell{border-bottom:1px solid var(--rule);padding:8px 6px;min-height:64px;width:178px;position:relative}
+.cell.filled::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--rule)}
+.step{position:relative;z-index:1;display:block;width:100%;text-align:left;background:color-mix(in srgb,var(--c) calc(var(--tint)*100%),var(--sheet));border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-left:4px solid var(--c);border-radius:4px;padding:7px 8px;cursor:pointer;font-size:13px;line-height:1.3}
+.step .n{font-weight:800;color:var(--c);margin-right:4px}
+.step[aria-pressed="true"]{box-shadow:0 0 0 2px var(--c)}
+.colhead{font-size:11.5px;color:var(--ink-2);padding:6px;border-bottom:1px solid var(--rule);width:178px}
+.detail{margin-top:12px;background:var(--sheet);border:1px solid var(--rule);border-left:5px solid var(--c);border-radius:6px;padding:16px 18px}
+.detail h3{font-size:18px}
+.detail dl{display:grid;grid-template-columns:130px 1fr;gap:6px 14px;margin:12px 0 0;font-size:14px}
+.detail dt{color:var(--ink-2)}
+.detail dd{margin:0}
+@media (max-width:600px){.detail dl{grid-template-columns:1fr}.detail dt{margin-top:6px}}
+
+/* screens table */
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.filters input,.filters select{font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--rule);border-radius:6px;background:var(--sheet);color:var(--ink)}
+.filters input{flex:1;min-width:200px}
+.tablewrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--rule);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:860px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:12.5px;color:var(--ink-2);font-weight:600;background:var(--sheet);position:sticky;top:0}
+td:first-child{font-weight:600;width:190px}
+td .mod-tag{display:block;font-weight:400;color:var(--ink-2);font-size:12px}
+
+/* lists */
+.twocol{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.box{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:16px}
+.box h3{font-size:15.5px;margin-bottom:8px}
+.box ul{margin:0;padding-left:18px;font-size:14px}
+.box li{margin:4px 0}
+.box code{font-size:12.5px;background:color-mix(in srgb,var(--ink) 7%,transparent);padding:0 4px;border-radius:3px}
+
+/* role filter dimming */
+.dim{opacity:.22;filter:grayscale(.6)}
+@media (prefers-reduced-motion:no-preference){.step,.group li,tr,.role{transition:opacity .15s}}
+.note{font-size:13px;color:var(--ink-2);margin-top:10px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand">Clinic EHR <span>IA &amp; UX map</span></div>
+  <div class="roles" id="roleChips" aria-label="Highlight by role"></div>
+  <button class="theme" id="themeBtn" aria-label="Toggle color theme">◐</button>
+</div></header>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>One patient visit, six roles, one revenue cycle.</h1>
+    <p>Information architecture, screen inventory and end-to-end business flows for an ONC-certifiable ambulatory EHR + practice management system sized for a 2–25 provider US clinic. Pick a role above to see where that person lives in the product.</p>
+    <div class="journey" id="journey"></div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Sections">
+      <a href="#roles">Users &amp; home screens</a>
+      <a href="#sitemap">Global sitemap</a>
+      <a href="#chart">Chart &amp; encounter anatomy</a>
+      <a href="#flows">Business flows</a>
+      <a href="#screens">Screen inventory</a>
+      <a href="#portal">Patient portal</a>
+      <a href="#patterns">UX patterns &amp; safety</a>
+      <a href="#compliance">Integrations &amp; compliance</a>
+      <a href="#states">Status models</a>
+    </nav>
+
+    <main>
+      <section id="roles">
+        <h2>Users &amp; home screens</h2>
+        <p class="lede">Every role lands on a work-queue home, not a generic dashboard. The home screen answers "what do I need to do next" for that job.</p>
+        <div class="rolegrid" id="roleGrid"></div>
+      </section>
+
+      <section id="sitemap">
+        <h2>Global sitemap</h2>
+        <p class="lede">Eight top-level destinations in a persistent left rail. The patient chart is a context, not a destination: it opens from anywhere and pins a patient banner until closed. Dots show which roles use each screen.</p>
+        <div class="globalnav" role="tablist" id="modTabs"></div>
+        <div class="mod" id="modPanel" role="tabpanel"></div>
+      </section>
+
+      <section id="chart">
+        <h2>Chart &amp; encounter anatomy</h2>
+        <p class="lede">The chart is a three-pane workspace. Identity and safety data sit in a banner that never scrolls away; the encounter note sits in the centre; the right pane is a context drawer that changes with what you are doing.</p>
+        <div class="anat">
+          <div class="banner">
+            <h4>Patient banner (always visible, never truncated on identity fields)</h4>
+            <div class="bannerrow">
+              <span><b>Full legal name</b> + preferred name, pronouns</span><span>DOB · age</span><span>Sex for clinical use</span><span>MRN</span>
+              <span>Photo</span><span>PCP</span><span>Primary insurance + eligibility status</span><span>Balance due</span>
+              <span class="flag">Allergies</span><span class="flag">Code status / advance directive</span><span class="flag">Sensitive record (Part 2)</span><span class="flag">Interpreter</span>
+            </div>
+          </div>
+          <div>
+            <h4>Chart navigation</h4>
+            <ul>
+              <li>Summary (face sheet)</li><li>Timeline / encounters</li><li>Problems</li><li>Medications</li><li>Allergies</li>
+              <li>Vitals &amp; flowsheets</li><li>Results: lab, imaging, other</li><li>Immunizations</li><li>History: PMH, PSH, FH, SH, SDOH</li>
+              <li>Orders</li><li>Referrals</li><li>Care plans &amp; goals</li><li>Preventive / care gaps</li><li>Documents</li>
+              <li>Communications</li><li>Demographics &amp; insurance</li><li>Consents &amp; privacy</li><li>Patient account</li><li>Access log</li>
+            </ul>
+          </div>
+          <div>
+            <h4>Encounter workspace (centre)</h4>
+            <ul>
+              <li><b>Header:</b> visit type, provider, location, date of service, POS, status chip (Draft → Ready to sign → Signed → Addended)</li>
+              <li><b>Section tabs:</b> Pre-chart · Rooming · Note · Orders · Rx · Dx &amp; coding · Charges · AVS · Sign</li>
+              <li><b>Note body:</b> CC, HPI, ROS, PE, data reviewed, assessment &amp; plan by problem; templates, smart phrases, voice / ambient draft with source highlighting</li>
+              <li><b>Inline order entry</b> per problem so diagnosis linkage is captured at the moment of ordering</li>
+              <li><b>Autosave</b> every keystroke burst; draft survives session timeout</li>
+            </ul>
+          </div>
+          <div>
+            <h4>Context drawer (right)</h4>
+            <ul>
+              <li>Mini summary: active problems, meds, last vitals, recent results</li>
+              <li>CDS cards: care gaps, drug alerts (interruptive only when severe)</li>
+              <li>Order search + favourites + order sets</li>
+              <li>Coding assistant: E/M by MDM or time, Dx specificity prompts</li>
+              <li>Previous note for copy-forward with diff highlighting</li>
+            </ul>
+          </div>
+          <div class="foot">
+            <h4>Action bar (sticky bottom)</h4>
+            Save draft · Pend for provider (MA) · Route for co-sign · Sign &amp; lock · Sign &amp; send charges · Print AVS. Signing runs a pre-flight check: unlinked orders, unsigned Rx, missing Dx on charges, open critical results.
+          </div>
+        </div>
+      </section>
+
+      <section id="flows">
+        <h2>Business flows</h2>
+        <p class="lede">Swimlanes by role. Each card is a step; select it to see the screen, data written, external transactions and failure handling.</p>
+        <div class="flowtabs" role="tablist" id="flowTabs"></div>
+        <div class="flowmeta" id="flowMeta"></div>
+        <div class="lanes"><div class="lanegrid" id="lanes"></div></div>
+        <div class="detail" id="detail" aria-live="polite"></div>
+      </section>
+
+      <section id="screens">
+        <h2>Screen inventory</h2>
+        <p class="lede">Key screens with their job, primary components, and the states design must cover. Filter by module or search.</p>
+        <div class="filters">
+          <input id="q" type="search" placeholder="Search screens, components, standards" aria-label="Search screens">
+          <select id="modFilter" aria-label="Filter by module"></select>
+        </div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Screen</th><th>Job to be done</th><th>Key components</th><th>States to design</th></tr></thead>
+          <tbody id="screenRows"></tbody>
+        </table></div>
+        <p class="note" id="screenCount"></p>
+      </section>
+
+      <section id="portal">
+        <h2>Patient portal &amp; app</h2>
+        <p class="lede">Mobile-first, plain language at a 6th–8th grade reading level, WCAG 2.1 AA. Proxy access for parents and caregivers with age-based rules for adolescents.</p>
+        <div class="twocol" id="portalGrid"></div>
+      </section>
+
+      <section id="patterns">
+        <h2>UX patterns &amp; patient safety</h2>
+        <p class="lede">Cross-cutting rules that every module follows. Most of these exist because of known EHR-related safety events.</p>
+        <div class="twocol" id="patternGrid"></div>
+      </section>
+
+      <section id="compliance">
+        <h2>Integrations &amp; compliance</h2>
+        <p class="lede">Where regulation and external systems touch the IA. Verify current ONC/ASTP certification criteria and CMS program rules at build time; these change yearly.</p>
+        <div class="twocol" id="compGrid"></div>
+      </section>
+
+      <section id="states">
+        <h2>Status models</h2>
+        <p class="lede">Shared state machines. Keep labels identical across lists, chips, filters and reports.</p>
+        <div class="twocol" id="stateGrid"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+const ROLES = {
+  fd:{name:"Front desk",desc:"Scheduling, registration, check-in/out, copays, referrals coordination.",home:"Day board: arrivals, eligibility flags, unsigned forms, balances due"},
+  ma:{name:"MA / nurse",desc:"Rooming, vitals, med rec, screenings, protocols, refill triage, outreach.",home:"Clinical day list + flow board + triage inbox"},
+  pr:{name:"Provider",desc:"MD, DO, NP, PA. Documents, orders, prescribes, signs results and notes.",home:"Today's schedule with readiness, inbox counts, unsigned notes"},
+  bl:{name:"Biller",desc:"Charge review, claims, rejections, ERA posting, denials, patient balances.",home:"RCM work queues ranked by dollars at risk and timely-filing deadline"},
+  pm:{name:"Practice manager",desc:"Admin, users, templates, fee schedules, reports, quality, compliance.",home:"KPIs: visits, no-shows, charge lag, AR > 90, MIPS progress"},
+  pt:{name:"Patient",desc:"Books, completes forms, messages, views results, pays, shares records.",home:"Portal home: next visit, to-dos, messages, balance"},
+  sys:{name:"System / interface",desc:"Automations and external transactions: clearinghouse, labs, pharmacy, HIE.",home:"Interface monitor (admin)"}
+};
+const ROLE_ORDER=["fd","ma","pr","bl","pm","pt","sys"];
+
+const JOURNEY=[
+ ["Schedule","fd","Book + verify"],["Pre-visit","pt","Forms, card, pay"],["Check-in","fd","ID, copay"],["Rooming","ma","Vitals, med rec"],
+ ["Encounter","pr","Note, orders, Rx"],["Checkout","fd","AVS, follow-up"],["Claim","bl","837P → 835"],["Follow-through","ma","Results, recalls"]
+];
+
+const MODULES = [
+ {id:"home",name:"Home",why:"Role-specific work queues. Every tile is a filtered list with a count and a primary action.",groups:[
+  {t:"Role homes",items:[["Front desk day board","Arrivals, eligibility failures, missing forms, balances","fd"],["Clinical day list","Patients by room status, pending protocols","ma"],["Provider worklist","Schedule readiness, unsigned notes, inbox by priority","pr"],["RCM work queues","Unbilled, rejected, denied, unposted","bl"],["Practice KPI board","Volume, no-shows, AR, quality","pm"]]},
+  {t:"Global",items:[["Command bar (Ctrl/Cmd+K)","Jump to patient, screen, action","fd ma pr bl pm"],["Notifications tray","Critical results, task escalations","ma pr bl pm"]]}
+ ]},
+ {id:"schedule",name:"Schedule",why:"Where the day is planned and run. Booking is a drawer over the calendar so context is never lost.",groups:[
+  {t:"Calendar",items:[["Day / week / multi-provider view","Columns per provider or room","fd ma pr pm"],["Appointment booking drawer","Patient lookup, visit type, slot finder, insurance","fd"],["Appointment detail","Status, reminders, eligibility, notes, history","fd ma"]]},
+  {t:"Run the day",items:[["Patient flow board","Arrived → Roomed → With provider → Checkout, wait timers","fd ma pr"],["Room & resource board","Rooms, equipment, telehealth links","ma"]]},
+  {t:"Fill the day",items:[["Waitlist","Auto-offer cancelled slots by SMS","fd"],["Recall list","Due follow-ups and preventive visits","fd ma"],["Online booking rules","Which visit types patients can self-book","pm"]]}
+ ]},
+ {id:"patients",name:"Patients",why:"Find or create a patient, then open the chart context. Duplicate prevention starts here.",groups:[
+  {t:"Find & register",items:[["Patient search","Name, DOB, phone, MRN; fuzzy match with DOB confirmation","fd ma pr bl"],["New patient registration","Demographics, contacts, guarantor, insurance, consents","fd"],["Duplicate review & merge","Probabilistic match queue","pm"]]},
+  {t:"Patient chart",items:[["Chart (context)","See anatomy section","ma pr fd bl"],["Encounter workspace","Note, orders, Rx, coding","ma pr"]]},
+  {t:"Populations",items:[["Patient lists & panels","Saved filters, provider panels","pr ma pm"],["Registries","Diabetes, HTN, CCM-eligible","ma pm"]]}
+ ]},
+ {id:"inbox",name:"Inbox",why:"Single clinical work queue with typed folders and pools. Every item has an owner, a due time and an audit trail.",groups:[
+  {t:"Clinical",items:[["Results to review","Abnormal/critical first; sign, comment, notify","pr ma"],["Rx renewal & change requests","From pharmacies (NCPDP SCRIPT) and portal","ma pr"],["Co-sign queue","Supervised notes and orders","pr"]]},
+  {t:"Communication",items:[["Patient messages","Pooled by care team; templates; convert to visit","ma pr"],["Staff messages & tasks","Assign, due date, escalate","fd ma pr bl pm"]]},
+  {t:"Documents",items:[["Incoming fax & scans","OCR, auto-suggest patient & type, file to chart","fd ma"],["Referral responses / consult notes","Close referral loop","fd pr"],["Prior authorization tasks","Status, payer portal links, ePA","fd ma"]]}
+ ]},
+ {id:"billing",name:"Billing",why:"Practice management and revenue cycle. Organised as worklists in the order money flows.",groups:[
+  {t:"Front end",items:[["Eligibility (270/271)","Batch night-before + real-time","fd bl"],["Estimates","Good-faith estimates for self-pay","fd bl"],["Copay & payment capture","Card on file, terminal, receipts","fd"]]},
+  {t:"Mid cycle",items:[["Charge review","Unbilled encounters, coding edits, NCCI, missing modifiers","bl pr"],["Claims worklist","Scrubbed, ready, sent, accepted, rejected","bl"],["Clearinghouse rejections","999/277CA errors mapped to fix screens","bl"]]},
+  {t:"Back end",items:[["ERA posting (835)","Auto-post with exception queue","bl"],["Denials & appeals","CARC/RARC grouping, appeal letters","bl"],["Patient statements & payment plans","Text-to-pay, autopay","bl fd pt"],["Day close & deposit reconciliation","Batch, drawer count, bank match","bl pm"]]}
+ ]},
+ {id:"reports",name:"Reports",why:"Standard reports per role plus a guarded builder. Every number drills down to the list of records behind it.",groups:[
+  {t:"Financial",items:[["AR aging by payer","Buckets 0-30…120+","bl pm"],["Collections & payer mix","","bl pm"],["Charge lag & clean-claim rate","","bl pm"]]},
+  {t:"Operational",items:[["No-shows & fill rate","","pm fd"],["Cycle time (arrive → checkout)","From flow board timestamps","pm"],["Provider productivity (wRVU)","","pm pr"]]},
+  {t:"Clinical & regulatory",items:[["Quality measures (eCQM/MIPS)","Numerator/denominator drill-down","pm pr"],["Care gaps by panel","","pr ma"],["Data export","Custom CSV, bulk FHIR, EHI export","pm"]]}
+ ]},
+ {id:"telehealth",name:"Telehealth",why:"A visit modality, not a separate product. Same encounter, with virtual waiting room and POS/modifier defaults.",groups:[
+  {t:"Visit",items:[["Virtual waiting room","Device check, consent, interpreter join","pt ma"],["Video visit with chart side-panel","","pr"]]},
+  {t:"Asynchronous",items:[["E-visits / portal questionnaires","Billable online digital E/M where eligible","pr pt"],["Remote monitoring dashboard","Device readings, RPM time tracking","ma pr"]]}
+ ]},
+ {id:"admin",name:"Admin",why:"Configuration that the practice owns. Changes are versioned and audited.",groups:[
+  {t:"Organisation",items:[["Practice, locations, rooms","TIN, POS, place-of-service codes","pm"],["Users & roles (RBAC)","Role templates, least privilege","pm"],["Providers","NPI, taxonomy, licences, DEA, EPCS identity proofing","pm"]]},
+  {t:"Scheduling & billing setup",items:[["Visit types & schedule templates","Duration, slot rules, booking channels","pm"],["Payers, plans, fee schedules","Contracts for underpayment detection","pm bl"]]},
+  {t:"Clinical content",items:[["Note templates & smart phrases","","pm pr"],["Order sets & favourites","Lab compendium mapping","pm pr"],["Forms & consent builder","Portal and kiosk forms","pm"]]},
+  {t:"Security & interfaces",items:[["Security policies","MFA, session timeout, break-the-glass","pm"],["Audit log viewer","Access, change, export events","pm"],["Interface monitor","Labs, clearinghouse, eRx, HIE, IIS","pm sys"]]}
+ ]}
+];
+
+const FLOWS = [
+ {id:"access",name:"Patient access",goal:"Booked, eligible, pre-registered patient before arrival",kpi:"No-show rate, eligibility failures at check-in",steps:[
+  ["pt","Request appointment","Portal › Appointments › Book","Self-schedule against allowed visit types, or phone/online form. New patients capture reason, insurance, referring provider.","Appointment (Requested/Booked)","—","Slot taken: show next 3 alternatives"],
+  ["fd","Book & register","Schedule › Booking drawer","Search before create (DOB + name + phone match). Pick visit type; slot finder respects provider templates. Capture insurance, guarantor.","Patient, Coverage, Appointment","—","Possible duplicate: side-by-side compare before continuing"],
+  ["sys","Verify eligibility","Background job + Billing › Eligibility","Real-time 270/271 at booking and batch 48h before. Store copay, deductible remaining, PCP-on-file, auth requirements.","Coverage.eligibility","X12 270/271 via clearinghouse","Inactive/unknown: flag on day board; patient gets self-pay or update-insurance prompt"],
+  ["sys","Remind & confirm","Communications engine","SMS/email at 72h and 24h with confirm, cancel, reschedule. Cancelled slots offered to waitlist.","Appointment.status, comms log","SMS/email gateway","Opt-out respected (TCPA); fall back to voice"],
+  ["pt","Pre-visit e-check-in","Portal › To-dos","Demographics review, insurance card photos, ID, intake questionnaire, consents (HIPAA NPP, financial policy), med/allergy review, copay prepay.","Questionnaire responses (pending), Consents, Payment","Payment processor","Abandoned midway: save progress, resume link"],
+  ["fd","Reconcile patient-entered data","Inbox › Pre-visit queue","Accept/reject diffs from portal against chart fields. Patient-reported meds/allergies go to MA for reconciliation, not straight into the chart.","Patient, Coverage updates","—","Conflicting insurance: re-run eligibility"],
+  ["pr","Pre-chart","Encounter › Pre-chart","Review care gaps, outstanding results, outside records; queue standing orders.","Draft encounter, pended orders","HIE query (optional)","—"]
+ ]},
+ {id:"checkin",name:"Check-in & rooming",goal:"Patient in room, data ready for provider",kpi:"Arrive-to-room time, copay collection rate",steps:[
+  ["fd","Arrive patient","Flow board / Appointment","Verify photo ID and insurance card, collect copay and prior balance, sign outstanding consents (tablet signature). Status: Arrived.","Appointment.status, Payment, Consent","Card terminal","Copay declined: allow arrive, create balance, flag"],
+  ["sys","Update flow board","Flow board","Timer starts; colour change after threshold; MA pool notified.","Status timestamps","—","—"],
+  ["ma","Room patient","Flow board › Room","Assign room. Status: Roomed. Opens encounter rooming tab.","Encounter (In progress)","—","Wrong patient guard: confirm name + DOB on open"],
+  ["ma","Intake","Encounter › Rooming","Vitals (BMI auto-calc, abnormal highlight), chief complaint, med reconciliation, allergy review, PHQ-2/9, fall risk, tobacco, SDOH screen, point-of-care tests.","Observations, MedicationStatement, AllergyIntolerance, QuestionnaireResponse","POC device interface (optional)","Out-of-range vital: confirm re-measure prompt"],
+  ["ma","Protocols & hand-off","Encounter › Rooming › Ready","Administer standing-order vaccines (VIS documented), pend orders for provider. Status: Ready for provider.","Immunization, pended orders","IIS submission (HL7 VXU)","Vaccine lot expired: block"]
+ ]},
+ {id:"encounter",name:"Provider encounter",goal:"Signed note, linked orders, clean charge",kpi:"Note close time, charge lag, alerts overridden",steps:[
+  ["pr","Review","Encounter › Note + context drawer","Summary, rooming data, prior note, new results. Status: With provider.","—","—","—"],
+  ["pr","Document","Encounter › Note","HPI, ROS, PE via templates, smart phrases, voice or ambient draft. Generated text is visibly marked until provider edits or accepts.","Note (Draft)","Ambient AI service (optional)","Copy-forward: diff highlighting, stale data warning"],
+  ["pr","Assess & plan","Encounter › Dx & coding","ICD-10-CM search by plain language, specificity prompts (laterality, episode). Update problem list. Plan written per problem.","Condition (encounter-diagnosis, problem-list-item)","—","Unspecified code: soft prompt"],
+  ["pr","Order","Encounter › Orders","Labs from compendium with AOE questions, imaging, referrals, procedures. Order sets. Medicare medical-necessity check prompts ABN.","ServiceRequest","Lab ORM / FHIR order","Missing AOE answer: block send"],
+  ["pr","Prescribe","Encounter › Rx","Formulary and real-time benefit check, drug-drug/allergy/dose checks, PDMP review for controlled substances, EPCS two-factor signing, send to pharmacy.","MedicationRequest","NCPDP SCRIPT via eRx network, PDMP","Pharmacy rejects: change request returns to inbox"],
+  ["pr","Code","Encounter › Charges","E/M level by MDM or total time, CPT/HCPCS, modifiers (25, 59/X), units, Dx pointers. Coding assistant shows why.","ChargeItem (Draft)","—","Procedure without separate Dx: warn on -25"],
+  ["pr","Sign","Action bar › Sign & lock","Pre-flight checks then lock. Supervised clinicians route to co-sign where required. After lock only addenda.","Note (Signed), Charges (Ready)","—","Unsigned Rx or unlinked order: block with fix links"],
+  ["fd","Checkout","Flow board › Checkout","After-visit summary to portal or print, book follow-up, schedule referral/imaging, collect remaining responsibility. Status: Checked out.","Appointment (Completed), follow-up Appointment","—","Patient leaves before checkout: AVS auto-released to portal"]
+ ]},
+ {id:"results",name:"Orders & results",goal:"Every order closes with a reviewed result and a notified patient",kpi:"Result-to-sign time, overdue orders",steps:[
+  ["pr","Order sent","Encounter › Orders","Requisition and specimen labels printed or electronic.","ServiceRequest (Active)","HL7 v2 ORM / lab portal","Interface down: print requisition, queue resend"],
+  ["ma","Collect specimen","Orders › Collection","In-house draw or send-out; record collection time.","Specimen","—","—"],
+  ["sys","Receive result","Interface engine","HL7 ORU parsed, auto-matched to order and patient by accession + demographics; LOINC mapped for trending.","DiagnosticReport, Observation","HL7 v2 ORU","Unmatched: reconciliation queue (never auto-file)"],
+  ["pr","Review & sign","Inbox › Results","Critical/abnormal first, trend sparkline, compare prior. Sign, comment, pick next action (notify, call, order follow-up, book visit).","Review status, comment","—","Critical value: phone-call documentation required"],
+  ["pt","Patient sees result","Portal › Results","Released per information-blocking rules; provider comment attached when available.","Release event","—","Delay exception documented when applied"],
+  ["sys","Close the loop","Orders › Tracking","Ordered-not-resulted and referred-not-seen lists past due date.","—","—","Escalates to ordering provider pool"]
+ ]},
+ {id:"rcm",name:"Revenue cycle",goal:"Paid claim, posted payment, collected patient balance",kpi:"Clean-claim rate, days in AR, denial rate",steps:[
+  ["sys","Create charge","On note sign","Charges drop to review if edits fail, else straight to claim.","ChargeItem","—","—"],
+  ["bl","Charge review","Billing › Charge review","Fix edits: NCCI pairs, MUEs, missing modifiers, missing auth, Dx pointer, rendering vs billing provider, POS.","ChargeItem (Ready)","—","Needs provider: send query task with return-to link"],
+  ["sys","Scrub & submit","Billing › Claims","Payer-specific rules, build 837P, batch to clearinghouse.","Claim (Submitted)","X12 837P","—"],
+  ["sys","Acknowledgement","Billing › Rejections","999 file-level and 277CA claim-level acks.","Claim status","X12 999, 277CA","Rejected: worklist item with plain-language reason and fix field"],
+  ["bl","Fix & resubmit","Billing › Rejections","Correct, resubmit, track frequency code (replacement/void).","Claim","837P","—"],
+  ["sys","Post remittance","Billing › ERA posting","835 auto-post; contractual adjustments; patient responsibility transfers.","Payment, Adjustment","X12 835, EFT","Unbalanced ERA or unmatched claim: exception queue"],
+  ["bl","Denials & appeals","Billing › Denials","Grouped by CARC/RARC root cause; correct and resubmit, or appeal with letter templates; underpayment vs fee schedule.","Denial, Appeal","Payer portal links","Timely-filing countdown visible"],
+  ["pt","Pay balance","Portal › Billing / statement","Statement by text and email, pay online, payment plan, autopay.","Payment","Payment processor","Failed autopay: retry + notice"],
+  ["pm","Close & review","Billing › Day close, Reports","Deposit reconciliation, AR aging, KPI review.","Batch (Closed)","Bank feed (optional)","Variance: requires reason before close"]
+ ]},
+ {id:"inbox",name:"Refills & messages",goal:"Every request answered within the practice's SLA",kpi:"Message turnaround, refill turnaround",steps:[
+  ["pt","Request","Portal › Messages / Rx renewal","Structured refill request or free-text message with category (clinical, billing, scheduling).","Communication / Task","Pharmacy RxRenew","Urgent symptom keywords: show call 911/clinic banner"],
+  ["sys","Route","Inbox rules","Pool by category and care team; due time by SLA.","Task (Open)","—","Unowned past SLA: escalate"],
+  ["ma","Triage","Inbox","Apply refill protocol (last visit, required labs). Pend for provider or answer within scope.","Pended MedicationRequest","—","Protocol fails: book visit and send short supply request"],
+  ["pr","Approve","Inbox › one-click sign","Approve, modify, deny with reason. Messages can convert to billable e-visit.","MedicationRequest, Communication","NCPDP SCRIPT","—"],
+  ["pt","Notified","Portal / SMS","Status and reply visible in thread.","—","—","—"]
+ ]},
+ {id:"referral",name:"Referrals",goal:"Outbound referral completed and consult note back in chart",kpi:"Referral loop closure rate",steps:[
+  ["pr","Order referral","Encounter › Orders › Referral","Specialty, preferred provider, reason, urgency, linked Dx.","ServiceRequest (referral)","—","—"],
+  ["fd","Authorise & send","Referrals worklist","Check payer referral/auth rules, obtain auth, send with clinical summary.","Referral, Authorization","Direct secure messaging (C-CDA), eFax, ePA","Auth denied: route to provider"],
+  ["fd","Schedule & track","Referrals worklist","Track appointment date at specialist; remind patient.","Referral status","—","No response in N days: follow-up task"],
+  ["sys","Close loop","Inbox › Documents","Consult note received, matched, provider notified.","DocumentReference","Direct / fax","—"]
+ ]},
+ {id:"quality",name:"Care gaps & quality",goal:"Proactive outreach and reportable quality measures",kpi:"Measure performance, CCM enrolment",steps:[
+  ["sys","Identify gaps","Registries","Rules over problems, results, immunizations and claims: A1c due, mammogram, colorectal screening, BP control.","Measure population","—","—"],
+  ["ma","Outreach","Recall list","Bulk SMS/portal campaigns, call lists, scheduling links.","Outreach log","SMS gateway","—"],
+  ["ma","Care management","Patient › Care plan","CCM/PCM consent, care plan, time tracking by month, monthly billing.","CarePlan, time logs","—","Time threshold reached: charge suggestion"],
+  ["pm","Report","Reports › Quality","eCQM dashboards with patient drill-down; QRDA export for submission.","Measure reports","QRDA I/III","—"]
+ ]}
+];
+
+const SCREENS = [
+ ["Front desk day board","home","Run today's arrivals without opening charts","Arrival list with eligibility, forms, balance, copay columns; one-click arrive","Empty day; eligibility unknown; clearinghouse down"],
+ ["Provider worklist","home","See what is ready and what is blocking","Schedule with readiness chips, inbox counts by type, unsigned notes ageing","Running late; no visits; over 20 open items"],
+ ["Multi-provider calendar","schedule","Book and manage time","Provider/room columns, colour by visit type, drag to reschedule, overbook rules","Template gaps; blocked time; double-book warning"],
+ ["Booking drawer","schedule","Book in under 60 seconds","Patient typeahead, visit type, slot finder, insurance, reason, reminder preview","New vs existing; duplicate match; no slots in range"],
+ ["Patient flow board","schedule","Know where every patient is","Status columns, wait timers, room, assigned MA, telehealth link","Threshold exceeded; patient left without being seen"],
+ ["Patient registration","patients","Create a clean, unique patient","Demographics (USCDI fields incl. race, ethnicity, language, SOGI), guarantor, contacts, coverage with card scan","Possible duplicate; minor patient; self-pay"],
+ ["Chart summary","patients","Understand the patient in 30 seconds","Problems, meds, allergies, last vitals, recent results, care gaps, upcoming visits","New patient no data; sensitive record restricted; deceased"],
+ ["Medication list & reconciliation","patients","Single trusted med list","Active/inactive, source (patient-reported, prescribed, outside), fill history, reconcile action","Duplicate therapy; external list conflicts"],
+ ["Results viewer","patients","Read, trend and compare results","Table + trend chart by LOINC, reference ranges, abnormal flags, PDF of report","Corrected result; pending; unmatched"],
+ ["Encounter note","patients","Document the visit","Section tabs, templates, smart phrases, ambient draft, problem-based A&P, autosave","Draft; signed; addended; co-sign pending; locked by another user"],
+ ["Order entry","patients","Order correctly the first time","Search, favourites, order sets, AOE questions, Dx link, priority, ABN","Duplicate order; out of network lab; missing Dx"],
+ ["Prescription composer","patients","Safe, covered, sent","Sig builder, pharmacy picker, formulary/RTBC, DUR alerts, PDMP panel, EPCS signing","Controlled substance; prior auth required; pharmacy offline"],
+ ["Charges & coding","patients","Accurate, defensible charge","E/M calculator (MDM/time), CPT/HCPCS, modifiers, units, Dx pointers","Edit failure; no charge visit; global period"],
+ ["Results inbox","inbox","Close every result","Priority sort, preview pane, bulk sign normals, notify templates","Critical; corrected; result for unknown order"],
+ ["Patient messages","inbox","Respond inside SLA","Threads, pools, templates, attachments, convert to visit/e-visit","Urgent keywords; proxy sender; after hours"],
+ ["Document filing","inbox","File faxes to the right chart","Viewer, OCR suggestions for patient & type, split pages, assign","Low-confidence match; multi-patient fax"],
+ ["Charge review","billing","Release clean charges","Edit list grouped by rule, inline fix, provider query","Zero items; held by provider; rule change"],
+ ["Claims & rejections","billing","Get claims accepted","Status pipeline, 277CA reason in plain language, fix field link, resubmit","Batch failed; payer ID invalid"],
+ ["ERA posting","billing","Post remits accurately","Payment list, line-level CARC/RARC, auto-post review, exceptions","Unbalanced; recoupment; unmatched"],
+ ["Denials worklist","billing","Recover denied revenue","Root-cause groups, dollar value, filing deadline, appeal letter generator","Appeal deadline near; second-level appeal"],
+ ["Patient account","billing","Answer 'why do I owe this'","Ledger by visit, insurance vs patient portion, statements, payment plan","Credit balance/refund; collections hold"],
+ ["Quality dashboard","reports","Track and improve measures","Measure cards, trend, patient drill-down, export QRDA","Measure not configured; data missing"],
+ ["Users & roles","admin","Least-privilege access","Role templates, permission matrix, provider linkage, MFA status","Locked account; terminated user"],
+ ["Audit log","admin","Answer who saw what, when","Filter by user, patient, action, date; export","Break-the-glass events; large result set"],
+ ["Interface monitor","admin","Know integrations are healthy","Per-interface status, message counts, errors, resend","Down; backlog; certificate expiring"]
+];
+
+const PORTAL = [
+ ["Home","Next appointment with check-in button, to-dos (forms, payments), unread messages, new results."],
+ ["Appointments","Book, reschedule, cancel within rules; e-check-in; telehealth join with device test; directions."],
+ ["Health record","Visit summaries, results with provider comments, medications, allergies, immunizations, problems; download C-CDA, connect third-party apps via FHIR."],
+ ["Messages","Category-based compose, attachments, response time expectation shown, urgent-symptom guard."],
+ ["Billing","Statements in plain language, pay, payment plans, autopay, receipts, insurance card update."],
+ ["Profile & access","Demographics, preferred pharmacy, communication preferences, proxy access management, MFA."]
+];
+
+const PATTERNS = [
+ ["Patient identity safety",["Banner with name, DOB, photo on every patient-context screen","Limit simultaneous open charts; distinct colour per open patient tab","Re-confirm identity before signing orders opened from a list","Barcode wristband/label scan for specimens and vaccines"]],
+ ["Alert design",["Tier alerts: interruptive only for severe/contraindicated; others as passive cards","Override requires reason; overrides are reportable","Suppress duplicates within the same session","Track alert acceptance rate per rule; retire noisy rules"]],
+ ["Pend vs sign",["MA/nurse can pend orders and refills; only licensed users sign","Pended items show who pended and why","Co-sign routing driven by provider type and state rules"]],
+ ["Speed for repeat users",["Keyboard shortcuts for every primary action; Cmd/Ctrl+K command bar","Favourites and personal order sets","Bulk actions on lists (sign normal results, post batches)","Remember last-used filters per user"]],
+ ["Data provenance",["Every clinical fact shows source: entered, patient-reported, outside record, device, AI draft","AI-generated text marked until accepted","Reconciliation flows for outside data instead of silent import"]],
+ ["Resilience",["Autosave drafts; restore after timeout","Downtime mode: read-only cached schedule and summaries, paper-form fallback, back-entry queue","Interface failures surface as work items, not silent logs"]],
+ ["Privacy in the UI",["Sensitive notes (Part 2, behavioural health, adolescent) hidden behind consent or break-the-glass with reason","Screen-lock and auto-logout; mask SSN","Minimum necessary: billing roles see no clinical notes by default"]],
+ ["Accessibility & language",["WCAG 2.1 AA across staff and patient UIs","Patient-facing content in plain language and top local languages","Never colour alone for status; icons + text"]]
+];
+
+const COMPLIANCE = [
+ ["Clinical interoperability",["HL7 v2 ORM/ORU for labs; ADT where needed","FHIR R4 with US Core profiles; patient and population (bulk) APIs","C-CDA for transitions of care and patient download","Direct secure messaging for referrals","USCDI data classes drive required fields in registration and chart"]],
+ ["Prescribing",["NCPDP SCRIPT via certified eRx network (new, renew, change, cancel)","EPCS: identity proofing, two-factor signing, logical access controls","State PDMP query inside workflow","Real-time benefit check and electronic prior authorisation"]],
+ ["Revenue cycle (X12)",["270/271 eligibility","837P professional claims","276/277 status, 277CA acknowledgement, 999","835 remittance; EFT reassociation","278 / ePA for authorisations"]],
+ ["Privacy & security",["HIPAA Privacy and Security Rules; BAAs with all vendors","Role-based access, MFA, encryption in transit and at rest","Immutable audit log of access and changes","42 CFR Part 2 segmentation and consent for SUD records","Patient right of access and amendment workflows"]],
+ ["Certification & programmes",["ONC/ASTP Health IT Certification criteria for ambulatory EHR","Information blocking: timely release of results and notes, documented exceptions","CMS Promoting Interoperability and MIPS quality reporting (eCQM, QRDA)","Immunization registry submission and query (IIS)","Price transparency / good-faith estimates for self-pay patients"]],
+ ["Communications",["TCPA consent for SMS; opt-out handling","Minimum PHI in SMS and email bodies","Interpreter and language-access support (Section 1557)"]]
+];
+
+const STATES = [
+ ["Appointment",["Requested","Booked","Confirmed","Arrived","Roomed","With provider","Checkout","Completed","No-show / Cancelled / Rescheduled"]],
+ ["Encounter note",["Draft","Ready to sign","Pending co-sign","Signed","Addended"]],
+ ["Order",["Pended","Signed","Sent","Collected","Resulted (prelim)","Resulted (final)","Reviewed","Cancelled"]],
+ ["Claim",["Draft","Ready","Submitted","Accepted","Rejected","Paid","Partially paid","Denied","Appealed","Closed"]],
+ ["Inbox task",["Open","In progress","Pended to provider","Completed","Escalated"]],
+ ["Referral",["Ordered","Authorisation pending","Sent","Scheduled","Consult received","Closed"]]
+];
+
+/* ---------- render ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cvar=r=>`--c:var(--${r})`;
+let activeRole=null;
+
+$("#roleChips").innerHTML=ROLE_ORDER.map(r=>`<button class="chip" style="${cvar(r)}" data-role="${r}" aria-pressed="false"><i></i>${ROLES[r].name}</button>`).join("");
+$("#journey").innerHTML=JOURNEY.map(([t,r,s])=>`<div style="${cvar(r)}" data-roles="${r}">${t}<small>${s}</small></div>`).join("");
+$("#roleGrid").innerHTML=ROLE_ORDER.map(r=>`<div class="role" style="${cvar(r)}" data-roles="${r}"><h3>${ROLES[r].name}</h3><p>${ROLES[r].desc}</p><p class="home"><b>Home:</b> ${ROLES[r].home}</p></div>`).join("");
+
+function renderModule(id){
+  const m=MODULES.find(x=>x.id===id);
+  document.querySelectorAll("#modTabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.id===id));
+  $("#modPanel").innerHTML=`<p class="why">${m.why}</p><div class="groups">${m.groups.map(g=>`<div class="group"><h4>${g.t}</h4><ul>${g.items.map(([n,d,rs])=>`<li data-roles="${rs}"><span class="dots">${rs.split(" ").map(r=>`<b style="${cvar(r)}" title="${ROLES[r].name}"></b>`).join("")}</span><span>${esc(n)}${d?`<em>${esc(d)}</em>`:""}</span></li>`).join("")}</ul></div>`).join("")}</div>`;
+  applyRole();
+}
+$("#modTabs").innerHTML=MODULES.map(m=>`<button role="tab" data-id="${m.id}">${m.name}</button>`).join("");
+$("#modTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b)renderModule(b.dataset.id)});
+
+let flowId=FLOWS[0].id, stepIdx=0;
+function renderFlow(){
+  const f=FLOWS.find(x=>x.id===flowId);
+  document.querySelectorAll("#flowTabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.id===flowId));
+  $("#flowMeta").innerHTML=`<span><b>Outcome:</b> ${f.goal}</span><span><b>Measure:</b> ${f.kpi}</span>`;
+  const lanes=ROLE_ORDER.filter(r=>f.steps.some(s=>s[0]===r));
+  const n=f.steps.length;
+  const g=$("#lanes");
+  g.style.gridTemplateColumns=`150px repeat(${n},178px)`;
+  let h=`<div class="lanehead" style="border-bottom:1px solid var(--rule)">Role</div>`;
+  for(let i=0;i<n;i++)h+=`<div class="colhead">Step ${i+1}</div>`;
+  lanes.forEach(r=>{
+    h+=`<div class="lanehead" style="${cvar(r)}" data-roles="${r}"><i></i>${ROLES[r].name}</div>`;
+    f.steps.forEach((s,i)=>{
+      h+= s[0]===r
+        ? `<div class="cell filled"><button class="step" style="${cvar(r)}" data-roles="${r}" data-i="${i}" aria-pressed="${i===stepIdx}"><span class="n">${i+1}</span>${esc(s[1])}</button></div>`
+        : `<div class="cell"></div>`;
+    });
+  });
+  g.innerHTML=h;
+  renderDetail();
+  applyRole();
+}
+function renderDetail(){
+  const f=FLOWS.find(x=>x.id===flowId), s=f.steps[stepIdx];
+  const d=$("#detail");
+  d.style.setProperty("--c",`var(--${s[0]})`);
+  d.innerHTML=`<h3>${stepIdx+1}. ${esc(s[1])}</h3><dl>
+    <dt>Role</dt><dd>${ROLES[s[0]].name}</dd>
+    <dt>Screen</dt><dd>${esc(s[2])}</dd>
+    <dt>What happens</dt><dd>${esc(s[3])}</dd>
+    <dt>Data written</dt><dd>${esc(s[4])}</dd>
+    <dt>External</dt><dd>${esc(s[5])}</dd>
+    <dt>Failure path</dt><dd>${esc(s[6])}</dd></dl>`;
+}
+$("#flowTabs").innerHTML=FLOWS.map(f=>`<button role="tab" data-id="${f.id}">${f.name}</button>`).join("");
+$("#flowTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(b){flowId=b.dataset.id;stepIdx=0;renderFlow()}});
+$("#lanes").addEventListener("click",e=>{const b=e.target.closest(".step");if(b){stepIdx=+b.dataset.i;document.querySelectorAll(".step").forEach(x=>x.setAttribute("aria-pressed",x===b));renderDetail()}});
+
+const modName=id=>(MODULES.find(m=>m.id===id)||{name:id}).name;
+$("#modFilter").innerHTML=`<option value="">All modules</option>`+[...new Set(SCREENS.map(s=>s[1]))].map(m=>`<option value="${m}">${modName(m)}</option>`).join("");
+function renderScreens(){
+  const q=$("#q").value.toLowerCase().trim(), m=$("#modFilter").value;
+  const rows=SCREENS.filter(s=>(!m||s[1]===m)&&(!q||s.join(" ").toLowerCase().includes(q)));
+  $("#screenRows").innerHTML=rows.map(s=>`<tr><td>${esc(s[0])}<span class="mod-tag">${modName(s[1])}</span></td><td>${esc(s[2])}</td><td>${esc(s[3])}</td><td>${esc(s[4])}</td></tr>`).join("")||`<tr><td colspan="4">No screens match. Clear the search or pick another module.</td></tr>`;
+  $("#screenCount").textContent=`${rows.length} of ${SCREENS.length} key screens shown. Each module also needs list, detail, create/edit, empty, loading, error and permission-denied states.`;
+}
+$("#q").addEventListener("input",renderScreens);$("#modFilter").addEventListener("change",renderScreens);
+
+const boxes=(arr)=>arr.map(([t,items])=>`<div class="box"><h3>${t}</h3><ul>${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul></div>`).join("");
+$("#portalGrid").innerHTML=PORTAL.map(([t,d])=>`<div class="box" data-roles="pt"><h3>${t}</h3><p style="margin:0;font-size:14px">${d}</p></div>`).join("");
+$("#patternGrid").innerHTML=boxes(PATTERNS);
+$("#compGrid").innerHTML=boxes(COMPLIANCE);
+$("#stateGrid").innerHTML=STATES.map(([t,s])=>`<div class="box"><h3>${t}</h3><p style="margin:0;font-size:14px">${s.map(esc).join(" › ")}</p></div>`).join("");
+
+function applyRole(){
+  document.querySelectorAll("[data-roles]").forEach(el=>{
+    el.classList.toggle("dim",!!activeRole && !el.dataset.roles.split(" ").includes(activeRole));
+  });
+}
+$("#roleChips").addEventListener("click",e=>{
+  const b=e.target.closest(".chip");if(!b)return;
+  activeRole = activeRole===b.dataset.role?null:b.dataset.role;
+  document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.role===activeRole));
+  applyRole();
+});
+
+$("#themeBtn").addEventListener("click",()=>{
+  const r=document.documentElement;
+  const dark=r.dataset.theme? r.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme=dark?"light":"dark";
+  try{localStorage.setItem("ehr-theme",r.dataset.theme)}catch(e){}
+});
+try{const t=localStorage.getItem("ehr-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}
+
+renderModule("home");renderFlow();renderScreens();
+</script>
+</body>
+</html>

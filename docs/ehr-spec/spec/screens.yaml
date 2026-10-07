@@ -1,0 +1,586 @@
+# Screen catalogue. Every screen must appear in exactly one module group (modules.yaml).
+# Fields: purpose = job to be done; components = must-have UI parts; states = edge states design and code must handle;
+# invariants = rules this screen enforces. Every list screen also needs: loading, empty, error, permission-denied.
+screens:
+  # ---------- home ----------
+  - id: home.frontdesk-board
+    name: Front desk day board
+    roles: [frontdesk]
+    purpose: Run today's arrivals without opening charts.
+    components: [arrival list with eligibility/forms/balance/copay columns, one-click arrive, filters by provider and location]
+    states: [empty day, eligibility unknown, clearinghouse down]
+  - id: home.clinical-daylist
+    name: Clinical day list
+    roles: [ma]
+    purpose: See which patients need rooming, protocols or follow-up today.
+    components: [patients by appointment status, room assignment, pending protocol orders, triage inbox count]
+  - id: home.provider-worklist
+    name: Provider worklist
+    roles: [provider]
+    purpose: See what is ready and what is blocking.
+    components: [schedule with readiness chips, inbox counts by type, unsigned notes with age]
+    states: [running late, no visits, more than 20 open items]
+  - id: home.rcm-queues
+    name: RCM work queues
+    roles: [biller]
+    purpose: Work the highest-value billing items first.
+    components: [queues for unbilled, rejected, denied, unposted; ranked by dollars at risk and filing deadline]
+  - id: home.practice-kpis
+    name: Practice KPI board
+    roles: [manager]
+    purpose: Spot operational and financial problems early.
+    components: [visits, no-shows, charge lag, AR over 90 days, quality progress; each drills to records]
+  - id: global.command-bar
+    name: Command bar
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Jump to any patient, screen or action by keyboard (Cmd/Ctrl+K).
+  - id: global.notifications
+    name: Notifications tray
+    roles: [ma, provider, biller, manager]
+    purpose: Surface critical results and escalated tasks.
+
+  # ---------- schedule ----------
+  - id: schedule.calendar
+    name: Multi-provider calendar
+    roles: [frontdesk, ma, provider, manager]
+    purpose: Book and manage time.
+    components: [day/week/multi-provider and room columns, colour by visit type, drag to reschedule, overbook rules]
+    states: [template gaps, blocked time, double-book warning]
+  - id: schedule.booking-drawer
+    name: Booking drawer
+    roles: [frontdesk]
+    purpose: Book an appointment in under 60 seconds.
+    components: [patient typeahead, visit type, slot finder, insurance capture, reason, reminder preview]
+    states: [new vs existing patient, duplicate match, no slots in range]
+    invariants: [INV-ID-02]
+  - id: schedule.appointment-detail
+    name: Appointment detail
+    roles: [frontdesk, ma]
+    purpose: See and change one appointment.
+    components: [status, reminders sent, eligibility result, notes, change history]
+  - id: schedule.flow-board
+    name: Patient flow board
+    roles: [frontdesk, ma, provider]
+    purpose: Know where every patient is right now.
+    components: [columns by appointment status, wait timers, room, assigned MA, telehealth link]
+    states: [threshold exceeded, left without being seen]
+  - id: schedule.room-board
+    name: Room and resource board
+    roles: [ma]
+    purpose: Assign rooms and equipment.
+  - id: schedule.checkout
+    name: Checkout
+    roles: [frontdesk]
+    purpose: Close the visit with the patient present.
+    components: [AVS print/release, follow-up booking, referral/imaging scheduling, balance collection]
+  - id: schedule.waitlist
+    name: Waitlist
+    roles: [frontdesk]
+    purpose: Fill cancelled slots automatically.
+  - id: schedule.recall-list
+    name: Recall list
+    roles: [frontdesk, ma]
+    purpose: Bring back patients due for follow-up or preventive care.
+
+  # ---------- patients ----------
+  - id: patients.search
+    name: Patient search
+    roles: [frontdesk, ma, provider, biller]
+    purpose: Find the right patient fast.
+    components: [search by name, DOB, phone, MRN; fuzzy match; DOB shown in every result]
+  - id: patients.registration
+    name: Patient registration
+    roles: [frontdesk]
+    purpose: Create a clean, unique patient.
+    components: [USCDI demographics incl. race, ethnicity, language, SOGI; guarantor; contacts; coverage with card scan]
+    states: [possible duplicate, minor patient, self-pay]
+    invariants: [INV-ID-02]
+  - id: patients.merge-review
+    name: Duplicate review and merge
+    roles: [manager]
+    purpose: Resolve duplicate patients safely.
+    invariants: [INV-ID-04]
+  - id: patients.lists
+    name: Patient lists and panels
+    roles: [provider, ma, manager]
+    purpose: Saved filters and provider panels.
+  - id: patients.registries
+    name: Registries
+    roles: [ma, manager]
+    purpose: Condition-based populations (diabetes, hypertension, CCM-eligible).
+
+  # ---------- chart (context) ----------
+  - id: chart.summary
+    name: Chart summary
+    roles: [frontdesk, ma, provider]
+    purpose: Understand the patient in 30 seconds.
+    components: [problems, meds, allergies, last vitals, recent results, care gaps, upcoming visits]
+    states: [new patient with no data, restricted record, deceased]
+    invariants: [INV-ID-01, INV-SEC-03]
+  - id: chart.timeline
+    name: Timeline / encounters
+    roles: [ma, provider]
+    purpose: Browse past visits, results and documents chronologically.
+  - id: chart.problems
+    name: Problem list
+    roles: [ma, provider]
+    purpose: Maintain active and resolved problems.
+    invariants: [INV-DATA-01]
+  - id: chart.medications
+    name: Medication list and reconciliation
+    roles: [ma, provider]
+    purpose: Keep one trusted medication list.
+    components: [active/inactive, provenance, fill history, incoming items to reconcile]
+    states: [duplicate therapy, outside list conflicts]
+    invariants: [INV-DATA-01]
+  - id: chart.allergies
+    name: Allergies
+    roles: [ma, provider]
+    purpose: Record allergies and intolerances with reaction and severity.
+    invariants: [INV-DATA-01]
+  - id: chart.vitals
+    name: Vitals and flowsheets
+    roles: [ma, provider]
+    purpose: Trend vitals and structured measurements.
+  - id: chart.results
+    name: Results viewer
+    roles: [ma, provider]
+    purpose: Read, trend and compare results.
+    components: [table and trend chart by LOINC, reference ranges, abnormal flags, original report PDF]
+    states: [corrected result, preliminary, pending]
+  - id: chart.immunizations
+    name: Immunizations
+    roles: [ma, provider]
+    purpose: Record and reconcile immunizations with the state registry.
+  - id: chart.history
+    name: History
+    roles: [ma, provider]
+    purpose: Past medical, surgical, family, social history and SDOH.
+  - id: chart.orders
+    name: Orders
+    roles: [ma, provider]
+    purpose: All orders for the patient with status.
+  - id: chart.referrals
+    name: Referrals
+    roles: [frontdesk, provider]
+    purpose: Inbound and outbound referrals with loop status.
+  - id: chart.care-plan
+    name: Care plans and goals
+    roles: [ma, provider]
+    purpose: Chronic care plans, goals and CCM time.
+  - id: chart.care-gaps
+    name: Preventive care and care gaps
+    roles: [ma, provider]
+    purpose: See and close due preventive and chronic-care items.
+  - id: chart.documents
+    name: Documents
+    roles: [frontdesk, ma, provider]
+    purpose: Scanned, faxed and outside documents.
+  - id: chart.communications
+    name: Communications
+    roles: [ma, provider]
+    purpose: Messages, calls and letters for this patient.
+  - id: chart.demographics
+    name: Demographics and insurance
+    roles: [frontdesk, biller]
+    purpose: Edit demographics, contacts, guarantor and coverage.
+  - id: chart.consents
+    name: Consents and privacy
+    roles: [frontdesk, manager]
+    purpose: Signed consents, restrictions, Part 2 consent, proxy grants.
+    invariants: [INV-SEC-03]
+  - id: chart.account
+    name: Patient account (summary)
+    roles: [frontdesk, biller]
+    purpose: Balance and recent payments from within the chart; links to billing.patient-account.
+  - id: chart.access-log
+    name: Access log
+    roles: [manager]
+    purpose: Who viewed or changed this record.
+    invariants: [INV-SEC-01]
+
+  # ---------- encounter ----------
+  - id: encounter.prechart
+    name: Pre-chart
+    roles: [ma, provider]
+    purpose: Prepare the visit before the patient arrives.
+  - id: encounter.rooming
+    name: Rooming
+    roles: [ma]
+    purpose: Capture intake data and hand off to the provider.
+    components: [vitals with BMI and range highlighting, chief complaint, med/allergy review, screenings (PHQ-2/9, fall risk, tobacco, SDOH), POC tests, standing orders]
+  - id: encounter.note
+    name: Encounter note
+    roles: [ma, provider]
+    purpose: Document the visit.
+    components: [section tabs, templates, smart phrases, ambient draft with provenance markers, problem-based assessment and plan, autosave]
+    states: [draft, signed, addended, pending co-sign, locked by another user]
+    invariants: [INV-SAFE-02, INV-DATA-02, INV-SEC-04]
+  - id: encounter.orders
+    name: Order entry
+    roles: [ma, provider]
+    purpose: Order correctly the first time.
+    components: [search, favourites, order sets, AOE questions, diagnosis link, priority, ABN prompt]
+    states: [duplicate order, out-of-network lab, missing diagnosis]
+  - id: encounter.rx
+    name: Prescription composer
+    roles: [ma, provider]
+    purpose: Prescribe safely, covered, and sent.
+    components: [sig builder, pharmacy picker, formulary and real-time benefit check, DUR alerts, PDMP panel, EPCS signing]
+    states: [controlled substance, prior auth required, pharmacy offline]
+    invariants: [INV-SAFE-05, INV-SAFE-06]
+  - id: encounter.dx-coding
+    name: Diagnoses and coding
+    roles: [provider]
+    purpose: Choose specific ICD-10-CM codes and update the problem list.
+  - id: encounter.charges
+    name: Charges
+    roles: [provider, biller]
+    purpose: Produce an accurate, defensible charge.
+    components: [E/M calculator by MDM or time, CPT/HCPCS, modifiers, units, diagnosis pointers]
+    states: [edit failure, no-charge visit, global period]
+    invariants: [INV-FIN-03]
+  - id: encounter.avs
+    name: After-visit summary
+    roles: [provider, frontdesk]
+    purpose: Give the patient a plain-language summary and instructions.
+  - id: encounter.sign
+    name: Sign and pre-flight
+    roles: [provider]
+    purpose: Lock the note after blocking checks pass.
+    invariants: [INV-SAFE-01, INV-SAFE-08, INV-ID-03]
+
+  # ---------- inbox & tracking ----------
+  - id: inbox.results
+    name: Results to review
+    roles: [provider, ma]
+    purpose: Close every result.
+    components: [priority sort, preview pane, bulk sign normals, notify templates]
+    states: [critical, corrected, result for unknown order]
+    invariants: [INV-SAFE-04]
+  - id: inbox.rx-requests
+    name: Rx renewal and change requests
+    roles: [ma, provider]
+    purpose: Handle pharmacy and portal refill requests by protocol.
+  - id: inbox.cosign
+    name: Co-sign queue
+    roles: [provider]
+    purpose: Supervising signature on notes and orders.
+  - id: inbox.patient-messages
+    name: Patient messages
+    roles: [ma, provider]
+    purpose: Respond within SLA.
+    components: [threads, pools, templates, attachments, convert to visit or e-visit]
+    states: [urgent keywords, proxy sender, after hours]
+  - id: inbox.tasks
+    name: Staff messages and tasks
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Assign and track internal work.
+  - id: inbox.previsit-queue
+    name: Pre-visit reconciliation queue
+    roles: [frontdesk, ma]
+    purpose: Accept or reject patient-entered changes before the visit.
+    invariants: [INV-DATA-01]
+  - id: inbox.documents
+    name: Incoming fax and scans
+    roles: [frontdesk, ma]
+    purpose: File documents to the right chart.
+    components: [viewer, OCR patient and type suggestions, page split, assign]
+    states: [low-confidence match, multi-patient fax]
+  - id: inbox.prior-auth
+    name: Prior authorization tasks
+    roles: [frontdesk, ma]
+    purpose: Track authorizations to approval.
+  - id: orders.collection
+    name: Specimen collection
+    roles: [ma]
+    purpose: Record collection and print labels/requisitions.
+  - id: orders.tracking
+    name: Overdue orders
+    roles: [ma, provider]
+    purpose: Find orders without results past their expected date.
+    invariants: [INV-SAFE-07]
+  - id: orders.result-reconciliation
+    name: Result reconciliation
+    roles: [ma, manager]
+    purpose: Match results that could not be auto-matched.
+    invariants: [INV-SAFE-03]
+  - id: referrals.worklist
+    name: Referrals worklist
+    roles: [frontdesk]
+    purpose: Authorise, send, schedule and close referrals.
+
+  # ---------- billing ----------
+  - id: billing.eligibility
+    name: Eligibility
+    roles: [frontdesk, biller]
+    purpose: Batch and real-time insurance verification.
+  - id: billing.estimates
+    name: Estimates
+    roles: [frontdesk, biller]
+    purpose: Good-faith estimates for self-pay patients.
+  - id: billing.payment-capture
+    name: Payment capture
+    roles: [frontdesk]
+    purpose: Take copays and balances; card on file; receipts.
+    invariants: [INV-FIN-01]
+  - id: billing.charge-review
+    name: Charge review
+    roles: [biller, provider]
+    purpose: Release clean charges.
+    components: [edits grouped by rule, inline fix, provider query task]
+  - id: billing.claims
+    name: Claims worklist
+    roles: [biller]
+    purpose: Track claims from scrubbed to paid.
+    invariants: [INV-FIN-03]
+  - id: billing.rejections
+    name: Clearinghouse rejections
+    roles: [biller]
+    purpose: Get rejected claims accepted.
+    components: [277CA/999 reason in plain language, link to the field to fix, resubmit]
+    invariants: [INV-FIN-05]
+  - id: billing.era-posting
+    name: ERA posting
+    roles: [biller]
+    purpose: Post remittances accurately.
+    components: [payment list, line-level CARC/RARC, auto-post review, exceptions]
+    states: [unbalanced, recoupment, unmatched claim]
+  - id: billing.denials
+    name: Denials and appeals
+    roles: [biller]
+    purpose: Recover denied revenue.
+    components: [root-cause groups, dollar value, filing deadline, appeal letter generator]
+    invariants: [INV-FIN-05]
+  - id: billing.statements
+    name: Statements and payment plans
+    roles: [biller, frontdesk]
+    purpose: Collect patient responsibility.
+  - id: billing.patient-account
+    name: Patient account
+    roles: [biller, frontdesk]
+    purpose: Answer "why do I owe this".
+    components: [ledger by visit, insurance vs patient portion, statements, payment plan]
+    states: [credit balance, collections hold]
+    invariants: [INV-FIN-02]
+  - id: billing.day-close
+    name: Day close
+    roles: [biller, manager]
+    purpose: Reconcile payments to deposits.
+    invariants: [INV-FIN-04]
+
+  # ---------- reports ----------
+  - id: reports.ar-aging
+    name: AR aging by payer
+    roles: [biller, manager]
+    purpose: See outstanding receivables by age bucket.
+  - id: reports.collections
+    name: Collections and payer mix
+    roles: [biller, manager]
+    purpose: Revenue collected by payer and source.
+  - id: reports.charge-lag
+    name: Charge lag and clean-claim rate
+    roles: [biller, manager]
+    purpose: Measure billing speed and quality.
+  - id: reports.no-shows
+    name: No-shows and fill rate
+    roles: [manager, frontdesk]
+    purpose: Schedule utilisation.
+  - id: reports.cycle-time
+    name: Visit cycle time
+    roles: [manager]
+    purpose: Arrive-to-checkout time from flow board timestamps.
+  - id: reports.productivity
+    name: Provider productivity
+    roles: [manager, provider]
+    purpose: Visits and wRVUs by provider.
+  - id: reports.quality
+    name: Quality measures
+    roles: [manager, provider]
+    purpose: eCQM/MIPS performance with patient drill-down and QRDA export.
+  - id: reports.care-gaps
+    name: Care gaps by panel
+    roles: [provider, ma]
+    purpose: Panel-level preventive and chronic-care gaps.
+  - id: reports.export
+    name: Data export
+    roles: [manager]
+    purpose: CSV, bulk FHIR and full electronic health information export.
+
+  # ---------- telehealth ----------
+  - id: telehealth.waiting-room
+    name: Virtual waiting room
+    roles: [patient, ma]
+    purpose: Device check, consent and interpreter join before the visit.
+  - id: telehealth.visit
+    name: Video visit
+    roles: [provider, patient]
+    purpose: Video with the chart in a side panel.
+  - id: telehealth.evisit
+    name: E-visits
+    roles: [provider, patient]
+    purpose: Asynchronous questionnaire-based visits.
+  - id: telehealth.rpm
+    name: Remote monitoring
+    roles: [ma, provider]
+    purpose: Device readings and RPM time tracking.
+
+  # ---------- admin ----------
+  - id: admin.locations
+    name: Practice, locations, rooms
+    roles: [manager]
+    purpose: TIN, addresses, place-of-service codes, rooms.
+  - id: admin.users-roles
+    name: Users and roles
+    roles: [manager]
+    purpose: Least-privilege access.
+    components: [role templates, permission matrix, provider linkage, MFA status]
+    states: [locked account, terminated user]
+  - id: admin.providers
+    name: Providers
+    roles: [manager]
+    purpose: NPI, taxonomy, licences, DEA, EPCS identity proofing, supervision.
+  - id: admin.visit-types
+    name: Visit types and schedule templates
+    roles: [manager]
+    purpose: Durations, slot rules and booking channels.
+  - id: admin.online-booking
+    name: Online booking rules
+    roles: [manager]
+    purpose: Which visit types patients may self-book.
+  - id: admin.payers-fees
+    name: Payers and fee schedules
+    roles: [manager, biller]
+    purpose: Payer setup and contracted rates for underpayment detection.
+  - id: admin.templates
+    name: Note templates and smart phrases
+    roles: [manager, provider]
+    purpose: Clinical documentation content.
+  - id: admin.order-sets
+    name: Order sets and favourites
+    roles: [manager, provider]
+    purpose: Order content mapped to lab compendiums.
+  - id: admin.forms
+    name: Forms and consent builder
+    roles: [manager]
+    purpose: Portal and kiosk forms.
+  - id: admin.cds-rules
+    name: Clinical decision support rules
+    roles: [manager]
+    purpose: Configure alerts and care-gap rules; review override rates.
+  - id: admin.security
+    name: Security policies
+    roles: [manager]
+    purpose: MFA, session timeout, break-the-glass policy.
+    invariants: [INV-SEC-04]
+  - id: admin.audit-log
+    name: Audit log viewer
+    roles: [manager]
+    purpose: Answer who saw what, when.
+    invariants: [INV-SEC-01]
+  - id: admin.interfaces
+    name: Interface monitor
+    roles: [manager, system]
+    purpose: Know integrations are healthy.
+    components: [per-interface status, message counts, errors, resend]
+    states: [down, backlog, certificate expiring]
+    invariants: [INV-OPS-01]
+  - id: admin.portal-settings
+    name: Portal settings
+    roles: [manager]
+    purpose: Portal features, release rules, proxy policy.
+
+  # ---------- portal ----------
+  - id: portal.home
+    name: Portal home
+    roles: [patient]
+    purpose: Next visit, to-dos, messages, balance.
+  - id: portal.appointments
+    name: Appointments
+    roles: [patient]
+    purpose: Book, reschedule, cancel; join telehealth.
+  - id: portal.todos
+    name: To-dos and e-check-in
+    roles: [patient]
+    purpose: Forms, consents, card upload, med review, copay prepay.
+    states: [abandoned midway, resume link]
+  - id: portal.messages
+    name: Messages
+    roles: [patient]
+    purpose: Message the care team.
+    states: [urgent-symptom guard]
+  - id: portal.record
+    name: Health record
+    roles: [patient]
+    purpose: Results, visit summaries, meds, allergies, immunizations; download C-CDA; connect FHIR apps.
+  - id: portal.billing
+    name: Billing
+    roles: [patient]
+    purpose: Statements, pay, payment plans, autopay.
+  - id: portal.profile
+    name: Profile and access
+    roles: [patient]
+    purpose: Demographics, pharmacy, communication preferences, proxy management, MFA.
+
+  # ---------- auth (public) ----------
+  - id: auth.sign-in
+    name: Staff sign-in
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Sign in with email and password before MFA.
+    components: [email, password, sign-in button, forgot password link, session-expired notice]
+    states: [invalid-credentials, account-locked, session-expired]
+    invariants: [INV-SEC-04, INV-SEC-01]
+  - id: auth.mfa-challenge
+    name: Staff MFA challenge
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Verify the second factor (TOTP, WebAuthn, SMS fallback).
+    states: [wrong-code, too-many-attempts]
+    invariants: [INV-SEC-04]
+  - id: auth.mfa-enroll
+    name: MFA enrolment
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Enrol an authenticator app or security key on first sign-in; show recovery codes.
+    invariants: [INV-SEC-04]
+  - id: auth.forgot-password
+    name: Forgot password
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Request a reset link without revealing whether the account exists.
+  - id: auth.reset-password
+    name: Reset password
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Set a new password from a single-use link.
+  - id: auth.accept-invite
+    name: Accept invitation
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: New staff user sets password, then enrols MFA.
+  - id: auth.step-up
+    name: Re-authenticate
+    roles: [provider, manager, biller]
+    purpose: Confirm identity before signing, controlled-substance prescribing or bulk export.
+    invariants: [INV-SAFE-05]
+  - id: auth.account-security
+    name: Account security
+    roles: [frontdesk, ma, provider, biller, manager]
+    purpose: Change password, manage MFA factors, see and revoke active sessions.
+    invariants: [INV-SEC-04, INV-SEC-01]
+  - id: portal.sign-in
+    name: Patient sign-in
+    roles: [patient]
+    purpose: Patient or proxy signs in to the portal.
+    states: [invalid-credentials, account-locked]
+  - id: portal.activate
+    name: Activate portal account
+    roles: [patient]
+    purpose: Create a portal login from an invitation, verifying identity (name, date of birth, code).
+  - id: portal.mfa-challenge
+    name: Patient verification code
+    roles: [patient]
+    purpose: Verify a one-time code sent by SMS or email, or an authenticator app.
+  - id: portal.forgot-password
+    name: Patient forgot password
+    roles: [patient]
+    purpose: Request a reset link.
+  - id: portal.reset-password
+    name: Patient reset password
+    roles: [patient]
+    purpose: Set a new password from a single-use link.

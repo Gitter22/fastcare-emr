@@ -1,0 +1,23 @@
+tag: Reports
+description: Reports with drill-down rows (format=csv returns the same rows as CSV), quality measures, and exports. Bulk and EHI exports require step-up and are audited as EXPORT.
+defaults: {auth: staff, roles: [manager], audit: READ, phi: false}
+ops:
+  - {id: getArAgingReport, m: GET, p: "/reports/ar-aging", sum: "AR by aging bucket and payer; days in AR", q: [payerId, asOf, format], res: ArAgingReport, roles: [biller, manager], screens: [reports.ar-aging, home.practice-kpis, home.rcm-queues]}
+  - {id: listArAgingRows, m: GET, p: "/reports/ar-aging/rows", sum: "Claims and patient balances in a bucket", q: [bucket, payerId, asOf, format], res: "page:ArAgingRow", roles: [biller, manager], screens: [reports.ar-aging], phi: true}
+  - {id: getCollectionsReport, m: GET, p: "/reports/collections", sum: "Collections by source and payer mix", q: [fromDate, toDate, groupBy, format], res: CollectionsReport, roles: [biller, manager], screens: [reports.collections, billing.day-close]}
+  - {id: getChargeLagReport, m: GET, p: "/reports/charge-lag", sum: "Days from service to sign and to claim; clean-claim rate", q: [fromDate, toDate, practitionerId, format], res: ChargeLagReport, roles: [biller, manager], screens: [reports.charge-lag, home.practice-kpis]}
+  - {id: getNoShowReport, m: GET, p: "/reports/no-shows", sum: "No-show, late-cancel and template fill rates", q: [fromDate, toDate, practitionerId, visitTypeId, format], res: NoShowReport, roles: [frontdesk, manager], screens: [reports.no-shows, home.practice-kpis]}
+  - {id: getCycleTimeReport, m: GET, p: "/reports/cycle-time", sum: "Minutes per stage from flow-board timestamps", q: [fromDate, toDate, locationId, practitionerId, format], res: CycleTimeReport, screens: [reports.cycle-time, home.practice-kpis]}
+  - {id: getProductivityReport, m: GET, p: "/reports/productivity", sum: "Visits, E/M distribution and wRVU by provider", q: [fromDate, toDate, practitionerId, format], res: ProductivityReport, roles: [provider, manager], screens: [reports.productivity, home.practice-kpis]}
+  - {id: getQualityReport, m: GET, p: "/reports/quality", sum: "Measure rates vs goals with missing-data counts", q: [period, fromDate, toDate, practitionerId], res: QualityReport, roles: [provider, manager], screens: [reports.quality, home.practice-kpis], flows: ["flow:quality/04"]}
+  - {id: listMeasureGapPatients, m: GET, p: "/reports/quality/{measureId}/patients", sum: "Patients not meeting a measure", q: [practitionerId, format], res: "page:MeasureGapRow", roles: [provider, manager], screens: [reports.quality], phi: true}
+  - {id: sendMeasureOutreach, m: POST, p: "/reports/quality/{measureId}/outreach", sum: "Portal + SMS outreach to selected patients", body: OutreachCampaignRequest, res: job, roles: [ma, provider, manager], screens: [reports.quality], flows: ["flow:quality/02"], integ: MessagingGateway, inv: [INV-SEC-06], phi: true, audit: CREATE}
+  - {id: exportQrda, m: POST, p: "/reports/quality/qrda", sum: "Export QRDA I or III for a reporting period", body: QrdaExportRequest, res: job, stepup: true, screens: [reports.quality], phi: true, audit: EXPORT}
+  - {id: getCareGapsReport, m: GET, p: "/reports/care-gaps", sum: "Open gaps by type for a panel", q: [practitionerId, format], res: "page:CareGapReportRow", roles: [ma, provider, manager], screens: [reports.care-gaps], phi: true}
+  - {id: listRpmPatients, m: GET, p: "/rpm/patients", sum: "RPM enrolment with reading days, alerts and minutes this month", q: [month], res: "page:RpmRow", roles: [ma, provider], screens: [telehealth.rpm], phi: true}
+
+  - {id: createExport, m: POST, p: "/exports", sum: "Start an export (CSV, bulk FHIR, EHI patient/practice, C-CDA)", body: ExportRequest, res: job, stepup: true, screens: [reports.export], phi: true, audit: EXPORT, inv: [INV-SEC-01]}
+  - {id: listExports, m: GET, p: "/exports", sum: "Export jobs", res: "page:Job", screens: [reports.export]}
+  - {id: getExport, m: GET, p: "/exports/{jobId}", sum: "Export status", res: Job, screens: [reports.export]}
+  - {id: downloadExportFile, m: GET, p: "/exports/{jobId}/files/{fileId}", sum: "Download an export file (link expires)", res: file, screens: [reports.export], phi: true, audit: EXPORT}
+  - {id: getJob, m: GET, p: "/jobs/{jobId}", sum: "Status of any async job (eligibility batch, statement run, registry query, campaign)", roles: [frontdesk, ma, provider, biller, manager], res: Job, screens: [billing.eligibility, billing.statements, chart.immunizations, schedule.recall-list, encounter.prechart, reports.quality, billing.claims]}

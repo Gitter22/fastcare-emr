@@ -1,0 +1,210 @@
+# Role homes and global overlays.
+screens:
+  home.frontdesk-board:
+    route: /home/front-desk
+    pattern: app-shell
+    up: null
+    wireframe: Main.dc.html
+    flows: ["flow:checkin/01", "flow:access/03"]
+    regions:
+      header:
+        - {id: date-title, type: heading, bind: "derived:today + location"}
+        - {id: provider-filter, type: select, label: "Provider", bind: "Practitioner[] scheduled today"}
+        - {id: show-completed, type: toggle, label: "Show completed"}
+        - {id: book-appointment, type: button, label: "+ Book appointment", primary: true, go: schedule.booking-drawer}
+      system-alert:
+        - {id: interface-banner, type: alert, bind: "InterfaceStatus clearinghouse", when: "clearinghouse Down", go: admin.interfaces, be: logic, inv: [INV-OPS-01]}
+      tiles:
+        - {id: tile-arrivals, type: stat-filter, label: "Arrivals today", bind: "count Appointment today"}
+        - {id: tile-in-clinic, type: stat-filter, label: "In clinic now", bind: "count Appointment arrived..checkout + longest wait"}
+        - {id: tile-eligibility, type: stat-filter, label: "Eligibility issues", bind: "count CoverageEligibility not active for today", be: logic}
+        - {id: tile-forms, type: stat-filter, label: "Forms incomplete", bind: "count Consent/QuestionnaireResponse missing for today"}
+        - {id: tile-balances, type: stat-filter, label: "Balances due", bind: "sum derived:patientBalance for today's patients", inv: [INV-FIN-02]}
+      arrivals:
+        - id: arrivals-table
+          type: table
+          bind: "Appointment[] today, sorted by start"
+          cols:
+            - {id: col-time, type: text, bind: Appointment.start}
+            - {id: col-patient, type: link, bind: "Patient.name, birthDate", go: chart.summary}
+            - {id: col-visit, type: text, bind: "Practitioner + VisitType"}
+            - {id: col-status, type: status-chip, bind: "states:appointment"}
+            - {id: col-eligibility, type: chip, bind: "CoverageEligibility.status, copay", be: logic}
+            - {id: col-forms, type: chip, bind: "derived:formsOutstanding"}
+            - {id: col-due, type: text, bind: "derived:amountDueToday"}
+            - {id: row-arrive, type: button, label: "Arrive", go: home.frontdesk-board#arrive, when: "status booked or confirmed and eligibility not failed"}
+            - {id: row-resolve, type: button, label: "Resolve", go: chart.demographics, when: "eligibility failed"}
+            - {id: row-open, type: button, label: "Open", go: schedule.appointment-detail, when: "status arrived or later"}
+      attention:
+        - {id: att-previsit, type: link, label: "Patient-entered changes", bind: "count", go: inbox.previsit-queue}
+        - {id: att-cards, type: link, label: "Insurance cards uploaded", bind: "count", go: inbox.previsit-queue}
+        - {id: att-consents, type: link, label: "Unsigned consents", bind: "count", does: "send consent request to portal"}
+        - {id: att-waitlist, type: link, label: "Waitlist offer pending", bind: "count", go: schedule.waitlist}
+      tomorrow:
+        - {id: tomorrow-summary, type: text, bind: "count Appointment tomorrow + eligibility batch time"}
+        - {id: tomorrow-unconfirmed, type: button, label: "Open call list", go: schedule.calendar}
+    views:
+      arrive:
+        container: drawer
+        wireframe: CheckIn.dc.html
+        flows: ["flow:checkin/01"]
+        regions:
+          header:
+            - {id: arrive-patient, type: heading, bind: "Patient.name, birthDate, MRN + Appointment summary", inv: [INV-ID-01]}
+            - {id: arrive-close, type: icon-button, label: "Close", go: back}
+          identity:
+            - {id: id-photo, type: image, bind: "DocumentReference photo ID"}
+            - {id: id-verified, type: checkbox, label: "Photo ID matches patient in person"}
+            - {id: id-upload, type: upload, label: "Scan ID", when: "no ID on file"}
+          insurance:
+            - {id: ins-cards, type: image, bind: "Coverage card images"}
+            - {id: ins-result, type: stat, bind: "CoverageEligibility status, copay, deductible remaining, checked at", be: logic}
+            - {id: ins-recheck, type: button, label: "Re-check eligibility", does: "real-time 270/271", be: logic}
+            - {id: ins-edit, type: link, label: "Update insurance", go: chart.demographics#coverage}
+          forms:
+            - {id: form-row, type: list, bind: "Consent[] / QuestionnaireResponse[] required for visit", each: true, cols: [{id: form-sign-tablet, type: button, label: "Sign on tablet", does: "push form to signature tablet", when: "unsigned"}]}
+          payment:
+            - {id: pay-lines, type: list, bind: "copay today + derived:patientBalance", inv: [INV-FIN-02]}
+            - {id: pay-method, type: radio, label: "Card on file / Card terminal / Cash or check / Collect later"}
+            - {id: pay-receipt, type: checkbox, label: "Text receipt"}
+          footer:
+            - {id: arrive-cancel, type: button, label: "Cancel", go: back}
+            - {id: arrive-submit, type: button, label: "Charge & arrive", primary: true, tr: "appointment:confirmed->arrived", does: "capture payment via PaymentGateway; notify MA pool", be: logic, inv: [INV-FIN-01]}
+    states: [empty-day, eligibility-unknown, clearinghouse-down]
+
+  home.clinical-daylist:
+    route: /home/clinical
+    pattern: app-shell
+    up: null
+    flows: ["flow:checkin/03", "flow:checkin/05"]
+    regions:
+      header:
+        - {id: date-title, type: heading, bind: "derived:today + location"}
+        - {id: provider-filter, type: select, label: "Provider", bind: "Practitioner[] in my care team"}
+      patients:
+        - id: daylist-table
+          type: table
+          bind: "Appointment[] today for my care team"
+          cols:
+            - {id: col-time, type: text, bind: Appointment.start}
+            - {id: col-patient, type: link, bind: Patient.name, go: chart.summary}
+            - {id: col-status, type: status-chip, bind: "states:appointment"}
+            - {id: col-room, type: text, bind: "Location room"}
+            - {id: col-wait, type: text, bind: "derived:minutesInStatus"}
+            - {id: col-protocols, type: chip, bind: "derived:pendingProtocols (vaccines due, POC tests)", be: logic}
+            - {id: row-room, type: button, label: "Room", go: schedule.flow-board#room, when: "status arrived"}
+            - {id: row-rooming, type: button, label: "Rooming", go: encounter.rooming, when: "status roomed"}
+      side:
+        - {id: triage-count, type: link, label: "Patient messages", bind: "count", go: inbox.patient-messages}
+        - {id: refill-count, type: link, label: "Rx requests", bind: "count", go: inbox.rx-requests}
+        - {id: collection-count, type: link, label: "Specimens to collect", bind: "count", go: orders.collection}
+        - {id: recall-link, type: link, label: "Recalls due", bind: "count", go: schedule.recall-list}
+        - {id: flow-board-link, type: link, label: "Open flow board", go: schedule.flow-board}
+
+  home.provider-worklist:
+    route: /home/provider
+    pattern: app-shell
+    up: null
+    wireframe: ProviderWorklist.dc.html
+    flows: ["flow:access/07", "flow:encounter/01"]
+    regions:
+      header:
+        - {id: date-title, type: heading, bind: "derived:today + counts seen/to go"}
+        - {id: tomorrow, type: button, label: "Tomorrow", does: "switch list to next day"}
+        - {id: prechart-next, type: button, label: "Pre-chart next 3", go: encounter.prechart}
+      running-late:
+        - {id: late-alert, type: alert, bind: "derived:minutesBehind", when: "behind > 15 min", be: logic}
+        - {id: late-notify, type: button, label: "Text waiting patients an update", does: "send templated SMS (no clinical detail)", inv: [INV-SEC-06]}
+      schedule:
+        - id: schedule-table
+          type: table
+          bind: "Appointment[] today for me"
+          cols:
+            - {id: col-time, type: text, bind: Appointment.start}
+            - {id: col-patient, type: link, bind: "Patient.name, age, sex, room", go: chart.summary}
+            - {id: col-reason, type: text, bind: Appointment.reasonCode}
+            - {id: col-where, type: status-chip, bind: "states:appointment"}
+            - {id: col-ready, type: chip, bind: "derived:readiness (vitals done, pended orders, missing records)", be: logic}
+            - {id: row-open, type: button, label: "Open", go: encounter.note, when: "status ready-for-provider or with-provider"}
+            - {id: row-prechart, type: button, label: "Pre-chart", go: encounter.prechart, when: "status booked or confirmed"}
+      inbox:
+        - {id: inbox-results, type: link, label: "Results to review", bind: "count + critical count", go: inbox.results}
+        - {id: inbox-rx, type: link, label: "Rx renewals & changes", bind: "count", go: inbox.rx-requests}
+        - {id: inbox-messages, type: link, label: "Patient messages", bind: "count + oldest", go: inbox.patient-messages}
+        - {id: inbox-cosign, type: link, label: "Co-sign", bind: "count", go: inbox.cosign}
+      unsigned:
+        - {id: unsigned-note, type: link, bind: "ClinicalNote[] draft by me, with age", each: true, go: encounter.note}
+    states: [running-late, no-visits, more-than-20-open-items]
+
+  home.rcm-queues:
+    route: /home/billing
+    pattern: app-shell
+    up: null
+    regions:
+      header:
+        - {id: date-title, type: heading, bind: "derived:today"}
+        - {id: payer-filter, type: select, label: "Payer", bind: "Organization[] payers"}
+      queues:
+        - {id: q-unbilled, type: stat-filter, label: "Charges held", bind: "count + $ ChargeItem held", go: billing.charge-review}
+        - {id: q-rejected, type: stat-filter, label: "Rejected claims", bind: "count + $", go: billing.rejections}
+        - {id: q-unposted, type: stat-filter, label: "Remits to post", bind: "count + $", go: billing.era-posting}
+        - {id: q-denied, type: stat-filter, label: "Denials", bind: "count + $ + nearest deadline", go: billing.denials}
+        - {id: q-unsigned, type: stat-filter, label: "Waiting on unsigned notes", bind: "count Encounter unsigned > 48h"}
+      ranked:
+        - id: at-risk-table
+          type: table
+          bind: "Task[] billing pool ranked by $ at risk and filing deadline"
+          cols:
+            - {id: col-item, type: link, bind: "Task.description", go: billing.claims}
+            - {id: col-amount, type: text, bind: "derived:amountAtRisk"}
+            - {id: col-deadline, type: chip, bind: "derived:filingDeadline", inv: [INV-FIN-05]}
+      side:
+        - {id: day-close-link, type: link, label: "Day close", go: billing.day-close}
+        - {id: ar-link, type: link, label: "AR aging", go: reports.ar-aging}
+
+  home.practice-kpis:
+    route: /home/practice
+    pattern: app-shell
+    up: null
+    regions:
+      header:
+        - {id: period, type: select, label: "Period", bind: "today / week / month"}
+        - {id: location-filter, type: select, label: "Location"}
+      kpis:
+        - {id: kpi-visits, type: stat, label: "Visits", bind: "count Encounter", go: reports.productivity}
+        - {id: kpi-no-shows, type: stat, label: "No-show rate", go: reports.no-shows}
+        - {id: kpi-cycle, type: stat, label: "Arrive to checkout", go: reports.cycle-time}
+        - {id: kpi-charge-lag, type: stat, label: "Charge lag", go: reports.charge-lag}
+        - {id: kpi-ar90, type: stat, label: "AR over 90 days", go: reports.ar-aging}
+        - {id: kpi-quality, type: stat, label: "Quality measures on track", go: reports.quality}
+      alerts:
+        - {id: ops-interfaces, type: alert, bind: "InterfaceStatus not healthy", when: "any", go: admin.interfaces, be: logic}
+        - {id: ops-btg, type: alert, bind: "count emergency access to review", when: "> 0", go: admin.audit-log}
+        - {id: ops-duplicates, type: link, label: "Possible duplicate patients", bind: "count", go: patients.merge-review}
+        - {id: ops-unsigned, type: link, label: "Notes unsigned > 48 h", bind: "count by provider"}
+
+  global.command-bar:
+    route: null
+    container: modal
+    pattern: overlay
+    up: null
+    regions:
+      content:
+        - {id: cmd-input, type: search, label: "Search patients, screens, actions", bind: "Patient[] by name/DOB/MRN/phone + screens for role + actions"}
+        - {id: cmd-patient-result, type: link, bind: "Patient.name, birthDate, MRN", each: true, go: chart.summary, inv: [INV-ID-01]}
+        - {id: cmd-screen-result, type: link, bind: "screens permitted for role", each: true, does: "navigate to screen"}
+        - {id: cmd-book, type: link, label: "Book appointment", go: schedule.booking-drawer}
+        - {id: cmd-new-patient, type: link, label: "New patient", go: patients.registration}
+        - {id: cmd-new-task, type: link, label: "New task", go: inbox.tasks#new}
+
+  global.notifications:
+    route: null
+    container: drawer
+    pattern: overlay
+    up: null
+    regions:
+      content:
+        - {id: notif-item, type: card, bind: "Notification[] (critical results, escalated tasks, interface down)", each: true, does: "open the linked item"}
+        - {id: notif-critical, type: link, label: "Critical result", go: inbox.results, when: "notification is critical result"}
+        - {id: notif-task, type: link, label: "Escalated task", go: inbox.tasks, when: "notification is task"}
+        - {id: notif-mark-read, type: button, label: "Mark all read", does: "mark read"}

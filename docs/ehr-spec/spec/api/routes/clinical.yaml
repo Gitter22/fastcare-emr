@@ -1,0 +1,73 @@
+tag: Clinical
+description: Patient clinical lists. Outside, patient-entered, device and registry data arrive with stagingStatus STAGED and enter the chart only through a reconcile decision (ADR-002, INV-DATA-01).
+defaults: {auth: staff, roles: [ma, provider], audit: READ}
+ops:
+  # Problems
+  - {id: listConditions, m: GET, p: "/patients/{patientId}/conditions", sum: "Problem list and history (incoming staged items included when requested)", q: [category, clinicalStatus, stagingStatus, includeResolved], res: "list:Condition", screens: [chart.problems, chart.summary, encounter.dx-coding, chart.history, encounter.orders], inv: [INV-SEC-03]}
+  - {id: createCondition, m: POST, p: "/patients/{patientId}/conditions", sum: "Add a problem", body: "create:Condition", res: "created:Condition", screens: [chart.problems, chart.history], audit: CREATE}
+  - {id: updateCondition, m: PATCH, p: "/conditions/{conditionId}", sum: "Edit or resolve a problem", body: "update:Condition", res: Condition, screens: [chart.problems, chart.history], audit: UPDATE}
+  - {id: reconcileCondition, m: POST, p: "/conditions/{conditionId}/reconcile", sum: "Accept, merge or reject a staged problem", body: ReconcileDecision, res: Condition, screens: [chart.problems], audit: UPDATE, inv: [INV-DATA-01]}
+
+  # Allergies
+  - {id: listAllergies, m: GET, p: "/patients/{patientId}/allergies", sum: "Allergies (with staged incoming)", q: [stagingStatus], res: "list:AllergyIntolerance", roles: [frontdesk, ma, provider], screens: [chart.allergies, encounter.rx, encounter.rooming]}
+  - {id: createAllergy, m: POST, p: "/patients/{patientId}/allergies", sum: "Add an allergy (banner refreshes)", body: "create:AllergyIntolerance", res: "created:AllergyIntolerance", screens: [chart.allergies], audit: CREATE}
+  - {id: updateAllergy, m: PATCH, p: "/allergies/{allergyId}", sum: "Edit, inactivate or mark entered-in-error", body: "update:AllergyIntolerance", res: AllergyIntolerance, screens: [chart.allergies], audit: UPDATE}
+  - {id: reconcileAllergy, m: POST, p: "/allergies/{allergyId}/reconcile", sum: "Accept or reject a staged allergy", body: ReconcileDecision, res: AllergyIntolerance, screens: [chart.allergies], audit: UPDATE, inv: [INV-DATA-01]}
+  - {id: recordAllergyReview, m: POST, p: "/patients/{patientId}/allergies/review", sum: "Reviewed with patient (no changes / no known allergies)", body: AllergyReviewRequest, res: none, screens: [chart.allergies, encounter.rooming], audit: UPDATE}
+
+  # Medications
+  - {id: listMedicationStatements, m: GET, p: "/patients/{patientId}/medication-statements", sum: "Medication list with provenance and fill data; staged incoming items with duplicate detection", q: [status, stagingStatus], res: "list:MedicationStatementView", screens: [chart.medications, chart.summary, encounter.rooming, encounter.rx], flows: ["flow:checkin/04"]}
+  - {id: createMedicationStatement, m: POST, p: "/patients/{patientId}/medication-statements", sum: "Add a patient-reported or outside medication", body: "create:MedicationStatement", res: "created:MedicationStatement", screens: [chart.medications], audit: CREATE}
+  - {id: updateMedicationStatement, m: PATCH, p: "/medication-statements/{medicationStatementId}", sum: "Change dose or mark not taking", body: "update:MedicationStatement", res: MedicationStatement, screens: [chart.medications], audit: UPDATE}
+  - {id: reconcileMedicationStatement, m: POST, p: "/medication-statements/{medicationStatementId}/reconcile", sum: "Accept, merge into existing, edit-and-accept or reject a staged medication", body: ReconcileDecision, res: MedicationStatement, screens: [chart.medications, inbox.previsit-queue], audit: UPDATE, inv: [INV-DATA-01]}
+  - {id: discontinueMedication, m: POST, p: "/medication-statements/{medicationStatementId}/discontinue", sum: "Discontinue with reason; optionally send CancelRx", body: DiscontinueRequest, res: MedicationStatement, screens: [chart.medications], integ: ErxGateway, audit: UPDATE}
+  - {id: recordMedicationReconciliation, m: POST, p: "/patients/{patientId}/medication-reconciliation", sum: "Record that the list was reconciled", res: none, screens: [chart.medications, encounter.rooming], audit: UPDATE}
+  - {id: getMedicationFillHistory, m: GET, p: "/patients/{patientId}/medication-fills", sum: "Pharmacy fill history (RxFill / claims history via eRx network)", res: "list:MedicationFill", screens: [chart.medications, inbox.rx-requests], integ: ErxGateway}
+
+  # Observations / vitals
+  - {id: listObservations, m: GET, p: "/patients/{patientId}/observations", sum: "Observations by category and code (vitals grid, social history, device readings)", q: [category, loinc, fromDate, toDate, stagingStatus], res: "page:Observation", roles: [ma, provider], screens: [chart.vitals, chart.history, telehealth.rpm, chart.summary]}
+  - {id: getObservationTrend, m: GET, p: "/patients/{patientId}/observations/trend", sum: "Time series for one LOINC code with reference range", q: [loinc, fromDate, toDate], res: ObservationTrend, screens: [chart.vitals, chart.results, encounter.rooming, telehealth.rpm]}
+  - {id: recordSocialHistory, m: POST, p: "/patients/{patientId}/social-history", sum: "Record a social-history observation (tobacco, alcohol, occupation)", body: "create:Observation", res: "created:Observation", screens: [chart.history, encounter.rooming], audit: CREATE}
+  - {id: acceptObservations, m: POST, p: "/patients/{patientId}/observations/accept", sum: "Accept staged device readings into the chart", body: IdsRequest, res: none, screens: [telehealth.rpm, chart.vitals], audit: UPDATE, inv: [INV-DATA-01]}
+
+  # Results
+  - {id: listDiagnosticReports, m: GET, p: "/patients/{patientId}/diagnostic-reports", sum: "Reports by date with status and flags; pending orders included", q: [category, status, fromDate, toDate], res: "page:DiagnosticReportSummary", screens: [chart.results, chart.summary, chart.timeline]}
+  - {id: getDiagnosticReport, m: GET, p: "/diagnostic-reports/{diagnosticReportId}", sum: "Report with observations, previous values and correction history", res: DiagnosticReportDetail, roles: [ma, provider], screens: [chart.results, inbox.results]}
+  - {id: getDiagnosticReportPdf, m: GET, p: "/diagnostic-reports/{diagnosticReportId}/pdf", sum: "Original lab report", res: file, roles: [ma, provider], screens: [chart.results], audit: PRINT}
+  - {id: acknowledgeCorrection, m: POST, p: "/diagnostic-reports/{diagnosticReportId}/acknowledge-correction", sum: "Acknowledge a lab correction after review", res: DiagnosticReportDetail, roles: [provider], screens: [chart.results, inbox.results], audit: UPDATE}
+  - {id: releaseResultToPatient, m: POST, p: "/diagnostic-reports/{diagnosticReportId}/release", sum: "Release to portal with comment (or record a delay exception, OPEN-Q6)", body: ResultReleaseRequest, res: DiagnosticReportDetail, roles: [provider], screens: [chart.results, inbox.results], flows: ["flow:results/05"], audit: DISCLOSE}
+
+  # Immunizations
+  - {id: listImmunizations, m: GET, p: "/patients/{patientId}/immunizations", sum: "Immunization history (with staged registry records)", q: [stagingStatus], res: "list:Immunization", screens: [chart.immunizations, encounter.rooming]}
+  - {id: getImmunizationForecast, m: GET, p: "/patients/{patientId}/immunizations/forecast", sum: "Due and overdue vaccines", res: "list:ImmunizationForecastItem", screens: [chart.immunizations, encounter.rooming, encounter.prechart]}
+  - {id: createHistoricalImmunization, m: POST, p: "/patients/{patientId}/immunizations", sum: "Record a historical dose (primarySource=false)", body: "create:Immunization", res: "created:Immunization", screens: [chart.immunizations], audit: CREATE}
+  - {id: reconcileImmunization, m: POST, p: "/immunizations/{immunizationId}/reconcile", sum: "Accept or reject a registry record", body: ReconcileDecision, res: Immunization, screens: [chart.immunizations], audit: UPDATE, inv: [INV-DATA-01]}
+  - {id: queryImmunizationRegistry, m: POST, p: "/patients/{patientId}/immunizations/registry-query", sum: "QBP query to the state registry; results staged", res: job, screens: [chart.immunizations], integ: IisGateway, audit: QUERY}
+  - {id: listVaccineLots, m: GET, p: "/vaccine-lots", sum: "Lots on hand (expired lots flagged and not selectable)", q: [cvx, locationId], res: "list:VaccineLot", roles: [ma, provider, manager], screens: [encounter.rooming], phi: false}
+  - {id: createVaccineLot, m: POST, p: "/vaccine-lots", sum: "Receive vaccine inventory", body: "create:VaccineLot", res: "created:VaccineLot", roles: [ma, manager], screens: [encounter.rooming], phi: false, audit: CREATE}
+  - {id: updateVaccineLot, m: PATCH, p: "/vaccine-lots/{vaccineLotId}", sum: "Adjust quantity or deactivate", body: "update:VaccineLot", res: VaccineLot, roles: [ma, manager], screens: [encounter.rooming], phi: false, audit: UPDATE}
+
+  # History
+  - {id: getHistory, m: GET, p: "/patients/{patientId}/history", sum: "Past medical, surgical, family, social and SDOH history", res: HistoryView, screens: [chart.history]}
+  - {id: createProcedure, m: POST, p: "/patients/{patientId}/procedures", sum: "Add a past procedure", body: "create:Procedure", res: "created:Procedure", screens: [chart.history], audit: CREATE}
+  - {id: updateProcedure, m: PATCH, p: "/procedures/{procedureId}", sum: "Edit a past procedure", body: "update:Procedure", res: Procedure, screens: [chart.history], audit: UPDATE}
+  - {id: createFamilyHistory, m: POST, p: "/patients/{patientId}/family-history", sum: "Add family history", body: "create:FamilyMemberHistory", res: "created:FamilyMemberHistory", screens: [chart.history], audit: CREATE}
+  - {id: updateFamilyHistory, m: PATCH, p: "/family-history/{familyMemberHistoryId}", sum: "Edit family history", body: "update:FamilyMemberHistory", res: FamilyMemberHistory, screens: [chart.history], audit: UPDATE}
+  - {id: recordHistoryReview, m: POST, p: "/patients/{patientId}/history/review", sum: "Mark history reviewed", res: none, screens: [chart.history], audit: UPDATE}
+
+  # Care management
+  - {id: listCarePlans, m: GET, p: "/patients/{patientId}/care-plans", sum: "Care plans", res: "list:CarePlan", screens: [chart.care-plan]}
+  - {id: createCarePlan, m: POST, p: "/patients/{patientId}/care-plans", sum: "Create a care plan", body: "create:CarePlan", res: "created:CarePlan", screens: [chart.care-plan, patients.registries], audit: CREATE}
+  - {id: updateCarePlan, m: PATCH, p: "/care-plans/{carePlanId}", sum: "Update activities", body: "update:CarePlan", res: CarePlan, screens: [chart.care-plan], audit: UPDATE}
+  - {id: listGoals, m: GET, p: "/patients/{patientId}/goals", sum: "Goals", res: "list:Goal", screens: [chart.care-plan]}
+  - {id: createGoal, m: POST, p: "/patients/{patientId}/goals", sum: "Add a goal", body: "create:Goal", res: "created:Goal", screens: [chart.care-plan], audit: CREATE}
+  - {id: updateGoal, m: PATCH, p: "/goals/{goalId}", sum: "Update a goal", body: "update:Goal", res: Goal, screens: [chart.care-plan], audit: UPDATE}
+  - {id: listTimeLogs, m: GET, p: "/patients/{patientId}/time-logs", sum: "Care-management minutes by month and program", q: [program, month], res: TimeLogSummary, screens: [chart.care-plan, telehealth.rpm, telehealth.evisit]}
+  - {id: createTimeLog, m: POST, p: "/patients/{patientId}/time-logs", sum: "Log care-management time", body: "create:TimeLog", res: "created:TimeLog", screens: [chart.care-plan, telehealth.rpm], audit: CREATE}
+  - {id: createCareManagementCharge, m: POST, p: "/patients/{patientId}/care-management/charges", sum: "Create the monthly CCM/PCM/RPM charge when the threshold is met", body: CareManagementChargeRequest, res: ChargeItem, roles: [ma, provider], screens: [chart.care-plan], flows: ["flow:quality/03"], audit: CREATE}
+  - {id: listDevices, m: GET, p: "/patients/{patientId}/devices", sum: "Enrolled monitoring devices", res: "list:Device", screens: [telehealth.rpm, chart.vitals]}
+  - {id: enrollDevice, m: POST, p: "/patients/{patientId}/devices", sum: "Enrol a monitoring device", body: "create:Device", res: "created:Device", screens: [telehealth.rpm], audit: CREATE}
+
+  # Care gaps
+  - {id: listCareGaps, m: GET, p: "/patients/{patientId}/care-gaps", sum: "Open and closed care gaps with rule source", res: "list:CareGapView", screens: [chart.care-gaps, chart.summary, encounter.rooming, encounter.prechart]}
+  - {id: decideCareGap, m: POST, p: "/care-gaps/{careGapId}/decision", sum: "Not today (reason), done elsewhere (with document), or excluded", body: CareGapDecision, res: CareGapView, screens: [chart.care-gaps, encounter.note], audit: UPDATE}

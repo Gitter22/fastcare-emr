@@ -1,0 +1,16 @@
+tag: Workspace
+description: Role homes, global search, notifications and inbox counts. Composite read models built for one screen each, so the UI makes one call per home screen.
+defaults: {auth: staff, roles: [frontdesk, ma, provider, biller, manager]}
+ops:
+  - {id: getFrontDeskBoard, m: GET, p: "/workspace/front-desk", sum: "Arrivals, tiles, needs-attention and tomorrow summary for the front desk", q: [date, locationId, practitionerId], res: FrontDeskBoard, roles: [frontdesk, manager], screens: [home.frontdesk-board], flows: ["flow:checkin/01", "flow:access/03"], audit: READ}
+  - {id: getClinicalDayList, m: GET, p: "/workspace/clinical", sum: "Today's patients for my care team with room, wait and pending protocols", q: [date, locationId, practitionerId], res: ClinicalDayList, roles: [ma, provider, manager], screens: [home.clinical-daylist], audit: READ}
+  - {id: getProviderWorklist, m: GET, p: "/workspace/provider", sum: "My schedule with readiness, inbox counts, unsigned notes and running-late status", q: [date], res: ProviderWorklist, roles: [provider], screens: [home.provider-worklist], flows: ["flow:access/07", "flow:encounter/01"], audit: READ}
+  - {id: sendRunningLateNotice, m: POST, p: "/workspace/provider/running-late-notice", sum: "Text waiting patients a delay update (template, no clinical detail)", body: RunningLateNotice, res: accepted, roles: [provider, frontdesk], screens: [home.provider-worklist], inv: [INV-SEC-06], integ: MessagingGateway, audit: CREATE}
+  - {id: getRcmQueues, m: GET, p: "/workspace/billing", sum: "Billing queues ranked by dollars at risk and filing deadline", q: [payerId], res: RcmQueues, roles: [biller, manager], screens: [home.rcm-queues], audit: READ, phi: false}
+  - {id: getPracticeKpis, m: GET, p: "/workspace/practice", sum: "Practice KPIs and operational alerts", q: [period, locationId], res: PracticeKpis, roles: [manager], screens: [home.practice-kpis], phi: false}
+  - {id: getInboxCounts, m: GET, p: "/workspace/counts", sum: "Counts for rail badge and inbox folders for the current user and pools", res: InboxCounts, screens: [inbox.results, inbox.rx-requests, inbox.cosign, inbox.patient-messages, inbox.tasks, inbox.previsit-queue, inbox.documents, inbox.prior-auth, orders.collection, orders.tracking, orders.result-reconciliation, referrals.worklist], phi: false}
+  - {id: globalSearch, m: GET, p: "/search", sum: "Command bar: patients (name, DOB, MRN, phone), screens and actions permitted for the role", q: [q, types], res: SearchResults, screens: [global.command-bar], audit: QUERY, inv: [INV-ID-01]}
+  - {id: listRecentPatients, m: GET, p: "/me/recent-patients", sum: "Patients I opened recently", res: "list:PatientSummary", screens: [patients.search, global.command-bar], audit: READ}
+  - {id: listNotifications, m: GET, p: "/notifications", sum: "My notifications (critical results, escalations, interface alerts)", res: "page:Notification", screens: [global.notifications], phi: false}
+  - {id: markNotificationsRead, m: POST, p: "/notifications/read", sum: "Mark notifications read", body: NotificationReadRequest, res: none, screens: [global.notifications], phi: false}
+  - {id: getHealth, m: GET, p: "/health", sum: "Liveness probe", auth: none, res: HealthStatus, screens: [admin.interfaces], phi: false}

@@ -1,0 +1,75 @@
+# Telehealth (ADR-006): same Appointment/Encounter with modality video, plus async care.
+screens:
+  telehealth.waiting-room:
+    route: /telehealth
+    pattern: board
+    up: null
+    regions:
+      columns:
+        - id: vw-patient
+          type: card
+          each: true
+          bind: "Appointment[] video today (patient, time, device check, consent, interpreter)"
+          cols:
+            - {id: vw-device, type: chip, bind: "device check passed/failed"}
+            - {id: vw-consent, type: chip, bind: "telehealth consent on file"}
+            - {id: vw-interpreter, type: button, label: "Invite interpreter", when: "interpreter needed"}
+            - {id: vw-message, type: button, label: "Send link again", does: "SMS join link"}
+            - {id: vw-join, type: button, label: "Join visit", primary: true, go: telehealth.visit}
+            - {id: vw-chart, type: link, label: "Chart", go: chart.summary}
+    states: [patient-not-joined, device-check-failed]
+
+  telehealth.visit:
+    route: /telehealth/visit/:appointmentId
+    pattern: telehealth-room
+    up: telehealth.waiting-room
+    regions:
+      video:
+        - {id: video-remote, type: placeholder, label: "Patient video"}
+        - {id: video-self, type: placeholder, label: "Self view"}
+        - {id: connection, type: chip, bind: "connection quality"}
+      side:
+        - {id: side-banner, type: card, bind: "patient banner (compact)", inv: [INV-ID-01]}
+        - {id: side-tabs, type: tabs, label: "Note · Orders · Rx · Summary"}
+        - {id: side-open-full, type: link, label: "Open full encounter", go: encounter.note}
+      controls:
+        - {id: mute, type: icon-button, label: "Mute"}
+        - {id: camera, type: icon-button, label: "Camera"}
+        - {id: share, type: icon-button, label: "Share screen"}
+        - {id: add-participant, type: button, label: "Add interpreter or caregiver"}
+        - {id: switch-phone, type: button, label: "Switch to audio only", does: "record modality change for coding"}
+        - {id: end, type: button, label: "End visit", primary: true, tr: "appointment:with-provider->checkout", go: encounter.note}
+
+  telehealth.evisit:
+    route: /telehealth/evisits
+    pattern: inbox
+    up: telehealth.waiting-room
+    regions:
+      items:
+        - {id: ev-item, type: list, each: true, bind: "e-visit requests (patient, questionnaire, submitted, cumulative time)"}
+      detail:
+        - {id: ev-answers, type: table, bind: "QuestionnaireResponse"}
+        - {id: ev-photos, type: image, bind: "attachments"}
+        - {id: ev-time, type: stat, bind: "derived:cumulativeMinutes 7-day", be: logic}
+        - {id: ev-reply, type: textarea, label: "Assessment & plan to patient"}
+        - {id: ev-order, type: button, label: "+ Order / Rx", go: encounter.orders}
+        - {id: ev-convert, type: button, label: "Needs visit · book", go: schedule.booking-drawer}
+        - {id: ev-complete, type: button, label: "Complete & bill e-visit", primary: true, does: "create Encounter + ChargeItem", be: logic}
+
+  telehealth.rpm:
+    route: /telehealth/rpm
+    pattern: list-detail
+    up: telehealth.waiting-room
+    regions:
+      list:
+        - id: rpm-table
+          type: table
+          bind: "Patient[] enrolled in RPM (device, days with readings this month, last reading, alerts, minutes)"
+          be: logic
+          cols:
+            - {id: rpm-patient, type: link, label: "Patient", go: chart.vitals}
+            - {id: rpm-alert, type: chip, bind: "reading outside patient's range", be: logic}
+            - {id: rpm-log, type: button, label: "Log time", go: chart.care-plan#log}
+      detail:
+        - {id: rpm-chart, type: chart, bind: "Observation[] device readings"}
+        - {id: rpm-accept, type: button, label: "Accept readings to chart", does: "move staged device Observations to chart", inv: [INV-DATA-01]}

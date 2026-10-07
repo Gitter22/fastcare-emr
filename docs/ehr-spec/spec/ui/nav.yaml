@@ -1,0 +1,125 @@
+# Global navigation. Shared nav blocks referenced by patterns ("nav.yaml#<block>").
+# go may be a screen id, screen#view, or {by_role: {role: target}} for role-dependent destinations.
+
+rail:
+  - {id: rail-home, type: link, label: "Home", go: {by_role: {frontdesk: home.frontdesk-board, ma: home.clinical-daylist, provider: home.provider-worklist, biller: home.rcm-queues, manager: home.practice-kpis}}}
+  - {id: rail-schedule, type: link, label: "Schedule", go: schedule.calendar}
+  - {id: rail-patients, type: link, label: "Patients", go: patients.search}
+  - {id: rail-inbox, type: link, label: "Inbox", bind: "count Task open for user + pools", go: {by_role: {frontdesk: inbox.previsit-queue, ma: inbox.patient-messages, provider: inbox.results, biller: inbox.tasks, manager: inbox.tasks}}}
+  - {id: rail-billing, type: link, label: "Billing", go: {by_role: {frontdesk: billing.eligibility, biller: billing.charge-review, manager: billing.day-close}}, when: "role frontdesk, biller or manager"}
+  - {id: rail-reports, type: link, label: "Reports", go: {by_role: {provider: reports.quality, biller: reports.ar-aging, manager: reports.quality, frontdesk: reports.no-shows, ma: reports.care-gaps}}}
+  - {id: rail-telehealth, type: link, label: "Telehealth", go: telehealth.waiting-room, when: "role ma or provider"}
+  - {id: rail-admin, type: link, label: "Admin", go: admin.users-roles, when: "role manager"}
+
+topbar:
+  - {id: practice-name, type: text, bind: Practice.name}
+  - {id: location-switch, type: select, label: "Location", bind: "Location[] user may work at"}
+  - {id: command-bar-trigger, type: button, label: "Search patients, screens, actions (⌘K)", go: global.command-bar}
+  - {id: notifications-bell, type: icon-button, label: "Notifications", bind: "count Notification unread", go: global.notifications}
+  - {id: inbox-count, type: chip, bind: "count Task open", go: {by_role: {frontdesk: inbox.previsit-queue, ma: inbox.patient-messages, provider: inbox.results, biller: inbox.tasks, manager: inbox.tasks}}}
+  - {id: user-security, type: link, label: "Account security", go: auth.account-security}
+  - {id: user-menu, type: menu, label: "User", bind: "Practitioner/User current + active role", does: "switch active role; preferences; sign out"}
+
+inbox-folders:
+  - {id: pool-switch, type: select, label: "Pool", bind: "WorkPool[] user belongs to"}
+  - {id: folder-results, type: link, label: "Results", bind: "count", go: inbox.results, when: "role ma or provider"}
+  - {id: folder-rx, type: link, label: "Rx requests", bind: "count", go: inbox.rx-requests, when: "role ma or provider"}
+  - {id: folder-cosign, type: link, label: "Co-sign", bind: "count", go: inbox.cosign, when: "role provider"}
+  - {id: folder-messages, type: link, label: "Patient messages", bind: "count", go: inbox.patient-messages}
+  - {id: folder-tasks, type: link, label: "Tasks", bind: "count", go: inbox.tasks}
+  - {id: folder-previsit, type: link, label: "Pre-visit changes", bind: "count", go: inbox.previsit-queue, when: "role frontdesk or ma"}
+  - {id: folder-documents, type: link, label: "Documents", bind: "count", go: inbox.documents, when: "role frontdesk or ma"}
+  - {id: folder-prior-auth, type: link, label: "Prior auth", bind: "count", go: inbox.prior-auth, when: "role frontdesk or ma"}
+  - {id: folder-collection, type: link, label: "Specimen collection", bind: "count", go: orders.collection, when: "role ma"}
+  - {id: folder-overdue, type: link, label: "Overdue orders", bind: "count", go: orders.tracking, when: "role ma or provider"}
+  - {id: folder-unmatched, type: link, label: "Unmatched results", bind: "count", go: orders.result-reconciliation, when: "role ma or manager"}
+  - {id: folder-referrals, type: link, label: "Referrals", bind: "count", go: referrals.worklist, when: "role frontdesk"}
+
+billing-nav:
+  - {id: bnav-eligibility, type: tab, label: "Eligibility", go: billing.eligibility}
+  - {id: bnav-estimates, type: tab, label: "Estimates", go: billing.estimates}
+  - {id: bnav-payments, type: tab, label: "Payments", go: billing.payment-capture}
+  - {id: bnav-charge-review, type: tab, label: "Charge review", bind: "count", go: billing.charge-review}
+  - {id: bnav-claims, type: tab, label: "Claims", go: billing.claims}
+  - {id: bnav-rejections, type: tab, label: "Rejections", bind: "count", go: billing.rejections}
+  - {id: bnav-era, type: tab, label: "ERA posting", bind: "count", go: billing.era-posting}
+  - {id: bnav-denials, type: tab, label: "Denials", bind: "count", go: billing.denials}
+  - {id: bnav-statements, type: tab, label: "Statements", go: billing.statements}
+  - {id: bnav-accounts, type: tab, label: "Patient accounts", go: billing.patient-account}
+  - {id: bnav-day-close, type: tab, label: "Day close", go: billing.day-close}
+
+report-nav:
+  - {id: rnav-ar, type: link, label: "AR aging", go: reports.ar-aging}
+  - {id: rnav-collections, type: link, label: "Collections & payer mix", go: reports.collections}
+  - {id: rnav-charge-lag, type: link, label: "Charge lag", go: reports.charge-lag}
+  - {id: rnav-no-shows, type: link, label: "No-shows & fill rate", go: reports.no-shows}
+  - {id: rnav-cycle, type: link, label: "Visit cycle time", go: reports.cycle-time}
+  - {id: rnav-productivity, type: link, label: "Provider productivity", go: reports.productivity}
+  - {id: rnav-quality, type: link, label: "Quality measures", go: reports.quality}
+  - {id: rnav-care-gaps, type: link, label: "Care gaps by panel", go: reports.care-gaps}
+  - {id: rnav-export, type: link, label: "Data export", go: reports.export}
+
+admin-nav:
+  - {id: anav-locations, type: link, label: "Practice & locations", go: admin.locations}
+  - {id: anav-users, type: link, label: "Users & roles", go: admin.users-roles}
+  - {id: anav-providers, type: link, label: "Providers", go: admin.providers}
+  - {id: anav-visit-types, type: link, label: "Visit types", go: admin.visit-types}
+  - {id: anav-online-booking, type: link, label: "Online booking", go: admin.online-booking}
+  - {id: anav-payers, type: link, label: "Payers & fees", go: admin.payers-fees}
+  - {id: anav-templates, type: link, label: "Templates", go: admin.templates}
+  - {id: anav-order-sets, type: link, label: "Order sets", go: admin.order-sets}
+  - {id: anav-forms, type: link, label: "Forms", go: admin.forms}
+  - {id: anav-cds, type: link, label: "Alert rules", go: admin.cds-rules}
+  - {id: anav-security, type: link, label: "Security policy", go: admin.security}
+  - {id: anav-audit, type: link, label: "Audit log", go: admin.audit-log}
+  - {id: anav-interfaces, type: link, label: "Interfaces", go: admin.interfaces}
+  - {id: anav-portal, type: link, label: "Portal settings", go: admin.portal-settings}
+
+schedule-nav:
+  - {id: snav-calendar, type: tab, label: "Calendar", go: schedule.calendar}
+  - {id: snav-flow, type: tab, label: "Flow board", go: schedule.flow-board}
+  - {id: snav-rooms, type: tab, label: "Rooms", go: schedule.room-board}
+  - {id: snav-waitlist, type: tab, label: "Waitlist", go: schedule.waitlist}
+  - {id: snav-recalls, type: tab, label: "Recalls", go: schedule.recall-list}
+
+patients-nav:
+  - {id: pnav-search, type: tab, label: "Search", go: patients.search}
+  - {id: pnav-lists, type: tab, label: "Lists & panels", go: patients.lists}
+  - {id: pnav-registries, type: tab, label: "Registries", go: patients.registries}
+  - {id: pnav-merge, type: tab, label: "Duplicates", go: patients.merge-review, when: "role manager"}
+
+portal-tabs:
+  - {id: ptab-home, type: tab, label: "Home", go: portal.home}
+  - {id: ptab-appointments, type: tab, label: "Visits", go: portal.appointments}
+  - {id: ptab-messages, type: tab, label: "Messages", go: portal.messages}
+  - {id: ptab-record, type: tab, label: "Health record", go: portal.record}
+  - {id: ptab-billing, type: tab, label: "Billing", go: portal.billing}
+
+roots:
+  staff: [home.frontdesk-board, home.clinical-daylist, home.provider-worklist, home.rcm-queues, home.practice-kpis]
+  patient: [portal.home]
+  overlays: [global.command-bar, global.notifications, auth.step-up]
+  public: [auth.sign-in, portal.sign-in]
+  emailed-links: [auth.reset-password, auth.accept-invite, portal.reset-password, portal.activate]
+
+rules:
+  - id: NAV-01
+    rule: Every route is deep-linkable and survives refresh. Browser back pops history.
+  - id: NAV-02
+    rule: The Up link (breadcrumb, back-to-list link) goes to the screen's `up`, keeping that screen's last filters and scroll.
+  - id: NAV-03
+    rule: Views (drawer, modal, pane) close back to the underlying view. A view has its own URL fragment (e.g. ?view=arrive) so it can be linked and survives refresh.
+  - id: NAV-04
+    rule: Any patient link opens the chart context (/patient/:patientId/summary) as a chart tab. Opening a second patient adds a tab, up to OPEN-Q9; the oldest unpinned tab closes first. Closing the last chart tab returns to the last non-chart route.
+  - id: NAV-05
+    rule: Encounter section tabs are sibling routes under /patient/:patientId/encounter/:encounterId/. Leaving keeps the draft; the encounter stays reachable from the chart tab and the provider worklist.
+  - id: NAV-06
+    rule: Blocking modals (alerts, pre-sign checks) cannot be dismissed with Esc or scrim click; the user picks an action.
+  - id: NAV-07
+    rule: Navigating away from a form with unsaved, non-autosaved changes asks to keep editing or discard.
+  - id: NAV-08
+    rule: The command bar (⌘K / Ctrl+K) can open any patient, any screen the role may see, and named actions (Book, New patient, New message).
+  - id: NAV-09
+    rule: Rail and folder items a role cannot use are hidden, not disabled. Deep links to them show permission-denied.
+  - id: NAV-10
+    rule: Session timeout returns to sign-in and then to the same route with drafts restored (INV-SEC-04).

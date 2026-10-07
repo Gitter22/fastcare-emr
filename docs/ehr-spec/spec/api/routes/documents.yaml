@@ -1,0 +1,19 @@
+tag: Documents
+description: Files on the encrypted Docker volume (FileStore), patient documents, and the fax/scan/Direct filing queue. Downloads are streamed after an authorisation check and audited.
+defaults: {auth: staff, roles: [frontdesk, ma, provider, manager], audit: READ}
+ops:
+  - {id: uploadFile, m: POST, p: "/files", sum: "Upload a file (encrypted at rest with a per-file data key); returns a FileObject id to attach", body: multipart, res: "created:FileObject", roles: [frontdesk, ma, provider, biller, manager], screens: [chart.documents, inbox.patient-messages, patients.registration, admin.forms, admin.locations, billing.denials, admin.payers-fees, admin.order-sets, admin.portal-settings], integ: FileStore, audit: CREATE}
+  - {id: downloadFile, m: GET, p: "/files/{fileId}", sum: "Stream a file the caller may see", res: file, roles: [frontdesk, ma, provider, biller, manager], screens: [chart.documents, inbox.documents, home.frontdesk-board, chart.results], integ: FileStore}
+  - {id: getFilePage, m: GET, p: "/files/{fileId}/pages/{page}", sum: "Rendered page image (viewer thumbnails)", res: file, screens: [inbox.documents, chart.documents], integ: FileStore}
+
+  - {id: listPatientDocuments, m: GET, p: "/patients/{patientId}/documents", sum: "Documents for a patient", q: [category, fromDate, toDate], res: "page:DocumentReference", screens: [chart.documents, chart.timeline, chart.consents]}
+  - {id: createDocumentReference, m: POST, p: "/patients/{patientId}/documents", sum: "File an uploaded document to the chart", body: "create:DocumentReference", res: "created:DocumentReference", screens: [chart.documents, chart.care-gaps], audit: CREATE}
+  - {id: updateDocumentReference, m: PATCH, p: "/document-references/{documentReferenceId}", sum: "Change type, date or title", body: "update:DocumentReference", res: DocumentReference, screens: [chart.documents], audit: UPDATE}
+  - {id: markDocumentMisfiled, m: POST, p: "/document-references/{documentReferenceId}/misfiled", sum: "Wrong patient: mark entered-in-error and return to the filing queue", body: ReasonRequest, res: IncomingDocument, screens: [chart.documents], audit: UPDATE, inv: [INV-ID-01]}
+
+  - {id: listIncomingDocuments, m: GET, p: "/incoming-documents", sum: "Fax/scan/Direct queue with match confidence", q: [status], res: "page:IncomingDocumentView", roles: [frontdesk, ma, manager], screens: [inbox.documents]}
+  - {id: getIncomingDocument, m: GET, p: "/incoming-documents/{incomingDocumentId}", sum: "Pages, OCR suggestions, patient candidates, foreign pages", res: IncomingDocumentView, roles: [frontdesk, ma, manager], screens: [inbox.documents]}
+  - {id: splitIncomingDocument, m: POST, p: "/incoming-documents/{incomingDocumentId}/split", sum: "Split page ranges into separate documents", body: SplitRequest, res: "list:IncomingDocumentView", roles: [frontdesk, ma, manager], screens: [inbox.documents], audit: UPDATE}
+  - {id: rotateIncomingPage, m: POST, p: "/incoming-documents/{incomingDocumentId}/pages/{page}/rotate", sum: "Rotate a page", body: RotateRequest, res: none, roles: [frontdesk, ma, manager], screens: [inbox.documents]}
+  - {id: fileIncomingDocument, m: POST, p: "/incoming-documents/{incomingDocumentId}/file", sum: "File to the confirmed patient; optionally close a referral and notify a provider", body: FileIncomingRequest, res: DocumentReference, roles: [frontdesk, ma, manager], screens: [inbox.documents], flows: ["flow:referral/04"], tr: ["referral:sent->consult-received", "referral:scheduled->consult-received"], audit: CREATE, inv: [INV-ID-01]}
+  - {id: returnIncomingDocument, m: POST, p: "/incoming-documents/{incomingDocumentId}/return", sum: "Not for us: return to sender", body: ReasonRequest, res: IncomingDocumentView, roles: [frontdesk, ma, manager], screens: [inbox.documents], integ: FaxGateway, audit: UPDATE}

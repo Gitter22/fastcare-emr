@@ -1,0 +1,30 @@
+# Index of invariants. Full text, rationale and test hints live in docs/02-invariants.md.
+invariants:
+  - {id: INV-ID-01, title: Identity banner on every patient-context screen}
+  - {id: INV-ID-02, title: Duplicate search before patient create}
+  - {id: INV-ID-03, title: Sign only when context patient equals encounter patient}
+  - {id: INV-ID-04, title: Reversible, audited merges; no hard deletes}
+  - {id: INV-SAFE-01, title: Server-side sign permissions by role}
+  - {id: INV-SAFE-02, title: Signed notes immutable; addenda only}
+  - {id: INV-SAFE-03, title: Unmatched results never auto-file}
+  - {id: INV-SAFE-04, title: Critical results escalate until communication documented}
+  - {id: INV-SAFE-05, title: EPCS two-factor and PDMP check for controlled substances}
+  - {id: INV-SAFE-06, title: Interruptive severe alerts; overrides need reason}
+  - {id: INV-SAFE-07, title: Overdue orders surface for follow-up}
+  - {id: INV-SAFE-08, title: Note sign pre-flight blockers}
+  - {id: INV-DATA-01, title: Reconcile external and patient-entered data with provenance}
+  - {id: INV-DATA-02, title: AI-drafted text marked until accepted}
+  - {id: INV-DATA-03, title: Status labels only from states.yaml}
+  - {id: INV-SEC-01, title: Append-only PHI audit log}
+  - {id: INV-SEC-02, title: Tenant isolation at data layer}
+  - {id: INV-SEC-03, title: Restricted records need consent or break-the-glass}
+  - {id: INV-SEC-04, title: MFA, session timeout, drafts survive}
+  - {id: INV-SEC-05, title: Billing roles cannot read note bodies by default}
+  - {id: INV-SEC-06, title: No clinical detail in SMS or email}
+  - {id: INV-FIN-01, title: Append-only ledger}
+  - {id: INV-FIN-02, title: Balances derived, never stored}
+  - {id: INV-FIN-03, title: Claim-required fields before submission}
+  - {id: INV-FIN-04, title: Day close requires explained variance}
+  - {id: INV-FIN-05, title: Rejections and denials become deadline-bound work items}
+  - {id: INV-OPS-01, title: Interface failures become work items; idempotent retries}
+  - {id: INV-OPS-02, title: Read-only downtime snapshot}

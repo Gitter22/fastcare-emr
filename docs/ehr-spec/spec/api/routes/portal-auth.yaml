@@ -1,0 +1,17 @@
+tag: PortalAuth
+description: Patient and proxy authentication. Password + one-time code (SMS/email) or authenticator app. Identity is verified at activation against invitation + demographics.
+defaults: {auth: none, phi: false}
+ops:
+  - {id: portalLogin, m: POST, p: "/portal/auth/login", sum: "Verify portal email and password; sends a verification code", body: LoginRequest, res: LoginResult, screens: [portal.sign-in], audit: LOGIN, errors: [423, 429], integ: MfaGateway}
+  - {id: portalVerifyCode, m: POST, p: "/portal/auth/verify", sum: "Verify the code and start a portal session", body: MfaVerifyRequest, res: SessionTokens, screens: [portal.mfa-challenge], audit: MFA, errors: [429]}
+  - {id: portalResendCode, m: POST, p: "/portal/auth/resend", sum: "Send a new code (SMS or email)", body: ChallengeRef, res: none, screens: [portal.mfa-challenge], errors: [429], integ: MessagingGateway}
+  - {id: portalRefreshSession, m: POST, p: "/portal/auth/token/refresh", sum: "Rotate portal refresh token", res: SessionTokens, screens: [portal.sign-in]}
+  - {id: portalLogout, m: POST, p: "/portal/auth/logout", sum: "End the portal session", auth: portal, res: none, screens: [portal.profile], audit: LOGOUT}
+  - {id: portalForgotPassword, m: POST, p: "/portal/auth/password/forgot", sum: "Email a reset link if the account exists", body: EmailRequest, res: accepted, screens: [portal.forgot-password], errors: [429], integ: MessagingGateway}
+  - {id: portalResetPassword, m: POST, p: "/portal/auth/password/reset", sum: "Set a new portal password", body: PasswordResetRequest, res: none, screens: [portal.reset-password], audit: UPDATE}
+  - {id: portalChangePassword, m: POST, p: "/portal/auth/password/change", sum: "Change portal password", auth: portal, body: PasswordChangeRequest, res: none, screens: [portal.profile], audit: UPDATE}
+  - {id: portalGetActivation, m: GET, p: "/portal/auth/activations/{token}", sum: "Activation invitation (practice name, masked contact, relationship)", res: ActivationInfo, screens: [portal.activate]}
+  - {id: portalVerifyActivation, m: POST, p: "/portal/auth/activations/{token}/verify", sum: "Verify identity (code + last name + date of birth); 3 attempts", body: ActivationIdentity, res: ActivationVerified, screens: [portal.activate], audit: QUERY, inv: [INV-ID-01], errors: [423, 429]}
+  - {id: portalCompleteActivation, m: POST, p: "/portal/auth/activations/{token}/complete", sum: "Create portal login and patient access (self or proxy)", body: PortalRegistration, res: SessionTokens, screens: [portal.activate], audit: CREATE}
+  - {id: portalListMfaFactors, m: GET, p: "/portal/auth/mfa/factors", sum: "My verification methods", auth: portal, res: "list:MfaFactorInfo", screens: [portal.profile]}
+  - {id: portalAddMfaFactor, m: POST, p: "/portal/auth/mfa/factors", sum: "Add an authenticator app or phone", auth: portal, body: MfaEnrollmentStart, res: MfaEnrollmentChallenge, screens: [portal.profile], audit: UPDATE}

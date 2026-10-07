@@ -1,0 +1,184 @@
+# Authentication and account security. Unauthenticated screens use pattern public-card and never show PHI.
+screens:
+  auth.sign-in:
+    route: /sign-in
+    pattern: public-card
+    up: null
+    regions:
+      card:
+        - {id: practice-logo, type: image, bind: "Practice branding (by host name)"}
+        - {id: session-expired, type: alert, label: "You were signed out after inactivity. Your drafts were saved.", when: "redirected after timeout"}
+        - {id: email, type: input, label: "Work email"}
+        - {id: password, type: input, label: "Password"}
+        - {id: sign-in, type: button, label: "Sign in", primary: true, does: "verify password; start MFA challenge", go: auth.mfa-challenge, be: logic, inv: [INV-SEC-04, INV-SEC-01]}
+        - {id: error, type: alert, bind: "generic invalid-credentials or locked message (never says which field)", when: "failed"}
+        - {id: forgot, type: link, label: "Forgot password?", go: auth.forgot-password}
+        - {id: patient-link, type: link, label: "Patient? Sign in to the portal", go: portal.sign-in}
+    states: [invalid-credentials, account-locked, session-expired]
+
+  auth.mfa-challenge:
+    route: /sign-in/verify
+    pattern: public-card
+    up: auth.sign-in
+    regions:
+      card:
+        - {id: factor-prompt, type: heading, bind: "MfaFactor default (TOTP, WebAuthn, SMS)"}
+        - {id: code, type: input, label: "6-digit code", when: "TOTP or SMS"}
+        - {id: webauthn, type: button, label: "Use security key", when: "WebAuthn", does: "navigator.credentials.get", be: logic}
+        - {id: verify, type: button, label: "Verify", primary: true, does: "verify factor; create session; land on role home", go: {by_role: {frontdesk: home.frontdesk-board, ma: home.clinical-daylist, provider: home.provider-worklist, biller: home.rcm-queues, manager: home.practice-kpis}}, be: logic, inv: [INV-SEC-04]}
+        - {id: other-method, type: menu, label: "Use another method", bind: "MfaFactor[] verified"}
+        - {id: resend, type: button, label: "Send a new code", when: "SMS", be: logic}
+        - {id: recovery, type: link, label: "Use a recovery code"}
+        - {id: enroll-required, type: link, label: "Set up two-step sign-in", go: auth.mfa-enroll, when: "no factor enrolled"}
+        - {id: back-to-sign-in, type: link, label: "Back", go: auth.sign-in}
+    states: [wrong-code, too-many-attempts]
+
+  auth.mfa-enroll:
+    route: /sign-in/enroll
+    pattern: public-card
+    up: auth.sign-in
+    regions:
+      card:
+        - {id: method, type: radio, label: "Authenticator app (recommended) · Security key · Text message"}
+        - {id: totp-qr, type: image, bind: "otpauth URI as QR (shown once)", when: "authenticator app", be: logic}
+        - {id: totp-confirm, type: input, label: "Enter the 6-digit code", when: "authenticator app"}
+        - {id: webauthn-register, type: button, label: "Register security key", when: "security key", be: logic}
+        - {id: sms-phone, type: input, label: "Mobile number", when: "text message"}
+        - {id: recovery-codes, type: list, bind: "recovery codes (shown once)", be: logic}
+        - {id: recovery-saved, type: checkbox, label: "I saved my recovery codes"}
+        - {id: finish, type: button, label: "Finish setup", primary: true, does: "verify factor; mark MFA enrolled", go: {by_role: {frontdesk: home.frontdesk-board, ma: home.clinical-daylist, provider: home.provider-worklist, biller: home.rcm-queues, manager: home.practice-kpis}}, be: logic, inv: [INV-SEC-04]}
+
+  auth.forgot-password:
+    route: /forgot-password
+    pattern: public-card
+    up: auth.sign-in
+    regions:
+      card:
+        - {id: email, type: input, label: "Work email"}
+        - {id: send, type: button, label: "Send reset link", primary: true, does: "email single-use link if account exists; same response either way", be: logic}
+        - {id: sent, type: alert, label: "If an account exists, a link is on its way. It expires in 30 minutes.", when: "submitted"}
+        - {id: back, type: link, label: "Back to sign-in", go: auth.sign-in}
+
+  auth.reset-password:
+    route: /reset-password/:token
+    pattern: public-card
+    up: auth.sign-in
+    regions:
+      card:
+        - {id: new-password, type: input, label: "New password"}
+        - {id: confirm-password, type: input, label: "Confirm new password"}
+        - {id: policy, type: list, bind: "password policy checks (length, breached-password check)", be: logic}
+        - {id: save, type: button, label: "Set password", primary: true, does: "set password; revoke other sessions", go: auth.sign-in, be: logic, inv: [INV-SEC-04]}
+        - {id: expired, type: alert, label: "This link has expired.", when: "token invalid", go: auth.forgot-password}
+
+  auth.accept-invite:
+    route: /invite/:token
+    pattern: public-card
+    up: auth.sign-in
+    regions:
+      card:
+        - {id: invite-for, type: text, bind: "practice name + invited email + roles"}
+        - {id: first-name, type: input, label: "First name"}
+        - {id: last-name, type: input, label: "Last name"}
+        - {id: new-password, type: input, label: "Password"}
+        - {id: confirm-password, type: input, label: "Confirm password"}
+        - {id: accept, type: button, label: "Create account", primary: true, does: "activate user", go: auth.mfa-enroll, be: logic}
+
+  auth.step-up:
+    route: null
+    container: blocking-modal
+    pattern: overlay
+    up: null
+    regions:
+      content:
+        - {id: reason, type: heading, bind: "why: sign note, controlled substance, bulk export"}
+        - {id: password, type: input, label: "Password"}
+        - {id: code, type: input, label: "Verification code or security key"}
+        - {id: cancel, type: button, label: "Cancel", go: back}
+        - {id: confirm, type: button, label: "Confirm", primary: true, does: "refresh stepUpAt on session; retry original action", be: logic, inv: [INV-SAFE-05]}
+
+  auth.account-security:
+    route: /account/security
+    pattern: app-shell
+    up: null
+    regions:
+      content:
+        - {id: change-password, type: button, label: "Change password", go: auth.account-security#password}
+        - {id: factors, type: table, bind: "MfaFactor[] (type, label, added, last used)"}
+        - {id: add-factor, type: button, label: "+ Add method", go: auth.mfa-enroll}
+        - {id: remove-factor, type: button, label: "Remove", each: true, when: "more than one factor", be: logic}
+        - {id: regen-codes, type: button, label: "New recovery codes", opens: [auth.step-up], be: logic}
+        - {id: sessions, type: table, bind: "Session[] (device, IP, location, signed in, last active, current)"}
+        - {id: revoke-session, type: button, label: "Sign out", each: true, does: "revoke session"}
+        - {id: revoke-all, type: button, label: "Sign out everywhere else", does: "revoke other sessions"}
+        - {id: recent-activity, type: list, bind: "AuditEvent[] LOGIN/LOGIN_FAILED/MFA for me, last 30 days", inv: [INV-SEC-01]}
+    views:
+      password:
+        container: modal
+        regions:
+          body:
+            - {id: current, type: input, label: "Current password"}
+            - {id: next, type: input, label: "New password"}
+            - {id: save, type: button, label: "Change password", primary: true, does: "change password; revoke other sessions", be: logic}
+
+  portal.sign-in:
+    route: /portal/sign-in
+    pattern: public-card
+    up: null
+    regions:
+      card:
+        - {id: email, type: input, label: "Email"}
+        - {id: password, type: input, label: "Password"}
+        - {id: sign-in, type: button, label: "Sign in", primary: true, go: portal.mfa-challenge, be: logic, inv: [INV-SEC-01]}
+        - {id: error, type: alert, bind: "generic error", when: "failed"}
+        - {id: forgot, type: link, label: "Forgot password?", go: portal.forgot-password}
+        - {id: activate, type: link, label: "Have an invitation? Activate your account", go: portal.activate}
+        - {id: staff-link, type: link, label: "Clinic staff sign-in", go: auth.sign-in}
+
+  portal.activate:
+    route: /portal/activate/:token
+    pattern: public-card
+    up: portal.sign-in
+    regions:
+      card:
+        - {id: code, type: input, label: "Activation code (from text or email)"}
+        - {id: last-name, type: input, label: "Patient last name"}
+        - {id: dob, type: date, label: "Patient date of birth"}
+        - {id: verify-identity, type: button, label: "Continue", does: "match invitation + demographics (3 attempts)", be: logic, inv: [INV-ID-01]}
+        - {id: email, type: input, label: "Email for sign-in"}
+        - {id: password, type: input, label: "Create password"}
+        - {id: phone, type: input, label: "Mobile for verification codes"}
+        - {id: terms, type: checkbox, label: "I agree to the portal terms and privacy notice"}
+        - {id: create, type: button, label: "Create account", primary: true, does: "create PortalUser + PortalAccess (self or proxy)", go: portal.home, be: logic}
+
+  portal.mfa-challenge:
+    route: /portal/sign-in/verify
+    pattern: public-card
+    up: portal.sign-in
+    regions:
+      card:
+        - {id: sent-to, type: text, bind: "masked phone or email"}
+        - {id: code, type: input, label: "Verification code"}
+        - {id: verify, type: button, label: "Verify", primary: true, go: portal.home, be: logic}
+        - {id: resend, type: button, label: "Send a new code", be: logic}
+        - {id: other, type: link, label: "Send to email instead"}
+
+  portal.forgot-password:
+    route: /portal/forgot-password
+    pattern: public-card
+    up: portal.sign-in
+    regions:
+      card:
+        - {id: email, type: input, label: "Email"}
+        - {id: send, type: button, label: "Send reset link", primary: true, be: logic}
+        - {id: back, type: link, label: "Back to sign-in", go: portal.sign-in}
+
+  portal.reset-password:
+    route: /portal/reset-password/:token
+    pattern: public-card
+    up: portal.sign-in
+    regions:
+      card:
+        - {id: new-password, type: input, label: "New password"}
+        - {id: confirm-password, type: input, label: "Confirm new password"}
+        - {id: save, type: button, label: "Set password", primary: true, go: portal.sign-in, be: logic}

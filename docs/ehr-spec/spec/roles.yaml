@@ -1,0 +1,45 @@
+# Roles. `can_sign` lists item types this role may sign (INV-SAFE-01). Everyone with clinical access may pend.
+# A user can hold several roles. `home` lists the screens composed into that role's home.
+roles:
+  - id: frontdesk
+    name: Front desk
+    description: Scheduling, registration, check-in/out, copays, referral coordination.
+    home: home.frontdesk-board
+    can_sign: []
+    clinical_read: summary-only
+  - id: ma
+    name: MA / nurse
+    description: Rooming, vitals, med rec, screenings, protocols, refill triage, outreach.
+    home: home.clinical-daylist
+    can_sign: [immunization-administration, vitals]   # standing-order vaccines under protocol
+    clinical_read: full
+  - id: provider
+    name: Provider
+    description: MD, DO, NP, PA. Documents, orders, prescribes, signs results and notes.
+    home: home.provider-worklist
+    can_sign: [note, order, prescription, result-review, referral, addendum, cosign]
+    clinical_read: full
+  - id: biller
+    name: Biller
+    description: Charge review, claims, rejections, ERA posting, denials, patient balances.
+    home: home.rcm-queues
+    can_sign: []
+    clinical_read: none   # INV-SEC-05
+  - id: manager
+    name: Practice manager
+    description: Admin, users, templates, fee schedules, reports, quality, compliance.
+    home: home.practice-kpis
+    can_sign: []
+    clinical_read: summary-only
+  - id: patient
+    name: Patient
+    description: Books, completes forms, messages, views results, pays, shares records. Also proxies (parent, caregiver).
+    home: portal.home
+    can_sign: [consent]
+    clinical_read: own-record
+  - id: system
+    name: System / interface
+    description: Automations and external transactions (clearinghouse, labs, pharmacy network, HIE, IIS).
+    home: admin.interfaces
+    can_sign: []
+    clinical_read: n/a

@@ -1,0 +1,55 @@
+tag: Portal
+description: Patient portal API. Every path is scoped to a patient the portal user may act for (PortalAccess with scope); proxies see only their granted scopes. Patient-entered changes are staged for staff review (INV-DATA-01). Release of results and notes follows practice policy (OPEN-Q6).
+defaults: {auth: portal, roles: [patient], audit: READ}
+ops:
+  - {id: getPortalMe, m: GET, p: "/portal/me", sum: "Portal user and the patients they can access, with scopes", res: PortalMe, screens: [portal.home, portal.profile]}
+  - {id: getPortalHome, m: GET, p: "/portal/patients/{patientId}/home", sum: "Next visit, to-dos, unread messages, new results, balance", res: PortalHome, screens: [portal.home]}
+
+  - {id: listPortalAppointments, m: GET, p: "/portal/patients/{patientId}/appointments", sum: "Upcoming and past visits", res: "list:PortalAppointment", screens: [portal.appointments, portal.home]}
+  - {id: getPortalAppointment, m: GET, p: "/portal/patients/{patientId}/appointments/{appointmentId}", sum: "Visit detail with directions or video link", res: PortalAppointment, screens: [portal.appointments]}
+  - {id: listBookableVisitTypes, m: GET, p: "/portal/patients/{patientId}/visit-types", sum: "Visit types the patient may book online", res: "list:PortalVisitType", screens: [portal.appointments], phi: false}
+  - {id: searchPortalAvailability, m: GET, p: "/portal/patients/{patientId}/availability", sum: "Open slots for an online-bookable visit type", q: [visitTypeId, practitionerId, modality, fromDate, toDate], res: SlotSearchResult, screens: [portal.appointments], phi: false}
+  - {id: requestPortalAppointment, m: POST, p: "/portal/patients/{patientId}/appointments", sum: "Request a slot (auto-booked where policy allows, else requested)", body: PortalBookingRequest, res: "created:PortalAppointment", screens: [portal.appointments], flows: ["flow:access/01"], tr: ["appointment:new->requested", "appointment:new->booked"], audit: CREATE, errors: [409]}
+  - {id: cancelPortalAppointment, m: POST, p: "/portal/patients/{patientId}/appointments/{appointmentId}/cancel", sum: "Cancel outside the cancellation window", body: ReasonRequest, res: PortalAppointment, screens: [portal.appointments], tr: ["appointment:requested->cancelled", "appointment:booked->cancelled", "appointment:confirmed->cancelled"], audit: UPDATE}
+  - {id: getPortalAppointmentIcs, m: GET, p: "/portal/patients/{patientId}/appointments/{appointmentId}/calendar.ics", sum: "Add to calendar (no clinical detail)", res: file, screens: [portal.appointments], phi: false}
+  - {id: getPortalCheckin, m: GET, p: "/portal/patients/{patientId}/appointments/{appointmentId}/checkin", sum: "E-check-in steps and progress", res: PortalCheckin, screens: [portal.todos, portal.home], flows: ["flow:access/05"]}
+  - {id: savePortalCheckinStep, m: PUT, p: "/portal/patients/{patientId}/appointments/{appointmentId}/checkin/steps/{step}", sum: "Save a step (details, insurance photos, questionnaire, medications, consents); changes are staged", body: CheckinStepPayload, res: PortalCheckin, screens: [portal.todos], audit: CREATE, inv: [INV-DATA-01]}
+  - {id: completePortalCheckin, m: POST, p: "/portal/patients/{patientId}/appointments/{appointmentId}/checkin/complete", sum: "Finish check-in; staged items go to staff review", res: PortalCheckin, screens: [portal.todos], flows: ["flow:access/05"], audit: UPDATE}
+  - {id: portalJoinVideo, m: POST, p: "/portal/patients/{patientId}/appointments/{appointmentId}/telehealth/join", sum: "Consent, device check and patient join token", body: PortalVideoJoinRequest, res: TelehealthJoin, screens: [portal.appointments, portal.home], integ: VideoGateway, audit: READ}
+  - {id: listPortalTodos, m: GET, p: "/portal/patients/{patientId}/todos", sum: "Forms, consents, payments and card uploads outstanding", res: "list:PortalTodo", screens: [portal.home, portal.todos]}
+  - {id: signPortalConsent, m: POST, p: "/portal/patients/{patientId}/consents", sum: "Sign a consent electronically", body: PortalConsentSignature, res: Consent, screens: [portal.todos], audit: CREATE}
+
+  - {id: listPortalThreads, m: GET, p: "/portal/patients/{patientId}/message-threads", sum: "My message threads", res: "list:ThreadSummary", screens: [portal.messages, portal.home]}
+  - {id: checkMessageUrgency, m: POST, p: "/portal/messages/urgency-check", sum: "Check typed text for urgent symptom words (shows emergency notice)", body: TextRequest, res: UrgencyCheck, screens: [portal.messages], phi: false}
+  - {id: createPortalThread, m: POST, p: "/portal/patients/{patientId}/message-threads", sum: "Send a new message to the care team (routes to pool with SLA)", body: PortalNewThread, res: "created:ThreadDetail", screens: [portal.messages, portal.record], flows: ["flow:refills/01"], tr: ["task:new->open"], audit: CREATE}
+  - {id: getPortalThread, m: GET, p: "/portal/patients/{patientId}/message-threads/{threadId}", sum: "Thread messages (internal notes excluded)", res: ThreadDetail, screens: [portal.messages]}
+  - {id: replyPortalThread, m: POST, p: "/portal/patients/{patientId}/message-threads/{threadId}/messages", sum: "Reply in a thread", body: PortalMessageCreate, res: Message, screens: [portal.messages], audit: CREATE}
+  - {id: listRenewableMedications, m: GET, p: "/portal/patients/{patientId}/medications/renewable", sum: "Prescriptions eligible for refill request", res: "list:PortalMedication", screens: [portal.messages]}
+  - {id: requestRefill, m: POST, p: "/portal/patients/{patientId}/refill-requests", sum: "Request refills (creates RxRequest + task)", body: PortalRefillRequest, res: accepted, screens: [portal.messages], flows: ["flow:refills/01"], tr: ["task:new->open"], audit: CREATE}
+
+  - {id: getPortalRecord, m: GET, p: "/portal/patients/{patientId}/record", sum: "Problems, medications, allergies, immunizations (released content only)", res: PortalRecord, screens: [portal.record]}
+  - {id: listPortalResults, m: GET, p: "/portal/patients/{patientId}/results", sum: "Released results with provider comments and plain-language ranges", res: "list:PortalResult", screens: [portal.record, portal.home], flows: ["flow:results/05"]}
+  - {id: getPortalResult, m: GET, p: "/portal/patients/{patientId}/results/{diagnosticReportId}", sum: "One result with trend", res: PortalResult, screens: [portal.record]}
+  - {id: listPortalVisits, m: GET, p: "/portal/patients/{patientId}/visits", sum: "Past visits with AVS and released notes", res: "list:PortalVisit", screens: [portal.record, portal.appointments]}
+  - {id: getPortalVisit, m: GET, p: "/portal/patients/{patientId}/visits/{encounterId}", sum: "AVS and released visit note", res: PortalVisit, screens: [portal.record]}
+  - {id: requestRecordDownload, m: POST, p: "/portal/patients/{patientId}/record/exports", sum: "Download my record (C-CDA or PDF) — right of access", body: PortalRecordExportRequest, res: job, screens: [portal.record], audit: EXPORT}
+  - {id: getPortalExport, m: GET, p: "/portal/patients/{patientId}/record/exports/{jobId}", sum: "Download status and link", res: Job, screens: [portal.record]}
+  - {id: downloadPortalExportFile, m: GET, p: "/portal/patients/{patientId}/record/exports/{jobId}/files/{fileId}", sum: "Download an export file", res: file, screens: [portal.record], audit: EXPORT}
+  - {id: requestPortalAmendment, m: POST, p: "/portal/patients/{patientId}/amendment-requests", sum: "Ask the practice to amend the record", body: PortalAmendmentRequest, res: accepted, screens: [portal.record], audit: CREATE}
+
+  - {id: getPortalBilling, m: GET, p: "/portal/patients/{patientId}/billing", sum: "Amount due, by-visit explanation, statements, plan", res: PortalBilling, screens: [portal.billing, portal.home]}
+  - {id: getPortalStatementPdf, m: GET, p: "/portal/patients/{patientId}/statements/{statementId}/pdf", sum: "Statement PDF", res: file, screens: [portal.billing]}
+  - {id: listPortalPaymentMethods, m: GET, p: "/portal/patients/{patientId}/payment-methods", sum: "Saved cards (brand, last4)", res: "list:PaymentMethod", screens: [portal.billing], phi: false}
+  - {id: addPortalPaymentMethod, m: POST, p: "/portal/patients/{patientId}/payment-methods", sum: "Save a card token from hosted fields", body: PaymentMethodCreateRequest, res: "created:PaymentMethod", screens: [portal.billing], integ: PaymentGateway, audit: CREATE}
+  - {id: portalPay, m: POST, p: "/portal/patients/{patientId}/payments", sum: "Pay a balance (optionally save for autopay)", body: PortalPaymentRequest, res: "created:Payment", screens: [portal.billing, portal.todos], flows: ["flow:rcm/08"], integ: PaymentGateway, audit: CREATE, inv: [INV-FIN-01]}
+  - {id: portalCreatePaymentPlan, m: POST, p: "/portal/patients/{patientId}/payment-plans", sum: "Start a payment plan within practice limits", body: PortalPaymentPlanRequest, res: "created:PaymentPlan", screens: [portal.billing], integ: PaymentGateway, audit: CREATE}
+
+  - {id: getPortalProfile, m: GET, p: "/portal/patients/{patientId}/profile", sum: "Demographics, contact, pharmacy, preferences, insurance cards", res: PortalProfile, screens: [portal.profile, portal.billing]}
+  - {id: proposePortalProfileChange, m: POST, p: "/portal/patients/{patientId}/profile/changes", sum: "Propose demographic or contact changes (staged for staff)", body: ProfileChangeRequest, res: StagedChange, screens: [portal.profile, portal.todos], audit: CREATE, inv: [INV-DATA-01]}
+  - {id: uploadPortalInsuranceCard, m: POST, p: "/portal/patients/{patientId}/insurance-cards", sum: "Upload card photos (staged for staff)", body: multipart, res: StagedChange, screens: [portal.profile, portal.todos, portal.appointments], audit: CREATE, inv: [INV-DATA-01]}
+  - {id: updatePortalPreferences, m: PUT, p: "/portal/patients/{patientId}/preferences", sum: "Text/email preferences (TCPA consent) and preferred pharmacy", body: PortalPreferences, res: PortalProfile, screens: [portal.profile, portal.messages], audit: UPDATE}
+  - {id: listPortalProxies, m: GET, p: "/portal/patients/{patientId}/proxies", sum: "Who can access this record, and which records I can access", res: "list:PortalAccessView", screens: [portal.profile]}
+  - {id: invitePortalProxy, m: POST, p: "/portal/patients/{patientId}/proxies", sum: "Invite a caregiver with chosen scopes", body: PortalInvitationRequest, res: accepted, screens: [portal.profile], integ: MessagingGateway, audit: PERMISSION_CHANGE}
+  - {id: revokePortalProxy, m: DELETE, p: "/portal/patients/{patientId}/proxies/{portalAccessId}", sum: "Remove a proxy", res: none, screens: [portal.profile], audit: PERMISSION_CHANGE}
+  - {id: listConnectedApps, m: GET, p: "/portal/smart-grants", sum: "Apps connected through SMART on FHIR, with scopes and last access", res: "list:SmartGrantView", screens: [portal.profile]}
+  - {id: revokeConnectedApp, m: DELETE, p: "/portal/smart-grants/{smartGrantId}", sum: "Disconnect an app (revokes tokens)", res: none, screens: [portal.profile], audit: PERMISSION_CHANGE}

@@ -1,0 +1,63 @@
+tag: Encounters
+description: Encounter workspace — pre-charting, rooming, note (states.yaml#note), diagnoses, coding and charges, AVS, sign pre-flight and signing. Signed notes are immutable; changes are addenda (INV-SAFE-02).
+defaults: {auth: staff, roles: [ma, provider], audit: READ}
+ops:
+  - {id: createEncounter, m: POST, p: "/patients/{patientId}/encounters", sum: "Start an unscheduled encounter (phone, portal, walk-in)", body: EncounterCreateRequest, res: "created:EncounterDetail", roles: [ma, provider], screens: [chart.summary], audit: CREATE}
+  - {id: getEncounter, m: GET, p: "/encounters/{encounterId}", sum: "Encounter header: visit type, provider, location, statuses, counts for section tabs, open items", res: EncounterDetail, screens: [encounter.prechart, encounter.rooming, encounter.note, encounter.orders, encounter.rx, encounter.dx-coding, encounter.charges, encounter.avs, encounter.sign, telehealth.visit]}
+  - {id: updateEncounter, m: PATCH, p: "/encounters/{encounterId}", sum: "Chief complaint, patient words, pre-chart note, follow-up instruction", body: "update:Encounter", res: EncounterDetail, screens: [encounter.rooming, encounter.prechart, encounter.note], audit: UPDATE}
+  - {id: getPrechart, m: GET, p: "/encounters/{encounterId}/prechart", sum: "Since-last-visit items, open gaps, standing orders due", res: PrechartView, screens: [encounter.prechart, home.provider-worklist], flows: ["flow:access/07"]}
+  - {id: markPrecharted, m: POST, p: "/encounters/{encounterId}/precharted", sum: "Mark pre-charting done", res: EncounterDetail, roles: [ma, provider], screens: [encounter.prechart], audit: UPDATE}
+  - {id: queryOutsideRecords, m: POST, p: "/patients/{patientId}/outside-records/query", sum: "Query HIE for outside records; results arrive as staged items", res: job, roles: [ma, provider], screens: [encounter.prechart], integ: HieGateway, inv: [INV-DATA-01], audit: QUERY}
+
+  # Rooming
+  - {id: getRooming, m: GET, p: "/encounters/{encounterId}/rooming", sum: "Vitals with previous values, intake checklist status, protocols and vaccines due, pended orders", res: RoomingView, roles: [ma, provider], screens: [encounter.rooming], flows: ["flow:checkin/04", "flow:checkin/05"]}
+  - {id: recordVitals, m: POST, p: "/encounters/{encounterId}/vitals", sum: "Record vitals (BMI computed); returns out-of-range alerts; repeat readings are kept", body: VitalsInput, res: VitalsResult, roles: [ma, provider], screens: [encounter.rooming, chart.vitals], audit: CREATE}
+  - {id: recordPocResult, m: POST, p: "/encounters/{encounterId}/poc-results", sum: "Record a point-of-care test result", body: PocResultInput, res: Observation, roles: [ma, provider], screens: [encounter.rooming], audit: CREATE}
+  - {id: administerImmunization, m: POST, p: "/encounters/{encounterId}/immunizations", sum: "Administer a vaccine (lot must be unexpired; VIS recorded; VXU queued)", body: AdministerVaccineRequest, res: Immunization, roles: [ma, provider], screens: [encounter.rooming, chart.immunizations], flows: ["flow:checkin/05"], integ: IisGateway, audit: CREATE}
+  - {id: submitQuestionnaireResponse, m: POST, p: "/patients/{patientId}/questionnaire-responses", sum: "Submit a questionnaire (PHQ, SDOH, intake); returns score", body: "create:QuestionnaireResponse", res: "created:QuestionnaireResponse", roles: [frontdesk, ma, provider], screens: [encounter.rooming, chart.history], audit: CREATE}
+  - {id: listQuestionnaireResponses, m: GET, p: "/patients/{patientId}/questionnaire-responses", sum: "Questionnaire history", q: [category], res: "page:QuestionnaireResponse", screens: [chart.history, encounter.rooming, telehealth.evisit]}
+  - {id: getQuestionnaire, m: GET, p: "/questionnaires/{questionnaireId}", sum: "Questionnaire definition", res: Questionnaire, roles: [frontdesk, ma, provider, manager], screens: [encounter.rooming, admin.forms, chart.history], phi: false}
+
+  # Note
+  - {id: getNote, m: GET, p: "/encounters/{encounterId}/note", sum: "Note with sections, AI segments, status, lock holder; creates a draft if none", res: ClinicalNoteDetail, screens: [encounter.note, inbox.cosign], flows: ["flow:encounter/02"]}
+  - {id: saveNoteSections, m: PUT, p: "/encounters/{encounterId}/note/sections", sum: "Autosave sections (If-Match); rejected once signed", body: NoteSectionsUpdate, res: ClinicalNoteDetail, screens: [encounter.note], tr: ["note:new->draft"], audit: UPDATE, inv: [INV-SAFE-02, INV-SEC-04]}
+  - {id: lockNote, m: POST, p: "/notes/{noteId}/lock", sum: "Take the edit lock (shows 'locked by another user' to others)", res: NoteLock, screens: [encounter.note]}
+  - {id: releaseNoteLock, m: DELETE, p: "/notes/{noteId}/lock", sum: "Release the edit lock", res: none, screens: [encounter.note]}
+  - {id: applyNoteTemplate, m: POST, p: "/notes/{noteId}/apply-template", sum: "Apply a template to empty sections", body: TemplateApplyRequest, res: ClinicalNoteDetail, screens: [encounter.note], audit: UPDATE}
+  - {id: copyForwardNote, m: POST, p: "/notes/{noteId}/copy-forward", sum: "Copy the last signed note with a diff and stale-data warnings", res: CopyForwardResult, roles: [provider], screens: [encounter.note], audit: UPDATE}
+  - {id: decideAiSegment, m: POST, p: "/ai-segments/{aiSegmentId}/decision", sum: "Accept, edit or discard AI-drafted text", body: AiSegmentDecision, res: AiDraftSegment, roles: [provider], screens: [encounter.note, encounter.sign], audit: UPDATE, inv: [INV-DATA-02]}
+  - {id: markNoteReadyToSign, m: POST, p: "/notes/{noteId}/ready", sum: "Mark ready to sign (MA scribe or provider)", body: TransitionRequest, res: ClinicalNoteDetail, screens: [encounter.note], tr: ["note:draft->ready-to-sign"], audit: UPDATE}
+  - {id: getSignPreflight, m: GET, p: "/encounters/{encounterId}/sign-preflight", sum: "Blockers, warnings and passed checks before signing", res: SignPreflight, roles: [provider], screens: [encounter.sign, encounter.note], flows: ["flow:encounter/07"], inv: [INV-SAFE-08, INV-DATA-02, INV-ID-03]}
+  - {id: signNote, m: POST, p: "/notes/{noteId}/sign", sum: "Sign and lock (or route for co-sign); releases clean charges to a claim; moves appointment to checkout", body: SignNoteRequest, res: SignResult, roles: [provider], stepup: conditional, screens: [encounter.sign], flows: ["flow:encounter/07", "flow:rcm/01"], tr: ["note:draft->signed", "note:ready-to-sign->signed", "note:draft->pending-cosign", "note:ready-to-sign->pending-cosign", "claim:new->draft", "claim:draft->ready"], audit: SIGN, inv: [INV-SAFE-01, INV-SAFE-02, INV-SAFE-08, INV-DATA-02, INV-ID-03, INV-FIN-03]}
+  - {id: cosignNote, m: POST, p: "/notes/{noteId}/cosign", sum: "Supervising provider co-signs", body: SignNoteRequest, res: SignResult, roles: [provider], screens: [inbox.cosign], tr: ["note:pending-cosign->signed"], audit: SIGN, inv: [INV-SAFE-01]}
+  - {id: returnNoteToAuthor, m: POST, p: "/notes/{noteId}/return", sum: "Return a note to its author with a comment (creates a task)", body: CommentRequest, res: Task, roles: [provider], screens: [inbox.cosign], audit: CREATE}
+  - {id: addAddendum, m: POST, p: "/notes/{noteId}/addenda", sum: "Sign an addendum to a signed note", body: AddendumCreate, res: Addendum, roles: [provider], screens: [chart.timeline], tr: ["note:signed->addended", "note:addended->addended"], audit: SIGN, inv: [INV-SAFE-02, INV-SAFE-01]}
+  - {id: listPatientNotes, m: GET, p: "/patients/{patientId}/notes", sum: "Signed and draft notes (prior note for copy forward and timeline)", q: [status, fromDate, toDate], res: "page:ClinicalNoteSummary", screens: [chart.timeline, encounter.note, home.provider-worklist], inv: [INV-SEC-03, INV-SEC-05]}
+  - {id: getNoteDetail, m: GET, p: "/notes/{noteId}", sum: "Signed note with addenda (redacted for billing roles)", res: ClinicalNoteDetail, roles: [ma, provider, manager], screens: [chart.timeline, inbox.cosign, portal.record], inv: [INV-SEC-05, INV-SEC-03]}
+  - {id: getNotePdf, m: GET, p: "/notes/{noteId}/pdf", sum: "Printable note", res: file, roles: [ma, provider, manager], screens: [chart.timeline], audit: PRINT}
+
+  # Diagnoses & coding
+  - {id: listEncounterDiagnoses, m: GET, p: "/encounters/{encounterId}/diagnoses", sum: "Encounter diagnoses in pointer order", res: "list:Condition", roles: [ma, provider, biller], screens: [encounter.dx-coding, encounter.charges, encounter.orders, encounter.note]}
+  - {id: addEncounterDiagnosis, m: POST, p: "/encounters/{encounterId}/diagnoses", sum: "Add an encounter diagnosis (optionally to the problem list)", body: EncounterDiagnosisCreate, res: Condition, roles: [provider], screens: [encounter.dx-coding, encounter.note, encounter.charges], flows: ["flow:encounter/03"], audit: CREATE}
+  - {id: updateEncounterDiagnosis, m: PATCH, p: "/encounters/{encounterId}/diagnoses/{conditionId}", sum: "Reorder or change code", body: EncounterDiagnosisUpdate, res: Condition, roles: [provider], screens: [encounter.dx-coding, encounter.charges], audit: UPDATE}
+  - {id: removeEncounterDiagnosis, m: DELETE, p: "/encounters/{encounterId}/diagnoses/{conditionId}", sum: "Remove from this encounter", res: none, roles: [provider], screens: [encounter.dx-coding], audit: UPDATE}
+
+  # Charges
+  - {id: getEncounterCharges, m: GET, p: "/encounters/{encounterId}/charges", sum: "Charge lines, coding edits, E/M inputs and suggestion", res: EncounterCharges, roles: [provider, biller], screens: [encounter.charges], flows: ["flow:encounter/06"]}
+  - {id: computeEmLevel, m: POST, p: "/encounters/{encounterId}/em-level", sum: "Suggest E/M level from MDM elements or total time, with evidence", body: EmLevelInput, res: EmSuggestion, roles: [provider, biller], screens: [encounter.charges]}
+  - {id: addChargeItem, m: POST, p: "/encounters/{encounterId}/charges", sum: "Add a charge line", body: "create:ChargeItem", res: "created:ChargeItem", roles: [provider, biller], screens: [encounter.charges], audit: CREATE, inv: [INV-FIN-03]}
+  - {id: updateChargeItem, m: PATCH, p: "/charge-items/{chargeItemId}", sum: "Edit modifiers, units, pointers (draft or held only)", body: "update:ChargeItem", res: ChargeItem, roles: [provider, biller], screens: [encounter.charges, billing.charge-review], audit: UPDATE, inv: [INV-FIN-03]}
+  - {id: deleteChargeItem, m: DELETE, p: "/charge-items/{chargeItemId}", sum: "Remove a draft charge (voids if already held)", res: none, roles: [provider, biller], screens: [encounter.charges], audit: UPDATE, inv: [INV-FIN-01]}
+  - {id: applyCodingEdit, m: POST, p: "/charge-items/{chargeItemId}/edits/{editKey}/apply", sum: "Apply the suggested fix (e.g. add modifier 25)", res: ChargeItem, roles: [provider, biller], screens: [encounter.charges, billing.charge-review], audit: UPDATE}
+  - {id: dismissCodingEdit, m: POST, p: "/charge-items/{chargeItemId}/edits/{editKey}/dismiss", sum: "Dismiss an edit with reason", body: ReasonRequest, res: ChargeItem, roles: [provider, biller], screens: [encounter.charges], audit: UPDATE}
+  - {id: markNoChargeVisit, m: POST, p: "/encounters/{encounterId}/no-charge", sum: "Mark the visit as no-charge", body: ReasonRequest, res: EncounterDetail, roles: [provider], screens: [encounter.charges], audit: UPDATE}
+
+  # After-visit summary
+  - {id: getAfterVisitSummary, m: GET, p: "/encounters/{encounterId}/avs", sum: "Generate or fetch the AVS", q: [format], res: AfterVisitSummary, roles: [frontdesk, ma, provider], screens: [encounter.avs, schedule.checkout]}
+  - {id: updateAfterVisitSummary, m: PATCH, p: "/encounters/{encounterId}/avs", sum: "Edit instructions, language, education", body: "update:AfterVisitSummary", res: AfterVisitSummary, roles: [ma, provider], screens: [encounter.avs], audit: UPDATE}
+  - {id: releaseAfterVisitSummary, m: POST, p: "/encounters/{encounterId}/avs/release", sum: "Publish AVS to the portal", res: AfterVisitSummary, roles: [frontdesk, ma, provider], screens: [encounter.avs, schedule.checkout], audit: DISCLOSE}
+  - {id: getAfterVisitSummaryPdf, m: GET, p: "/encounters/{encounterId}/avs/pdf", sum: "Printable AVS", res: file, roles: [frontdesk, ma, provider], screens: [encounter.avs, schedule.checkout], audit: PRINT}
+
+  # Clinical decision support
+  - {id: getCdsCards, m: GET, p: "/encounters/{encounterId}/cds-cards", sum: "Care-gap and CDS cards for the context drawer", res: "list:CdsCard", screens: [encounter.note, encounter.rooming, encounter.prechart]}
+  - {id: recordCdsOutcome, m: POST, p: "/cds-firings", sum: "Record accept / not today / dismiss for a card", body: CdsOutcomeRequest, res: CdsFiring, screens: [encounter.note], audit: CREATE}

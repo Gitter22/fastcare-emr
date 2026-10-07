@@ -1,0 +1,101 @@
+tag: Administration
+description: Practice configuration — organisation, locations, rooms, users and roles, providers, co-sign rules, pools, scheduling setup, payers and fees, clinical content, CDS, security policy, audit, integrations. Every change writes a ResourceVersion and an AuditEvent.
+defaults: {auth: staff, roles: [manager], audit: UPDATE, phi: false}
+ops:
+  - {id: getPractice, m: GET, p: "/practice", sum: "Practice organisation", res: Practice, roles: [frontdesk, ma, provider, biller, manager], screens: [admin.locations], audit: READ}
+  - {id: updatePractice, m: PATCH, p: "/practice", sum: "Edit legal name, TIN, group NPI (validated against NPPES)", body: "update:Practice", res: Practice, screens: [admin.locations], integ: ReferenceDataGateway}
+  - {id: listLocations, m: GET, p: "/locations", sum: "Locations with POS codes", res: "list:Location", roles: [frontdesk, ma, provider, biller, manager], screens: [admin.locations, schedule.calendar, schedule.booking-drawer, billing.day-close], audit: READ}
+  - {id: createLocation, m: POST, p: "/locations", sum: "Add a location (POS from CMS list, NPI validated)", body: "create:Location", res: "created:Location", screens: [admin.locations], integ: ReferenceDataGateway, audit: CREATE}
+  - {id: updateLocation, m: PATCH, p: "/locations/{locationId}", sum: "Edit a location", body: "update:Location", res: Location, screens: [admin.locations]}
+  - {id: listRooms, m: GET, p: "/locations/{locationId}/rooms", sum: "Rooms and equipment", res: "list:Room", roles: [frontdesk, ma, provider, manager], screens: [admin.locations, schedule.room-board, schedule.flow-board], audit: READ}
+  - {id: createRoom, m: POST, p: "/locations/{locationId}/rooms", sum: "Add a room", body: "create:Room", res: "created:Room", screens: [admin.locations], audit: CREATE}
+  - {id: updateRoom, m: PATCH, p: "/rooms/{roomId}", sum: "Edit a room or set status (ready, needs cleaning)", body: "update:Room", res: Room, roles: [ma, manager], screens: [admin.locations, schedule.room-board]}
+
+  - {id: listUsers, m: GET, p: "/users", sum: "Users with roles, MFA status, last sign-in", q: [q, role, status], res: "page:UserView", screens: [admin.users-roles], audit: READ}
+  - {id: inviteUser, m: POST, p: "/users/invitations", sum: "Invite a user with roles (MFA enrolment required on first sign-in)", body: InviteUserRequest, res: "created:UserView", screens: [admin.users-roles], integ: MessagingGateway, audit: CREATE, inv: [INV-SEC-04]}
+  - {id: getUser, m: GET, p: "/users/{userId}", sum: "User detail with derived sign permissions", res: UserView, screens: [admin.users-roles], audit: READ}
+  - {id: updateUser, m: PATCH, p: "/users/{userId}", sum: "Edit name, phone, locations", body: UserUpdate, res: UserView, screens: [admin.users-roles]}
+  - {id: setUserRoles, m: PUT, p: "/users/{userId}/roles", sum: "Replace roles (least privilege)", body: UserRolesRequest, res: UserView, stepup: true, screens: [admin.users-roles], audit: PERMISSION_CHANGE, inv: [INV-SAFE-01]}
+  - {id: unlockUser, m: POST, p: "/users/{userId}/unlock", sum: "Unlock after failed sign-ins", res: UserView, screens: [admin.users-roles]}
+  - {id: resetUserMfa, m: POST, p: "/users/{userId}/reset-mfa", sum: "Remove all factors; user must re-enrol", res: UserView, stepup: true, screens: [admin.users-roles], audit: PERMISSION_CHANGE, inv: [INV-SEC-04]}
+  - {id: deactivateUser, m: POST, p: "/users/{userId}/deactivate", sum: "Deactivate and revoke all sessions (history kept)", body: ReasonRequest, res: UserView, screens: [admin.users-roles], audit: PERMISSION_CHANGE}
+
+  - {id: listPractitioners, m: GET, p: "/practitioners", sum: "Clinicians", q: [q], res: "list:Practitioner", roles: [frontdesk, ma, provider, biller, manager], screens: [admin.providers, schedule.calendar, schedule.booking-drawer, reports.productivity], audit: READ}
+  - {id: createPractitioner, m: POST, p: "/practitioners", sum: "Add a clinician (NPI and taxonomy validated against NPPES)", body: "create:Practitioner", res: "created:Practitioner", screens: [admin.providers], integ: ReferenceDataGateway, audit: CREATE}
+  - {id: getPractitioner, m: GET, p: "/practitioners/{practitionerId}", sum: "Clinician with licences, DEA, enrolments, EPCS status", res: PractitionerDetail, screens: [admin.providers, admin.users-roles], audit: READ}
+  - {id: updatePractitioner, m: PATCH, p: "/practitioners/{practitionerId}", sum: "Edit clinician", body: "update:Practitioner", res: Practitioner, screens: [admin.providers]}
+  - {id: addPractitionerLicense, m: POST, p: "/practitioners/{practitionerId}/licenses", sum: "Add a state licence", body: "create:PractitionerLicense", res: "created:PractitionerLicense", screens: [admin.providers], audit: CREATE}
+  - {id: deletePractitionerLicense, m: DELETE, p: "/practitioner-licenses/{practitionerLicenseId}", sum: "Remove a licence", res: none, screens: [admin.providers]}
+  - {id: addDeaRegistration, m: POST, p: "/practitioners/{practitionerId}/dea-registrations", sum: "Add a DEA registration", body: "create:DeaRegistration", res: "created:DeaRegistration", screens: [admin.providers], audit: CREATE}
+  - {id: startEpcsProofing, m: POST, p: "/practitioners/{practitionerId}/epcs-proofing", sum: "Start EPCS identity proofing with the eRx vendor", res: EpcsProofingStatus, screens: [admin.providers, admin.users-roles], integ: ErxGateway, inv: [INV-SAFE-05]}
+  - {id: listPayerEnrollments, m: GET, p: "/practitioners/{practitionerId}/payer-enrollments", sum: "Payer enrolment status", res: "list:PayerEnrollment", screens: [admin.providers], audit: READ}
+  - {id: upsertPayerEnrollment, m: PUT, p: "/practitioners/{practitionerId}/payer-enrollments/{payerId}", sum: "Set enrolment status for a payer", body: "create:PayerEnrollment", res: PayerEnrollment, screens: [admin.providers]}
+
+  - {id: listCosignRules, m: GET, p: "/cosign-rules", sum: "Co-sign rules (OPEN-Q5)", res: "list:CosignRule", screens: [admin.users-roles], audit: READ}
+  - {id: createCosignRule, m: POST, p: "/cosign-rules", sum: "Add a co-sign rule", body: "create:CosignRule", res: "created:CosignRule", screens: [admin.users-roles], audit: CREATE}
+  - {id: updateCosignRule, m: PATCH, p: "/cosign-rules/{cosignRuleId}", sum: "Edit a co-sign rule", body: "update:CosignRule", res: CosignRule, screens: [admin.users-roles]}
+  - {id: listWorkPools, m: GET, p: "/work-pools", sum: "Team queues", res: "list:WorkPoolView", roles: [frontdesk, ma, provider, biller, manager], screens: [admin.users-roles, inbox.tasks, inbox.patient-messages], audit: READ}
+  - {id: createWorkPool, m: POST, p: "/work-pools", sum: "Create a pool", body: "create:WorkPool", res: "created:WorkPool", screens: [admin.users-roles], audit: CREATE}
+  - {id: setWorkPoolMembers, m: PUT, p: "/work-pools/{workPoolId}/members", sum: "Replace pool members", body: IdsRequest, res: WorkPoolView, screens: [admin.users-roles]}
+
+  - {id: listVisitTypes, m: GET, p: "/visit-types", sum: "Visit types", res: "list:VisitType", roles: [frontdesk, ma, provider, manager], screens: [admin.visit-types, admin.online-booking, schedule.booking-drawer, schedule.calendar], audit: READ}
+  - {id: createVisitType, m: POST, p: "/visit-types", sum: "Add a visit type", body: "create:VisitType", res: "created:VisitType", screens: [admin.visit-types], audit: CREATE}
+  - {id: updateVisitType, m: PATCH, p: "/visit-types/{visitTypeId}", sum: "Edit a visit type (online bookable, notice, window)", body: "update:VisitType", res: VisitType, screens: [admin.visit-types, admin.online-booking]}
+  - {id: listScheduleTemplates, m: GET, p: "/schedule-templates", sum: "Provider weekly templates", q: [practitionerId, locationId], res: "list:ScheduleTemplate", roles: [frontdesk, manager], screens: [admin.visit-types, schedule.calendar], audit: READ}
+  - {id: createScheduleTemplate, m: POST, p: "/schedule-templates", sum: "New template version effective from a date", body: "create:ScheduleTemplate", res: "created:ScheduleTemplate", screens: [admin.visit-types], audit: CREATE}
+  - {id: updateScheduleTemplate, m: PATCH, p: "/schedule-templates/{scheduleTemplateId}", sum: "Edit a template", body: "update:ScheduleTemplate", res: ScheduleTemplate, screens: [admin.visit-types]}
+  - {id: listScheduleBlocks, m: GET, p: "/schedule-blocks", sum: "Blocked time in a range", q: [from, to, practitionerId], res: "list:ScheduleBlock", roles: [frontdesk, ma, provider, manager], screens: [schedule.calendar], audit: READ}
+  - {id: createScheduleBlock, m: POST, p: "/schedule-blocks", sum: "Block time", body: "create:ScheduleBlock", res: "created:ScheduleBlock", roles: [frontdesk, provider, manager], screens: [schedule.calendar], audit: CREATE}
+  - {id: deleteScheduleBlock, m: DELETE, p: "/schedule-blocks/{scheduleBlockId}", sum: "Remove a block", res: none, roles: [frontdesk, provider, manager], screens: [schedule.calendar]}
+
+  - {id: listSettings, m: GET, p: "/settings", sum: "Practice settings by prefix (security., portal., schedule., billing., messaging.)", q: [prefix], res: "list:PracticeSetting", roles: [frontdesk, ma, provider, biller, manager], screens: [admin.security, admin.portal-settings, admin.online-booking, schedule.flow-board, admin.payers-fees], audit: READ}
+  - {id: putSetting, m: PUT, p: "/settings/{key}", sum: "Set a practice setting (validated per key; security keys cannot weaken mandatory MFA)", body: SettingValue, res: PracticeSetting, stepup: true, screens: [admin.security, admin.portal-settings, admin.online-booking], inv: [INV-SEC-04]}
+
+  - {id: listPayers, m: GET, p: "/payers", sum: "Payers with clearinghouse ids and rules", q: [q], res: "list:Payer", roles: [frontdesk, biller, manager], screens: [admin.payers-fees, home.rcm-queues, billing.claims, patients.registration], audit: READ}
+  - {id: createPayer, m: POST, p: "/payers", sum: "Add a payer", body: "create:Payer", res: "created:Payer", roles: [biller, manager], screens: [admin.payers-fees], audit: CREATE}
+  - {id: updatePayer, m: PATCH, p: "/payers/{payerId}", sum: "Edit payer rules, timely filing days", body: "update:Payer", res: Payer, roles: [biller, manager], screens: [admin.payers-fees], inv: [INV-FIN-05]}
+  - {id: listPayerPlans, m: GET, p: "/payers/{payerId}/plans", sum: "Plans for a payer", res: "list:PayerPlan", roles: [frontdesk, biller, manager], screens: [admin.payers-fees, patients.registration, chart.demographics], audit: READ}
+  - {id: createPayerPlan, m: POST, p: "/payers/{payerId}/plans", sum: "Add a plan", body: "create:PayerPlan", res: "created:PayerPlan", roles: [biller, manager], screens: [admin.payers-fees], audit: CREATE}
+  - {id: listFeeSchedules, m: GET, p: "/fee-schedules", sum: "Fee schedules", res: "list:FeeSchedule", roles: [biller, manager], screens: [admin.payers-fees, billing.estimates], audit: READ}
+  - {id: createFeeSchedule, m: POST, p: "/fee-schedules", sum: "New fee schedule version", body: "create:FeeSchedule", res: "created:FeeSchedule", roles: [biller, manager], screens: [admin.payers-fees], audit: CREATE}
+  - {id: listFeeScheduleItems, m: GET, p: "/fee-schedules/{feeScheduleId}/items", sum: "Codes and amounts", q: [q], res: "page:FeeScheduleItem", roles: [biller, manager], screens: [admin.payers-fees], audit: READ}
+  - {id: importFeeScheduleItems, m: POST, p: "/fee-schedules/{feeScheduleId}/items/import", sum: "Import codes and amounts from CSV", body: multipart, res: job, roles: [biller, manager], screens: [admin.payers-fees]}
+
+  - {id: listNoteTemplates, m: GET, p: "/note-templates", sum: "Note templates available to me", q: [q], res: "list:NoteTemplate", roles: [ma, provider, manager], screens: [admin.templates, encounter.note], audit: READ}
+  - {id: createNoteTemplate, m: POST, p: "/note-templates", sum: "Create a template", body: "create:NoteTemplate", res: "created:NoteTemplate", roles: [provider, manager], screens: [admin.templates], audit: CREATE}
+  - {id: updateNoteTemplate, m: PATCH, p: "/note-templates/{noteTemplateId}", sum: "Save a new template version", body: "update:NoteTemplate", res: NoteTemplate, roles: [provider, manager], screens: [admin.templates]}
+  - {id: listSmartPhrases, m: GET, p: "/smart-phrases", sum: "Smart phrases available to me", q: [q], res: "list:SmartPhrase", roles: [ma, provider, manager], screens: [admin.templates, encounter.note], audit: READ}
+  - {id: createSmartPhrase, m: POST, p: "/smart-phrases", sum: "Create a smart phrase", body: "create:SmartPhrase", res: "created:SmartPhrase", roles: [provider, manager], screens: [admin.templates], audit: CREATE}
+  - {id: updateSmartPhrase, m: PATCH, p: "/smart-phrases/{smartPhraseId}", sum: "Edit a smart phrase", body: "update:SmartPhrase", res: SmartPhrase, roles: [provider, manager], screens: [admin.templates]}
+  - {id: deleteSmartPhrase, m: DELETE, p: "/smart-phrases/{smartPhraseId}", sum: "Delete a smart phrase", res: none, roles: [provider, manager], screens: [admin.templates]}
+  - {id: listOrderSets, m: GET, p: "/order-sets", sum: "Order sets", res: "list:OrderSet", roles: [ma, provider, manager], screens: [admin.order-sets, encounter.orders], audit: READ}
+  - {id: createOrderSet, m: POST, p: "/order-sets", sum: "Create an order set", body: "create:OrderSet", res: "created:OrderSet", roles: [provider, manager], screens: [admin.order-sets], audit: CREATE}
+  - {id: updateOrderSet, m: PATCH, p: "/order-sets/{orderSetId}", sum: "Edit an order set", body: "update:OrderSet", res: OrderSet, roles: [provider, manager], screens: [admin.order-sets]}
+  - {id: listLabCompendium, m: GET, p: "/lab-compendium", sum: "Lab test catalog with LOINC mapping and AOE", q: [lab, q], res: "page:LabCompendiumItem", roles: [ma, provider, manager], screens: [admin.order-sets, encounter.orders], audit: READ}
+  - {id: importLabCompendium, m: POST, p: "/lab-compendium/import", sum: "Import a lab compendium file", body: multipart, res: job, screens: [admin.order-sets], integ: LabGateway}
+  - {id: listQuestionnaires, m: GET, p: "/questionnaires", sum: "Forms (intake, screening, consent, e-visit)", q: [category, status], res: "list:Questionnaire", roles: [frontdesk, ma, provider, manager], screens: [admin.forms, encounter.rooming, admin.visit-types], audit: READ}
+  - {id: createQuestionnaire, m: POST, p: "/questionnaires", sum: "Create a form", body: "create:Questionnaire", res: "created:Questionnaire", screens: [admin.forms], audit: CREATE}
+  - {id: updateQuestionnaire, m: PATCH, p: "/questionnaires/{questionnaireId}", sum: "Edit a draft form", body: "update:Questionnaire", res: Questionnaire, screens: [admin.forms]}
+  - {id: publishQuestionnaire, m: POST, p: "/questionnaires/{questionnaireId}/publish", sum: "Publish a form version to portal/kiosk/tablet", res: Questionnaire, screens: [admin.forms]}
+  - {id: listCdsRules, m: GET, p: "/cds-rules", sum: "Alert and care-gap rules with firing and override rates", res: "list:CdsRuleView", screens: [admin.cds-rules], audit: READ, inv: [INV-SAFE-06]}
+  - {id: updateCdsRule, m: PATCH, p: "/cds-rules/{cdsRuleId}", sum: "Change severity, audience or active flag (vendor rules: severity and audience only)", body: "update:CdsRule", res: CdsRuleView, screens: [admin.cds-rules], inv: [INV-SAFE-06]}
+  - {id: listCdsFirings, m: GET, p: "/cds-rules/{cdsRuleId}/firings", sum: "Recent firings and override reasons", res: "page:CdsFiring", screens: [admin.cds-rules], audit: READ}
+  - {id: listMeasures, m: GET, p: "/measures", sum: "Quality measures and goals", res: "list:Measure", roles: [provider, manager], screens: [reports.quality, admin.cds-rules], audit: READ}
+  - {id: updateMeasure, m: PATCH, p: "/measures/{measureId}", sum: "Set a practice goal", body: "update:Measure", res: Measure, screens: [reports.quality]}
+
+  - {id: listAuditEvents, m: GET, p: "/audit-events", sum: "Audit search (the search itself is audited)", q: [patientId, userId, action, from, to], res: "page:AuditEventEntry", screens: [admin.audit-log, chart.access-log], audit: QUERY, inv: [INV-SEC-01], phi: true}
+  - {id: exportAuditEvents, m: POST, p: "/audit-events/exports", sum: "Export audit search results as CSV", body: AuditExportRequest, res: job, stepup: true, screens: [admin.audit-log], audit: EXPORT, phi: true}
+  - {id: listEmergencyAccessGrants, m: GET, p: "/emergency-access", sum: "Break-the-glass events to review", q: [reviewOutcome, from, to], res: "page:EmergencyAccessGrant", screens: [admin.audit-log, home.practice-kpis], audit: READ, phi: true}
+  - {id: reviewEmergencyAccess, m: POST, p: "/emergency-access/{emergencyAccessGrantId}/review", sum: "Record the privacy review outcome", body: BreakGlassReview, res: EmergencyAccessGrant, screens: [admin.audit-log], inv: [INV-SEC-03], phi: true}
+
+  - {id: listIntegrations, m: GET, p: "/integrations", sum: "Every connection with health, volume today, certificate expiry, BAA status", res: "list:IntegrationView", screens: [admin.interfaces, home.practice-kpis, home.frontdesk-board], audit: READ, inv: [INV-OPS-01]}
+  - {id: getIntegration, m: GET, p: "/integrations/{integrationConnectionId}", sum: "Connection detail with queue, retry schedule, impact and recent errors", res: IntegrationDetail, screens: [admin.interfaces], audit: READ}
+  - {id: updateIntegration, m: PATCH, p: "/integrations/{integrationConnectionId}", sum: "Edit non-secret config, enable/disable, BAA on file (PHI gateways cannot be enabled without a BAA)", body: IntegrationUpdate, res: IntegrationDetail, stepup: true, screens: [admin.interfaces]}
+  - {id: rotateIntegrationSecret, m: PUT, p: "/integrations/{integrationConnectionId}/secret", sum: "Write credentials to the secret store (never readable back)", body: SecretWrite, res: none, stepup: true, screens: [admin.interfaces], audit: PERMISSION_CHANGE}
+  - {id: testIntegration, m: POST, p: "/integrations/{integrationConnectionId}/test", sum: "Connectivity test", res: IntegrationDetail, screens: [admin.interfaces]}
+  - {id: retryIntegration, m: POST, p: "/integrations/{integrationConnectionId}/retry", sum: "Retry queued and failed messages now (idempotent)", res: IntegrationDetail, screens: [admin.interfaces], inv: [INV-OPS-01]}
+  - {id: listInterfaceMessages, m: GET, p: "/integrations/{integrationConnectionId}/messages", sum: "Messages with status and errors", q: [status, from, to], res: "page:InterfaceMessage", screens: [admin.interfaces], audit: READ}
+  - {id: resendInterfaceMessage, m: POST, p: "/interface-messages/{interfaceMessageId}/resend", sum: "Resend one message (same idempotency key)", res: InterfaceMessage, screens: [admin.interfaces], inv: [INV-OPS-01]}
+
+  - {id: listSmartClients, m: GET, p: "/smart-clients", sum: "Registered SMART on FHIR apps", res: "list:SmartClient", screens: [admin.portal-settings], audit: READ}
+  - {id: registerSmartClient, m: POST, p: "/smart-clients", sum: "Register an app (patient access or bulk backend service)", body: SmartClientRegistration, res: "created:SmartClient", stepup: true, screens: [admin.portal-settings], audit: CREATE}

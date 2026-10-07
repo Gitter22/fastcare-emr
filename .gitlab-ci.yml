@@ -1,0 +1,176 @@
+default:
+  tags:
+    - GitlabRunner
+
+stages:
+  - env_setup
+  - build_backend
+  - build_frontend
+  - build_java
+  - push
+  - deploy
+#########################################
+variables:
+  #######################################################################
+  #  variables Use only for cicd, project variables useing with vault   #
+  #######################################################################
+  ## No Change ##
+  REMOTE_SERVER: $REMOTE_SERVER
+  REMOTE_USER: $REMOTE_USER
+  REMOTE_PASS: $SSH_PASSWORD
+  REMOTE_PROJECT_PATH: "/opt/DockerHomeNAS/Gitlab-cicd/$PROJECT_NAME"
+  VAULT_CLIENT_DOWNLOAD: $VAULT_CLIENT_DOWNLOAD #create manually
+  VAULTTOKEN: $VAULTTOKEN
+  VAULT_ADDR: $VAULT_ADDR
+  REMOTE_HOST_FILE_PATH: $REMOTE_HOST_FILE_PATH
+
+  DOCKER_REGISTRY: https://reg-harbor.agiletechnologies.in
+  DOCKER_COMPOSE_FILE_PATH: "docker-compose.yml"
+  ENV_FILE_PATH: ".env"
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+  GIT_DEPTH: "0"
+  SONAR_HOST_URL: "https://sonarqube.agiletechnologies.in" # Update with your SonarQube server URL
+
+  ## Every Project wise Change ##
+  PROJECT_NAME: agile-emr
+  VAULT_DEV_PATH_BACKEND: kv/agile-emr/dev
+  # VAULT_DEV_PATH_FRONTEND: kv/agile-emr/dev
+  #BACKEND
+  TAG: latest
+  DOCKER_BUILD_IMAGE_BACKEND: reg-harbor.agiletechnologies.in/agile-emr-api/agile-emr-api
+  #FRONTEND
+  DOCKER_BUILD_IMAGE_FRONTEND: reg-harbor.agiletechnologies.in/agile-emr-web/agile-emr-web
+  #JAVA
+  DOCKER_BUILD_IMAGE_JAVA: reg-harbor.agiletechnologies.in/agile-emr-java/agile-emr-java
+#####
+
+image: reg-harbor.agiletechnologies.in/docker-20/docker-20:latest
+##################################################
+# ENV SETUP
+############################################################
+env_setup:
+  stage: env_setup
+  before_script:
+    - apk add --no-cache curl unzip jq
+  script:
+    - echo "Downloading Vault CLI..."
+    - curl -o vault.zip $VAULT_CLIENT_DOWNLOAD
+    - unzip -o vault.zip
+    - chmod +x vault
+    - mv vault /usr/local/bin/vault
+    - vault --version
+
+    - echo "Login to Vault"
+    - vault login -method=token "$VAULTTOKEN"
+
+    - echo "Fetching backend env"
+    - vault kv get -format=json $VAULT_DEV_PATH_BACKEND > backend.json
+    - jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' backend.json > .env
+
+    # - echo "Fetching frontend env"
+    # - vault kv get -format=json $VAULT_DEV_PATH_FRONTEND > frontend.json
+    # - jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"' frontend.json > apps/client/.env
+    # - echo "Verify env files"
+  artifacts:
+    paths:
+      - .env
+      # - apps/client/.env
+  only:
+    - master
+############################################################
+# BUILD
+############################################################
+build_backend:
+  stage: build_backend
+  # dependencies:
+  #   - env_setup
+  script:
+    - echo "Login to registry"
+    - echo "$REGPASSWORD" | docker login $DOCKER_REGISTRY -u gitlabcicd --password-stdin
+    - echo "Checking backend env"
+    #- cat apps/server/.env
+    - docker build --no-cache -t ${DOCKER_BUILD_IMAGE_BACKEND} -f Dockerfile.api .
+  only:
+    - master
+
+build_frontend:
+  stage: build_frontend
+  # dependencies:
+  #   - env_setup
+  script:
+    - echo "Login to registry"
+    - echo "$REGPASSWORD" | docker login $DOCKER_REGISTRY -u gitlabcicd --password-stdin
+    - echo "Checking frontend env"
+    #- cat apps/client/.env
+    - docker build --no-cache -t ${DOCKER_BUILD_IMAGE_FRONTEND} -f Dockerfile.web .
+  only:
+    - master
+
+build_java:
+  stage: build_java
+  # dependencies:
+  #   - env_setup
+  script:
+    - echo "Login to registry"
+    - echo "$REGPASSWORD" | docker login $DOCKER_REGISTRY -u gitlabcicd --password-stdin
+    - echo "Checking frontend env"
+    #- cat apps/client/.env
+    #- docker build --no-cache -t ${DOCKER_BUILD_IMAGE_JAVA} -f apps/fhir/Dockerfile .
+    - docker build --no-cache -t ${DOCKER_BUILD_IMAGE_JAVA} -f apps/fhir/Dockerfile apps/fhir
+  only:
+    - master
+
+############################################################
+# PUSH
+############################################################
+
+push_job:
+  stage: push
+  script:
+    - echo "Login to registry"
+    - echo "$REGPASSWORD" | docker login $DOCKER_REGISTRY -u gitlabcicd --password-stdin
+    - echo "Push images"
+    - docker push $DOCKER_BUILD_IMAGE_BACKEND:$TAG
+    - docker push $DOCKER_BUILD_IMAGE_FRONTEND:$TAG
+    - docker push $DOCKER_BUILD_IMAGE_JAVA:$TAG
+  only:
+    - master
+# #################################################################
+# #                   DEPLOY WITH SSH KEY                         #
+# #################################################################
+deploy_job:
+  stage: deploy
+  image: reg-harbor.agiletechnologies.in/eclipse-temurin-21-jdk/eclipse-temurin-21-jdk:latest
+
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | base64 -d | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo "$SSH_KNOWN_HOSTS_B64" | base64 -d > ~/.ssh/known_hosts
+    - chmod 600 ~/.ssh/known_hosts
+
+  script:
+    - echo "Deploying Docker container to remote server..."
+
+    - |
+      # Create project directory on remote server
+      ssh $REMOTE_USER@$REMOTE_SERVER "mkdir -p $REMOTE_PROJECT_PATH && pwd"
+
+    - |
+      # Copy docker-compose file
+      scp $ENV_FILE_PATH $REMOTE_USER@$REMOTE_SERVER:$REMOTE_PROJECT_PATH/.env
+      scp $DOCKER_COMPOSE_FILE_PATH $REMOTE_USER@$REMOTE_SERVER:$REMOTE_PROJECT_PATH/docker-compose.yml
+
+    - |
+      # Deploy application
+      ssh $REMOTE_USER@$REMOTE_SERVER << EOF
+        cd $REMOTE_PROJECT_PATH
+        pwd
+        echo "Deployment directory confirmed"
+        #echo "$REGPASSWORD" | docker login $DOCKER_REGISTRY -u gitlabcicd --password-stdin
+        docker compose down
+        docker compose pull
+        docker compose up -d --force-recreate --remove-orphans
+      EOF
+  only:
+    - master

@@ -1,0 +1,3680 @@
+// Clinic EHR — data model (PostgreSQL)
+// Source of truth for persistence. See docs/09-data-model.md (conventions, FHIR mapping) and docs/10-hipaa-controls.md.
+//
+// Doc-comment tags read by tools/build-openapi.mjs and the validator:
+//   model-level  /// @tenant        row carries practiceId; Postgres RLS policy isolates tenants (INV-SEC-02)
+//                /// @fhir <Type>    exposed through the FHIR R4 facade as this resource (US Core where one exists)
+//                /// @append-only    no UPDATE/DELETE grants for the app role (INV-SEC-01, INV-FIN-01)
+//                /// @versioned      every change writes a ResourceVersion row (FHIR _history, vread, audit)
+//                /// @reference      global reference data (not tenant-scoped)
+//   field-level  /// @phi           contains protected health information
+//                /// @encrypted      application-level envelope encryption (KMS data key); ciphertext stored
+//                /// @secret         never serialised in any API response
+//                /// @server         set by the server only; excluded from create/update request bodies
+//
+// Status enums mirror spec/states.yaml state ids (upper snake case). Do not add values here without adding the state there.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum Role {
+  FRONTDESK
+  MA
+  PROVIDER
+  BILLER
+  MANAGER
+}
+
+// states.yaml#appointment
+enum AppointmentStatus {
+  REQUESTED
+  BOOKED
+  CONFIRMED
+  ARRIVED
+  ROOMED
+  READY_FOR_PROVIDER
+  WITH_PROVIDER
+  CHECKOUT
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+  LEFT_WITHOUT_BEING_SEEN
+}
+
+// states.yaml#note
+enum NoteStatus {
+  DRAFT
+  READY_TO_SIGN
+  PENDING_COSIGN
+  SIGNED
+  ADDENDED
+}
+
+// states.yaml#order
+enum OrderStatus {
+  PENDED
+  SIGNED
+  SENT
+  COLLECTED
+  RESULTED_PRELIM
+  RESULTED_FINAL
+  REVIEWED
+  CANCELLED
+}
+
+// states.yaml#claim
+enum ClaimStatus {
+  DRAFT
+  READY
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  PAID
+  PARTIALLY_PAID
+  DENIED
+  APPEALED
+  CLOSED
+}
+
+// states.yaml#task
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  PENDED_TO_PROVIDER
+  COMPLETED
+  ESCALATED
+}
+
+// states.yaml#referral
+enum ReferralStatus {
+  ORDERED
+  AUTH_PENDING
+  SENT
+  SCHEDULED
+  CONSULT_RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum AccountStatus {
+  INVITED
+  ACTIVE
+  LOCKED
+  DEACTIVATED
+}
+
+enum MfaFactorType {
+  TOTP
+  SMS
+  EMAIL
+  WEBAUTHN
+  PUSH
+}
+
+enum SessionSubject {
+  STAFF
+  PORTAL
+  SMART_APP
+}
+
+enum AdministrativeGender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
+enum SexForClinicalUse {
+  FEMALE
+  MALE
+  SPECIFIED
+  UNKNOWN
+}
+
+enum ContactPointSystem {
+  PHONE
+  SMS
+  EMAIL
+  FAX
+}
+
+enum ContactPointUse {
+  HOME
+  WORK
+  MOBILE
+  TEMP
+}
+
+enum ProvenanceSource {
+  ENTERED
+  PATIENT_REPORTED
+  OUTSIDE_RECORD
+  DEVICE
+  AI_DRAFT
+  INTERFACE
+  REGISTRY
+  PHARMACY
+}
+
+// Whether a clinical row is in the active chart (ADR-002, INV-DATA-01)
+enum StagingStatus {
+  ACTIVE
+  STAGED
+  REJECTED
+  MERGED
+}
+
+enum ConditionCategory {
+  PROBLEM_LIST_ITEM
+  ENCOUNTER_DIAGNOSIS
+  HEALTH_CONCERN
+}
+
+enum ConditionClinicalStatus {
+  ACTIVE
+  RECURRENCE
+  RELAPSE
+  INACTIVE
+  REMISSION
+  RESOLVED
+}
+
+enum VerificationStatus {
+  UNCONFIRMED
+  PROVISIONAL
+  DIFFERENTIAL
+  CONFIRMED
+  REFUTED
+  ENTERED_IN_ERROR
+}
+
+enum AllergyCategory {
+  FOOD
+  MEDICATION
+  ENVIRONMENT
+  BIOLOGIC
+}
+
+enum AllergyCriticality {
+  LOW
+  HIGH
+  UNABLE_TO_ASSESS
+}
+
+enum AllergyClinicalStatus {
+  ACTIVE
+  INACTIVE
+  RESOLVED
+}
+
+enum ReactionSeverity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum MedicationStatementStatus {
+  ACTIVE
+  COMPLETED
+  ENTERED_IN_ERROR
+  INTENDED
+  STOPPED
+  ON_HOLD
+  UNKNOWN
+  NOT_TAKEN
+}
+
+enum MedicationRequestStatus {
+  DRAFT
+  ACTIVE
+  ON_HOLD
+  CANCELLED
+  COMPLETED
+  ENTERED_IN_ERROR
+  STOPPED
+}
+
+enum ErxStatus {
+  NOT_SENT
+  QUEUED
+  SENT
+  ACCEPTED
+  ERROR
+  CANCEL_REQUESTED
+  CANCELLED
+}
+
+enum RxRequestType {
+  RENEWAL
+  CHANGE
+  CANCEL_RESPONSE
+  PORTAL_REFILL
+}
+
+enum DurAlertType {
+  DRUG_ALLERGY
+  DRUG_DRUG
+  DOSE
+  DUPLICATE_THERAPY
+  DRUG_CONDITION
+}
+
+enum ObservationStatus {
+  REGISTERED
+  PRELIMINARY
+  FINAL
+  AMENDED
+  CORRECTED
+  CANCELLED
+  ENTERED_IN_ERROR
+}
+
+enum ObservationCategory {
+  VITAL_SIGNS
+  LABORATORY
+  SOCIAL_HISTORY
+  SURVEY
+  EXAM
+  IMAGING
+  PROCEDURE
+  SDOH
+  POINT_OF_CARE
+}
+
+enum DiagnosticReportStatus {
+  REGISTERED
+  PARTIAL
+  PRELIMINARY
+  FINAL
+  AMENDED
+  CORRECTED
+  CANCELLED
+  ENTERED_IN_ERROR
+}
+
+enum ResultFlag {
+  NORMAL
+  ABNORMAL
+  CRITICAL
+}
+
+enum ImmunizationStatus {
+  COMPLETED
+  ENTERED_IN_ERROR
+  NOT_DONE
+}
+
+enum OrderCategory {
+  LAB
+  IMAGING
+  PROCEDURE
+  REFERRAL
+  DME
+  OTHER
+}
+
+enum OrderPriority {
+  ROUTINE
+  URGENT
+  ASAP
+  STAT
+}
+
+enum CollectionMode {
+  IN_OFFICE
+  PATIENT_SERVICE_CENTER
+  HOME_KIT
+  NOT_APPLICABLE
+}
+
+enum EncounterStatus {
+  PLANNED
+  ARRIVED
+  IN_PROGRESS
+  FINISHED
+  CANCELLED
+  ENTERED_IN_ERROR
+}
+
+enum EncounterClass {
+  AMB
+  VR
+  PHONE
+  ASYNC
+  HH
+}
+
+enum Modality {
+  IN_PERSON
+  VIDEO
+  PHONE
+}
+
+enum BookingChannel {
+  STAFF
+  PORTAL
+  WAITLIST
+  INTEROP
+}
+
+enum TaskType {
+  RESULT_REVIEW
+  CRITICAL_RESULT
+  RX_REQUEST
+  COSIGN
+  PATIENT_MESSAGE
+  GENERAL
+  PREVISIT_RECONCILE
+  DOCUMENT_FILING
+  PRIOR_AUTH
+  SPECIMEN_COLLECTION
+  OVERDUE_ORDER
+  UNMATCHED_RESULT
+  REFERRAL
+  CHARGE_HOLD
+  PROVIDER_QUERY
+  CLAIM_REJECTION
+  DENIAL
+  INTERFACE_FAILURE
+  ELIGIBILITY_FAILURE
+  RECALL
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConsentType {
+  NOTICE_OF_PRIVACY_PRACTICES
+  FINANCIAL_POLICY
+  SMS_TCPA
+  EMAIL
+  TELEHEALTH
+  CCM
+  PART2_SUD
+  RELEASE_OF_INFORMATION
+  PORTAL_PROXY
+  CARD_ON_FILE
+  TREATMENT
+}
+
+enum ConsentStatus {
+  DRAFT
+  ACTIVE
+  REJECTED
+  INACTIVE
+  ENTERED_IN_ERROR
+}
+
+enum DocumentStatus {
+  CURRENT
+  SUPERSEDED
+  ENTERED_IN_ERROR
+}
+
+enum IncomingDocumentSource {
+  FAX
+  SCAN
+  DIRECT
+  UPLOAD
+  PORTAL
+}
+
+enum IncomingDocumentStatus {
+  NEW
+  NEEDS_REVIEW
+  FILED
+  RETURNED
+  SPLIT
+}
+
+enum MessageCategory {
+  CLINICAL
+  BILLING
+  SCHEDULING
+  REFILL
+  OTHER
+}
+
+enum MessageKind {
+  PATIENT
+  STAFF
+  INTERNAL_NOTE
+  SYSTEM
+}
+
+enum CommChannel {
+  SMS
+  EMAIL
+  VOICE
+  PORTAL
+  LETTER
+  FAX
+}
+
+enum CommStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  OPTED_OUT
+  RECEIVED
+}
+
+enum ChargeStatus {
+  DRAFT
+  HELD
+  READY
+  BILLED
+  VOID
+}
+
+enum LedgerEntryType {
+  CHARGE
+  INSURANCE_PAYMENT
+  PATIENT_PAYMENT
+  CONTRACTUAL_ADJUSTMENT
+  TRANSFER_TO_PATIENT
+  TRANSFER_TO_INSURANCE
+  WRITE_OFF
+  REFUND
+  RECOUPMENT
+  REVERSAL
+}
+
+enum Responsibility {
+  INSURANCE
+  PATIENT
+}
+
+enum PaymentMethodType {
+  CARD
+  CASH
+  CHECK
+  ACH
+  EFT
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  VOIDED
+}
+
+enum RemittanceStatus {
+  RECEIVED
+  POSTING
+  EXCEPTION
+  POSTED
+}
+
+enum AdjustmentGroup {
+  CO
+  PR
+  OA
+  PI
+  CR
+}
+
+enum DenialStatus {
+  OPEN
+  APPEALED
+  CORRECTED
+  WRITTEN_OFF
+  RESOLVED
+}
+
+enum DenialAction {
+  APPEAL
+  CORRECTED_CLAIM
+  WRITE_OFF
+}
+
+enum EligibilityStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  UNKNOWN
+  ERROR
+}
+
+enum ClaimEventType {
+  CREATED
+  SUBMITTED
+  ACK_999
+  ACK_277CA
+  STATUS_277
+  REMIT_835
+  CORRECTED
+  VOIDED
+  NOTE
+}
+
+enum AuthorizationStatus {
+  NOT_REQUIRED
+  DRAFT
+  SUBMITTED
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
+enum CareGapStatus {
+  OPEN
+  CLOSED
+  EXCLUDED
+  DEFERRED
+}
+
+enum AuditAction {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  SIGN
+  PRINT
+  EXPORT
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  MFA
+  BREAK_GLASS
+  DISCLOSE
+  QUERY
+  MERGE
+  PERMISSION_CHANGE
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+enum IntegrationKind {
+  STEDI
+  LOGICOY
+  HEALTH_GORILLA
+  LABCORP
+  QUEST
+  TWILIO
+  SMTP
+  NPPES
+  RXNAV
+  IIS
+  PDMP
+  DIRECT
+  FAX
+  MFA
+  PAYMENT
+  VIDEO
+  HIE
+}
+
+enum InterfaceDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum InterfaceMessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  ACKNOWLEDGED
+  FAILED
+  RETRYING
+  DEAD
+}
+
+enum IntegrationHealth {
+  HEALTHY
+  DEGRADED
+  DOWN
+  DISABLED
+}
+
+enum CodeSystem {
+  ICD10CM
+  SNOMEDCT
+  LOINC
+  CPT
+  HCPCS
+  CVX
+  MVX
+  RXNORM
+  NDC
+  POS
+  CARC
+  RARC
+  NUCC_TAXONOMY
+  UCUM
+  CDCREC
+  LANGUAGE
+  CMS_MEASURE
+  OTHER
+}
+
+enum ExportType {
+  CSV
+  BULK_FHIR
+  EHI_PATIENT
+  EHI_PRACTICE
+  QRDA_I
+  QRDA_III
+  C_CDA
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum PortalRelationship {
+  SELF
+  PARENT
+  GUARDIAN
+  CAREGIVER
+  SPOUSE
+  OTHER
+}
+
+enum RoomStatus {
+  READY
+  OCCUPIED
+  NEEDS_CLEANING
+  OUT_OF_SERVICE
+}
+
+enum NotificationType {
+  CRITICAL_RESULT
+  TASK_ESCALATED
+  INTERFACE_DOWN
+  EMERGENCY_ACCESS
+  GENERAL
+}
+
+enum BreakGlassOutcome {
+  PENDING_REVIEW
+  APPROPRIATE
+  FOLLOW_UP
+  POSSIBLE_INCIDENT
+}
+
+enum CdsSeverity {
+  INFO
+  PASSIVE
+  INTERRUPTIVE
+  HARD_STOP
+}
+
+enum StagedChangeStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  PARTIAL
+}
+
+enum DisclosurePurpose {
+  TREATMENT
+  PAYMENT
+  OPERATIONS
+  PATIENT_REQUEST
+  LEGAL
+  PUBLIC_HEALTH
+  RESEARCH
+  OTHER
+}
+
+enum AiSegmentStatus {
+  PENDING
+  ACCEPTED
+  EDITED
+  DISCARDED
+}
+
+enum WaitlistStatus {
+  ACTIVE
+  OFFERED
+  BOOKED
+  REMOVED
+}
+
+enum RecallStatus {
+  DUE
+  CONTACTED
+  BOOKED
+  CLOSED
+}
+
+enum PlanStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  CANCELLED
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  EXPIRED
+}
+
+enum BatchStatus {
+  OPEN
+  CLOSED
+}
+
+enum CheckinStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MatchStatus {
+  UNMATCHED
+  AUTO_MATCHED
+  MANUALLY_MATCHED
+  REJECTED
+}
+
+enum DuplicateStatus {
+  OPEN
+  MERGED
+  NOT_DUPLICATE
+  UNMERGED
+}
+
+enum GoalStatus {
+  PROPOSED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TelehealthStatus {
+  WAITING
+  IN_CALL
+  ENDED
+  FAILED
+}
+
+enum AmendmentStatus {
+  RECEIVED
+  ACCEPTED
+  DENIED
+}
+
+// ============================================================================
+// TENANCY & ORGANISATION
+// ============================================================================
+
+/// The clinic organisation (one tenant). Global table; all other tenant rows reference Practice.id via practiceId.
+/// @fhir Organization (US Core Organization)
+/// @versioned
+model Practice {
+  id             String   @id @default(uuid()) @db.Uuid
+  legalName      String
+  tin            String   /// Tax ID
+  groupNpi       String?  /// Validated against NPPES
+  taxonomyCode   String?
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  state          String   @db.Char(2)
+  postalCode     String
+  phone          String?
+  timezone       String   @default("America/Chicago")
+  active         Boolean  @default(true)
+  version        Int      @default(1) /// @server
+  createdAt      DateTime @default(now()) /// @server
+  updatedAt      DateTime @updatedAt /// @server
+
+  locations      Location[]
+  settings       PracticeSetting[]
+}
+
+/// Key/value practice configuration (security policy, portal settings, wait targets, booking rules, SLAs). Versioned.
+/// @tenant
+/// @versioned
+model PracticeSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  practice    Practice @relation(fields: [practiceId], references: [id])
+  key         String   /// e.g. security.sessionTimeoutMinutes, portal.resultReleasePolicy, schedule.waitTargetMinutes
+  value       Json
+  version     Int      @default(1) /// @server
+  updatedAt   DateTime @updatedAt /// @server
+  updatedById String?  @db.Uuid /// @server
+
+  @@unique([practiceId, key])
+}
+
+/// @tenant
+/// @fhir Location (US Core Location)
+/// @versioned
+model Location {
+  id              String   @id @default(uuid()) @db.Uuid
+  practiceId      String   @db.Uuid /// @server
+  practice        Practice @relation(fields: [practiceId], references: [id])
+  name            String
+  npi             String?  /// Facility NPI (NPPES)
+  placeOfService  String   /// CMS POS code (CodeConcept POS), e.g. "11"
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  state           String   @db.Char(2)
+  postalCode      String
+  phone           String?
+  fax             String?
+  hours           Json?    /// weekly opening hours
+  active          Boolean  @default(true)
+  version         Int      @default(1) /// @server
+  createdAt       DateTime @default(now()) /// @server
+  updatedAt       DateTime @updatedAt /// @server
+
+  rooms           Room[]
+  appointments    Appointment[]
+  encounters      Encounter[]
+
+  @@index([practiceId])
+}
+
+/// @tenant
+model Room {
+  id          String     @id @default(uuid()) @db.Uuid
+  practiceId  String     @db.Uuid /// @server
+  locationId  String     @db.Uuid
+  location    Location   @relation(fields: [locationId], references: [id])
+  name        String
+  status      RoomStatus @default(READY)
+  equipment   String[]
+  isVirtual   Boolean    @default(false)
+  active      Boolean    @default(true)
+  updatedAt   DateTime   @updatedAt /// @server
+
+  appointments Appointment[]
+
+  @@index([practiceId, locationId])
+}
+
+/// Clinician record (licensing, NPI, DEA, EPCS). Linked 1:1 to a staff User when the clinician signs in.
+/// @tenant
+/// @fhir Practitioner (US Core Practitioner)
+/// @versioned
+model Practitioner {
+  id                  String   @id @default(uuid()) @db.Uuid
+  practiceId          String   @db.Uuid /// @server
+  userId              String?  @unique @db.Uuid
+  user                User?    @relation(fields: [userId], references: [id])
+  firstName           String
+  lastName            String
+  credential          String?  /// MD, DO, NP, PA, RN, MA
+  npi                 String?  /// Individual NPI, validated against NPPES
+  taxonomyCode        String?  /// NUCC taxonomy
+  supervisingId       String?  @db.Uuid
+  supervising         Practitioner?  @relation("Supervision", fields: [supervisingId], references: [id])
+  supervisees         Practitioner[] @relation("Supervision")
+  epcsProofedAt       DateTime? /// identity proofing completed for EPCS
+  epcsEnabled         Boolean  @default(false) /// @server
+  isBillingProvider   Boolean  @default(true)
+  active              Boolean  @default(true)
+  version             Int      @default(1) /// @server
+  createdAt           DateTime @default(now()) /// @server
+  updatedAt           DateTime @updatedAt /// @server
+
+  licenses            PractitionerLicense[]
+  deaRegistrations    DeaRegistration[]
+  payerEnrollments    PayerEnrollment[]
+  appointments        Appointment[]
+  encounters          Encounter[]
+  scheduleTemplates   ScheduleTemplate[]
+
+  @@index([practiceId])
+  @@index([npi])
+}
+
+/// @tenant
+model PractitionerLicense {
+  id              String       @id @default(uuid()) @db.Uuid
+  practiceId      String       @db.Uuid /// @server
+  practitionerId  String       @db.Uuid
+  practitioner    Practitioner @relation(fields: [practitionerId], references: [id])
+  state           String       @db.Char(2)
+  number          String
+  type            String
+  expiresOn       DateTime     @db.Date
+}
+
+/// @tenant
+model DeaRegistration {
+  id              String       @id @default(uuid()) @db.Uuid
+  practiceId      String       @db.Uuid /// @server
+  practitionerId  String       @db.Uuid
+  practitioner    Practitioner @relation(fields: [practitionerId], references: [id])
+  number          String       /// @encrypted
+  state           String       @db.Char(2)
+  schedules       String[]     /// e.g. ["2","2N","3","4","5"]
+  expiresOn       DateTime     @db.Date
+}
+
+/// Payer enrolment status per provider (credentialing)
+/// @tenant
+model PayerEnrollment {
+  id              String       @id @default(uuid()) @db.Uuid
+  practiceId      String       @db.Uuid /// @server
+  practitionerId  String       @db.Uuid
+  practitioner    Practitioner @relation(fields: [practitionerId], references: [id])
+  payerId         String       @db.Uuid
+  payer           Payer        @relation(fields: [payerId], references: [id])
+  status          String       /// pending, enrolled, terminated
+  effectiveFrom   DateTime?    @db.Date
+}
+
+/// Team queue that tasks route to (care team, billing pool, front desk pool)
+/// @tenant
+/// @fhir CareTeam
+model WorkPool {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  kind        String   /// care-team, billing, front-desk, referrals
+  slaHours    Int?     /// default due time for routed tasks
+  active      Boolean  @default(true)
+  members     WorkPoolMember[]
+  tasks       Task[]
+  threads     MessageThread[]
+
+  @@index([practiceId])
+}
+
+/// @tenant
+model WorkPoolMember {
+  id         String   @id @default(uuid()) @db.Uuid
+  practiceId String   @db.Uuid /// @server
+  poolId     String   @db.Uuid
+  pool       WorkPool @relation(fields: [poolId], references: [id])
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([poolId, userId])
+}
+
+// ============================================================================
+// IDENTITY, AUTHENTICATION & ACCESS CONTROL (HIPAA §164.312(a),(d))
+// ============================================================================
+
+/// Staff account. MFA is mandatory (INV-SEC-04).
+/// @tenant
+model User {
+  id                 String        @id @default(uuid()) @db.Uuid
+  practiceId         String        @db.Uuid /// @server
+  email              String
+  firstName          String
+  lastName           String
+  phone              String?       /// for SMS MFA
+  status             AccountStatus @default(INVITED) /// @server
+  passwordHash       String?       /// @secret argon2id
+  passwordChangedAt  DateTime?     /// @server
+  failedLoginCount   Int           @default(0) /// @server
+  lockedUntil        DateTime?     /// @server
+  lastLoginAt        DateTime?     /// @server
+  mfaEnrolledAt      DateTime?     /// @server
+  activeRole         Role?         /// role currently acting as (user may hold several)
+  deactivatedAt      DateTime?     /// @server
+  version            Int           @default(1) /// @server
+  createdAt          DateTime      @default(now()) /// @server
+  updatedAt          DateTime      @updatedAt /// @server
+
+  roles              UserRole[]
+  locations          UserLocation[]
+  mfaFactors         MfaFactor[]
+  practitioner       Practitioner?
+  poolMemberships    WorkPoolMember[]
+  notifications      Notification[]
+  emergencyAccess    EmergencyAccessGrant[]
+
+  @@unique([practiceId, email])
+}
+
+/// @tenant
+model UserRole {
+  id         String   @id @default(uuid()) @db.Uuid
+  practiceId String   @db.Uuid /// @server
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  role       Role
+  grantedById String? @db.Uuid /// @server
+  grantedAt  DateTime @default(now()) /// @server
+
+  @@unique([userId, role])
+}
+
+/// @tenant
+model UserLocation {
+  id         String @id @default(uuid()) @db.Uuid
+  practiceId String @db.Uuid /// @server
+  userId     String @db.Uuid
+  user       User   @relation(fields: [userId], references: [id])
+  locationId String @db.Uuid
+
+  @@unique([userId, locationId])
+}
+
+/// Co-sign rules per provider and item type (ADR-003, OPEN-Q5). Config, not code.
+/// @tenant
+model CosignRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  practiceId      String   @db.Uuid /// @server
+  practitionerId  String   @db.Uuid /// supervised clinician
+  supervisorId    String   @db.Uuid
+  appliesTo       String[] /// note, order, prescription; with conditions in criteria
+  criteria        Json?    /// e.g. {"newPatient": true, "controlled": true}
+  state           String?  @db.Char(2)
+  active          Boolean  @default(true)
+}
+
+/// MFA factor for staff or portal accounts. Secrets encrypted.
+model MfaFactor {
+  id            String        @id @default(uuid()) @db.Uuid
+  practiceId    String?       @db.Uuid /// @server null for portal users spanning practices
+  userId        String?       @db.Uuid
+  user          User?         @relation(fields: [userId], references: [id])
+  portalUserId  String?       @db.Uuid
+  portalUser    PortalUser?   @relation(fields: [portalUserId], references: [id])
+  type          MfaFactorType
+  label         String?
+  secret        Bytes?        /// @secret @encrypted TOTP seed or provider reference
+  webauthnCredentialId String? /// @secret
+  webauthnPublicKey    Bytes?  /// @secret
+  phone         String?       /// for SMS
+  verifiedAt    DateTime?     /// @server
+  lastUsedAt    DateTime?     /// @server
+  createdAt     DateTime      @default(now()) /// @server
+}
+
+/// Refresh-token session. Access tokens are short-lived JWTs; this row allows revocation and idle timeout (INV-SEC-04).
+model Session {
+  id               String         @id @default(uuid()) @db.Uuid
+  practiceId       String?        @db.Uuid /// @server
+  subject          SessionSubject
+  userId           String?        @db.Uuid
+  portalUserId     String?        @db.Uuid
+  smartClientId    String?        @db.Uuid
+  refreshTokenHash String         @unique /// @secret
+  mfaVerifiedAt    DateTime?
+  stepUpAt         DateTime?      /// last re-authentication (signing, EPCS, exports)
+  activeRole       Role?
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime       @default(now())
+  lastSeenAt       DateTime       @default(now())
+  idleExpiresAt    DateTime
+  absoluteExpiresAt DateTime
+  revokedAt        DateTime?
+  revokedReason    String?
+
+  @@index([userId])
+  @@index([portalUserId])
+}
+
+/// Short-lived MFA challenge after password verification
+model MfaChallenge {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String?       @db.Uuid
+  portalUserId String?       @db.Uuid
+  factorId     String?       @db.Uuid
+  type         MfaFactorType
+  codeHash     String?       /// @secret
+  attempts     Int           @default(0)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime      @default(now())
+}
+
+/// Login attempts (success and failure) for lockout and security monitoring
+model LoginAttempt {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String?  @db.Uuid
+  email        String
+  subject      SessionSubject
+  success      Boolean
+  reason       String?
+  ip           String?
+  userAgent    String?
+  at           DateTime @default(now())
+
+  @@index([email, at])
+}
+
+/// Password reset and invitation tokens (single use)
+model AccountToken {
+  id           String   @id @default(uuid()) @db.Uuid
+  purpose      String   /// invite, password-reset, email-verify, portal-invite
+  userId       String?  @db.Uuid
+  portalUserId String?  @db.Uuid
+  patientId    String?  @db.Uuid /// portal invitation target
+  tokenHash    String   @unique /// @secret
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdById  String?  @db.Uuid
+  createdAt    DateTime @default(now())
+}
+
+/// Time-limited access to restricted records with a recorded reason (INV-SEC-03)
+/// @tenant
+/// @append-only
+model EmergencyAccessGrant {
+  id           String            @id @default(uuid()) @db.Uuid
+  practiceId   String            @db.Uuid /// @server
+  userId       String            @db.Uuid
+  user         User              @relation(fields: [userId], references: [id])
+  patientId    String            @db.Uuid
+  patient      Patient           @relation(fields: [patientId], references: [id])
+  reasonCode   String            /// emergency, treatment-continuity, other
+  reasonText   String            /// @phi
+  scope        String[]          /// security labels unlocked, e.g. ["R","42CFRPart2"]
+  grantedAt    DateTime          @default(now())
+  expiresAt    DateTime
+  reviewOutcome BreakGlassOutcome @default(PENDING_REVIEW)
+  reviewedById String?           @db.Uuid
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  @@index([practiceId, reviewOutcome])
+}
+
+// ============================================================================
+// AUDIT, PROVENANCE, VERSION HISTORY (HIPAA §164.312(b), INV-SEC-01)
+// ============================================================================
+
+/// Every read and write of PHI. Append-only, hash-chained for tamper evidence.
+/// @tenant
+/// @append-only
+/// @fhir AuditEvent
+model AuditEvent {
+  id            BigInt       @id @default(autoincrement())
+  practiceId    String?      @db.Uuid
+  at            DateTime     @default(now())
+  actorType     String       /// staff, portal, smart-app, system, integration
+  actorId       String?      @db.Uuid
+  actorRole     Role?
+  onBehalfOfPatientId String? @db.Uuid /// proxy access
+  action        AuditAction
+  outcome       AuditOutcome @default(SUCCESS)
+  patientId     String?      @db.Uuid
+  resourceType  String?
+  resourceId    String?
+  operationId   String?      /// OpenAPI operationId or FHIR interaction
+  purposeOfUse  String?      /// TREAT, HPAYMT, HOPERAT, ETREAT (break-glass), PATRQT
+  emergencyAccessId String?  @db.Uuid
+  ip            String?
+  userAgent     String?
+  sessionId     String?      @db.Uuid
+  detail        Json?        /// non-PHI detail: fields changed (names only), query params hashed
+  prevHash      String?
+  hash          String
+
+  @@index([practiceId, at])
+  @@index([patientId, at])
+  @@index([actorId, at])
+}
+
+/// Accounting of disclosures outside treatment/payment/operations (HIPAA §164.528)
+/// @tenant
+/// @append-only
+model DisclosureLog {
+  id            String            @id @default(uuid()) @db.Uuid
+  practiceId    String            @db.Uuid /// @server
+  patientId     String            @db.Uuid
+  patient       Patient           @relation(fields: [patientId], references: [id])
+  disclosedAt   DateTime          @default(now())
+  recipient     String
+  purpose       DisclosurePurpose
+  description   String            /// what was disclosed
+  method        String            /// fax, mail, portal, api
+  authorizationConsentId String?  @db.Uuid
+  recordedById  String            @db.Uuid /// @server
+}
+
+/// Full snapshot per change of any @versioned model. Serves FHIR vread/_history, audit diffs and EHI export.
+/// @tenant
+/// @append-only
+model ResourceVersion {
+  id            BigInt   @id @default(autoincrement())
+  practiceId    String?  @db.Uuid
+  resourceType  String
+  resourceId    String   @db.Uuid
+  version       Int
+  snapshot      Json     /// @phi @encrypted
+  changedById   String?  @db.Uuid
+  changedAt     DateTime @default(now())
+  changeReason  String?
+
+  @@unique([resourceType, resourceId, version])
+}
+
+/// Origin of a clinical fact (ADR-002, INV-DATA-01)
+/// @tenant
+/// @append-only
+/// @fhir Provenance (US Core Provenance)
+model ProvenanceRecord {
+  id            String           @id @default(uuid()) @db.Uuid
+  practiceId    String           @db.Uuid /// @server
+  targetType    String
+  targetId      String           @db.Uuid
+  source        ProvenanceSource
+  activity      String           /// create, update, reconcile-accept, reconcile-reject, ai-accept
+  agentType     String           /// user, patient, organization, device, ai-model
+  agentId       String?
+  agentDisplay  String?
+  sourceDocumentId String?       @db.Uuid
+  recordedAt    DateTime         @default(now())
+
+  @@index([targetType, targetId])
+}
+
+// ============================================================================
+// FILES (Docker volume storage, encrypted at rest)
+// ============================================================================
+
+/// Binary stored on the mounted Docker volume under storageKey, encrypted with a per-file data key.
+/// @tenant
+model FileObject {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  storageKey    String   @unique /// @server path relative to the volume root; never derived from user input
+  fileName      String   /// @phi
+  contentType   String
+  sizeBytes     Int
+  sha256        String   /// @server
+  encryptionKeyId String /// @server KMS key reference for the wrapped data key
+  wrappedDataKey Bytes   /// @secret
+  pageCount     Int?
+  uploadedById  String?  @db.Uuid /// @server
+  uploadedByPortalUserId String? @db.Uuid /// @server
+  createdAt     DateTime @default(now()) /// @server
+  deletedAt     DateTime? /// @server retention-driven purge marker
+}
+
+// ============================================================================
+// PATIENT
+// ============================================================================
+
+/// @tenant
+/// @fhir Patient (US Core Patient)
+/// @versioned
+model Patient {
+  id                 String                @id @default(uuid()) @db.Uuid
+  practiceId         String                @db.Uuid /// @server
+  mrn                String                /// @server practice-unique medical record number
+  firstName          String                /// @phi
+  middleName         String?               /// @phi
+  lastName           String                /// @phi
+  suffix             String?               /// @phi
+  preferredName      String?               /// @phi
+  previousNames      Json?                 /// @phi
+  birthDate          DateTime              @db.Date /// @phi
+  administrativeGender AdministrativeGender
+  sexForClinicalUse  SexForClinicalUse?
+  genderIdentity     String?               /// @phi SNOMED/HL7 code
+  pronouns           String?
+  sexualOrientation  String?               /// @phi
+  raceCodes          String[]              /// @phi CDC Race & Ethnicity codes (OMB + detailed)
+  ethnicityCodes     String[]              /// @phi
+  preferredLanguage  String?               /// BCP-47
+  interpreterNeeded  Boolean               @default(false)
+  ssnCiphertext      Bytes?                /// @phi @encrypted @secret
+  ssnLast4           String?               /// @phi
+  maritalStatus      String?
+  deceasedAt         DateTime?             /// @phi
+  photoFileId        String?               @db.Uuid
+  pcpPractitionerId  String?               @db.Uuid
+  preferredPharmacyId String?              @db.Uuid
+  preferredPharmacy  Pharmacy?             @relation(fields: [preferredPharmacyId], references: [id])
+  guarantorRelatedPersonId String?         @db.Uuid /// null = self
+  codeStatus         String?               /// full-code, dnr, dni, polst
+  advanceDirectiveDocumentId String?       @db.Uuid
+  securityLabels     String[]              /// patient-level restrictions, e.g. VIP, confidential
+  allergiesReviewedAt DateTime?            /// @server
+  noKnownAllergies   Boolean               @default(false)
+  medsReconciledAt   DateTime?             /// @server
+  medsReconciledById String?               @db.Uuid /// @server
+  historyReviewedAt  DateTime?             /// @server
+  mergedIntoId       String?               @db.Uuid /// @server set when this record was merged (never deleted, INV-ID-04)
+  active             Boolean               @default(true)
+  version            Int                   @default(1) /// @server
+  createdAt          DateTime              @default(now()) /// @server
+  updatedAt          DateTime              @updatedAt /// @server
+  createdById        String?               @db.Uuid /// @server
+
+  identifiers        PatientIdentifier[]
+  addresses          PatientAddress[]
+  contactPoints      PatientContactPoint[]
+  relatedPersons     RelatedPerson[]
+  coverages          Coverage[]
+  appointments       Appointment[]
+  encounters         Encounter[]
+  conditions         Condition[]
+  allergies          AllergyIntolerance[]
+  medicationStatements MedicationStatement[]
+  medicationRequests MedicationRequest[]
+  observations       Observation[]
+  diagnosticReports  DiagnosticReport[]
+  immunizations      Immunization[]
+  procedures         Procedure[]
+  familyHistory      FamilyMemberHistory[]
+  questionnaireResponses QuestionnaireResponse[]
+  serviceRequests    ServiceRequest[]
+  referrals          Referral[]
+  documents          DocumentReference[]
+  consents           Consent[]
+  messageThreads     MessageThread[]
+  communications     CommunicationLog[]
+  tasks              Task[]
+  careGaps           CareGap[]
+  carePlans          CarePlan[]
+  goals              Goal[]
+  timeLogs           TimeLog[]
+  devices            Device[]
+  chargeItems        ChargeItem[]
+  claims             Claim[]
+  ledgerEntries      LedgerEntry[]
+  payments           Payment[]
+  paymentMethods     PaymentMethod[]
+  paymentPlans       PaymentPlan[]
+  statements         Statement[]
+  estimates          Estimate[]
+  stagedChanges      StagedChange[]
+  emergencyAccess    EmergencyAccessGrant[]
+  disclosures        DisclosureLog[]
+  portalAccess       PortalAccess[]
+  waitlistEntries    WaitlistEntry[]
+  recalls            Recall[]
+  amendmentRequests  AmendmentRequest[]
+  avs                AfterVisitSummary[]
+  checkins           CheckinSession[]
+  authorizations     Authorization[]
+  rxRequests         RxRequest[]
+  eVisits            EVisit[]
+
+  @@unique([practiceId, mrn])
+  @@index([practiceId, lastName, firstName, birthDate])
+  @@index([practiceId, birthDate])
+}
+
+/// MRN history, external ids (lab, HIE, payer member ids are on Coverage)
+/// @tenant
+model PatientIdentifier {
+  id         String  @id @default(uuid()) @db.Uuid
+  practiceId String  @db.Uuid /// @server
+  patientId  String  @db.Uuid
+  patient    Patient @relation(fields: [patientId], references: [id])
+  system     String  /// URI of the assigning authority
+  value      String  /// @phi
+  type       String  /// MR, PI, PT (lab), DL
+  active     Boolean @default(true)
+
+  @@unique([system, value])
+}
+
+/// @tenant
+model PatientAddress {
+  id         String   @id @default(uuid()) @db.Uuid
+  practiceId String   @db.Uuid /// @server
+  patientId  String   @db.Uuid
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  use        String   @default("home")
+  line1      String   /// @phi
+  line2      String?  /// @phi
+  city       String   /// @phi
+  state      String   @db.Char(2)
+  postalCode String   /// @phi
+  periodStart DateTime?
+  periodEnd  DateTime?
+}
+
+/// @tenant
+model PatientContactPoint {
+  id         String             @id @default(uuid()) @db.Uuid
+  practiceId String             @db.Uuid /// @server
+  patientId  String             @db.Uuid
+  patient    Patient            @relation(fields: [patientId], references: [id])
+  system     ContactPointSystem
+  use        ContactPointUse?
+  value      String             /// @phi @encrypted
+  valueIndex String?            /// @server keyed blind index (HMAC-SHA256 of the normalised value) so encrypted phone/email stay searchable
+  rank       Int                @default(1)
+  verifiedAt DateTime?
+  smsOptOut  Boolean            @default(false) /// TCPA opt-out (STOP)
+
+  @@index([practiceId, valueIndex])
+}
+
+/// Guarantor, emergency contact, proxy, parent/guardian
+/// @tenant
+/// @fhir RelatedPerson (US Core RelatedPerson)
+model RelatedPerson {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  patientId     String   @db.Uuid
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  relationship  String   /// HL7 v3 RoleCode: MTH, FTH, GRD, SPS, ECON
+  isGuarantor   Boolean  @default(false)
+  isEmergencyContact Boolean @default(false)
+  firstName     String   /// @phi
+  lastName      String   /// @phi
+  birthDate     DateTime? @db.Date /// @phi
+  phone         String?  /// @phi
+  email         String?  /// @phi
+  address       Json?    /// @phi
+  ssnCiphertext Bytes?   /// @phi @encrypted @secret guarantor SSN for collections only
+  active        Boolean  @default(true)
+}
+
+/// Possible duplicate pairs for review (INV-ID-02)
+/// @tenant
+model DuplicateCandidate {
+  id            String          @id @default(uuid()) @db.Uuid
+  practiceId    String          @db.Uuid /// @server
+  patientAId    String          @db.Uuid
+  patientBId    String          @db.Uuid
+  score         Float
+  matchedOn     String[]        /// name, dob, phone, address, ssn4
+  reason        String?         /// created-anyway, nightly-scan
+  status        DuplicateStatus @default(OPEN)
+  createdById   String?         @db.Uuid /// @server
+  createdAt     DateTime        @default(now()) /// @server
+  resolvedById  String?         @db.Uuid /// @server
+  resolvedAt    DateTime?       /// @server
+
+  @@unique([patientAId, patientBId])
+}
+
+/// Reversible merge (INV-ID-04): records moved are listed so the merge can be undone.
+/// @tenant
+/// @append-only
+model PatientMerge {
+  id              String    @id @default(uuid()) @db.Uuid
+  practiceId      String    @db.Uuid /// @server
+  survivorId      String    @db.Uuid
+  mergedId        String    @db.Uuid
+  fieldChoices    Json      /// per-field survivor choices
+  movedRecords    Json      /// [{type, id}] repointed to survivor
+  mergedById      String    @db.Uuid
+  mergedAt        DateTime  @default(now())
+  unmergedById    String?   @db.Uuid
+  unmergedAt      DateTime?
+}
+
+/// Patient-entered or outside changes to demographics/coverage awaiting staff review (inbox.previsit-queue)
+/// @tenant
+model StagedChange {
+  id           String             @id @default(uuid()) @db.Uuid
+  practiceId   String             @db.Uuid /// @server
+  patientId    String             @db.Uuid
+  patient      Patient            @relation(fields: [patientId], references: [id])
+  appointmentId String?           @db.Uuid
+  source       ProvenanceSource
+  targetType   String             /// Patient, Coverage, PatientAddress, PatientContactPoint, RelatedPerson
+  targetId     String?            @db.Uuid
+  changes      Json               /// @phi [{field, current, proposed, decision}]
+  status       StagedChangeStatus @default(PENDING)
+  submittedByPortalUserId String? @db.Uuid
+  reviewedById String?            @db.Uuid /// @server
+  reviewedAt   DateTime?          /// @server
+  createdAt    DateTime           @default(now()) /// @server
+
+  @@index([practiceId, status])
+}
+
+/// Saved patient list / panel definition (patients.lists)
+/// @tenant
+model PatientList {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  ownerId     String   @db.Uuid /// @server
+  criteria    Json     /// filter definition: provider, problem codes, age range, last visit, payer
+  shared      Boolean  @default(false)
+  createdAt   DateTime @default(now()) /// @server
+  updatedAt   DateTime @updatedAt /// @server
+}
+
+/// @tenant
+/// @fhir Organization (pharmacy)
+model Pharmacy {
+  id          String    @id @default(uuid()) @db.Uuid
+  practiceId  String?   @db.Uuid /// null = network directory entry
+  ncpdpId     String    @unique
+  npi         String?
+  name        String
+  address     Json
+  phone       String?
+  fax         String?
+  specialties String[]  /// retail, mail-order, specialty, ltc
+  epcsEnabled Boolean   @default(false)
+  patients    Patient[]
+  medicationRequests MedicationRequest[]
+}
+
+// ============================================================================
+// COVERAGE & ELIGIBILITY
+// ============================================================================
+
+/// Insurance company (claims receiver). Payer IDs are the clearinghouse (Stedi) trading partner ids.
+/// @tenant
+/// @fhir Organization (payer)
+/// @versioned
+model Payer {
+  id                String   @id @default(uuid()) @db.Uuid
+  practiceId        String   @db.Uuid /// @server
+  name              String
+  clearinghousePayerId String /// Stedi payer id
+  eligibilitySupported Boolean @default(true)
+  claimsSupported   Boolean  @default(true)
+  eraSupported      Boolean  @default(true)
+  timelyFilingDays  Int      @default(90)
+  appealDays        Int      @default(180)
+  claimRules        Json?    /// modifier, auth and referral requirements
+  portalUrl         String?
+  active            Boolean  @default(true)
+  version           Int      @default(1) /// @server
+  updatedAt         DateTime @updatedAt /// @server
+
+  plans             PayerPlan[]
+  coverages         Coverage[]
+  feeSchedules      FeeSchedule[]
+  enrollments       PayerEnrollment[]
+  claims            Claim[]
+  remittances       Remittance[]
+
+  @@index([practiceId])
+}
+
+/// @tenant
+model PayerPlan {
+  id          String  @id @default(uuid()) @db.Uuid
+  practiceId  String  @db.Uuid /// @server
+  payerId     String  @db.Uuid
+  payer       Payer   @relation(fields: [payerId], references: [id])
+  name        String
+  type        String  /// commercial, medicare, medicaid, medicare-advantage, tricare, self-pay
+  referralRequired Boolean @default(false)
+}
+
+/// @tenant
+/// @fhir Coverage (US Core Coverage)
+/// @versioned
+model Coverage {
+  id              String    @id @default(uuid()) @db.Uuid
+  practiceId      String    @db.Uuid /// @server
+  patientId       String    @db.Uuid
+  patient         Patient   @relation(fields: [patientId], references: [id])
+  payerId         String    @db.Uuid
+  payer           Payer     @relation(fields: [payerId], references: [id])
+  planId          String?   @db.Uuid
+  order           Int       @default(1) /// 1 primary, 2 secondary, 3 tertiary
+  memberId        String    /// @phi
+  groupNumber     String?
+  subscriberRelatedPersonId String? @db.Uuid /// null = patient is subscriber
+  relationshipToSubscriber String @default("self")
+  periodStart     DateTime? @db.Date
+  periodEnd       DateTime? @db.Date
+  cardFrontFileId String?   @db.Uuid
+  cardBackFileId  String?   @db.Uuid
+  status          String    @default("active") /// active, cancelled, entered-in-error
+  version         Int       @default(1) /// @server
+  createdAt       DateTime  @default(now()) /// @server
+  updatedAt       DateTime  @updatedAt /// @server
+
+  eligibilityChecks EligibilityCheck[]
+  claims          Claim[]
+
+  @@index([patientId])
+}
+
+/// 270/271 result (real-time or batch) via ClearinghouseGateway (Stedi)
+/// @tenant
+/// @fhir CoverageEligibilityResponse
+model EligibilityCheck {
+  id               String            @id @default(uuid()) @db.Uuid
+  practiceId       String            @db.Uuid /// @server
+  coverageId       String            @db.Uuid
+  coverage         Coverage          @relation(fields: [coverageId], references: [id])
+  appointmentId    String?           @db.Uuid
+  mode             String            /// realtime, batch
+  requestedAt      DateTime          @default(now()) /// @server
+  respondedAt      DateTime?         /// @server
+  status           EligibilityStatus @default(PENDING) /// @server
+  copay            Decimal?          @db.Decimal(10, 2) /// @server
+  coinsurancePct   Decimal?          @db.Decimal(5, 2) /// @server
+  deductible       Decimal?          @db.Decimal(10, 2) /// @server
+  deductibleRemaining Decimal?       @db.Decimal(10, 2) /// @server
+  outOfPocketRemaining Decimal?      @db.Decimal(10, 2) /// @server
+  pcpOnFile        String?           /// @server
+  authRequired     Boolean?          /// @server
+  benefits         Json?             /// @server parsed 271 benefit segments
+  errorMessage     String?           /// @server
+  interfaceMessageId String?         @db.Uuid /// @server
+
+  @@index([coverageId, requestedAt])
+}
+
+// ============================================================================
+// SCHEDULING
+// ============================================================================
+
+/// @tenant
+/// @versioned
+model VisitType {
+  id               String     @id @default(uuid()) @db.Uuid
+  practiceId       String     @db.Uuid /// @server
+  name             String
+  durationMinutes  Int
+  modalities       Modality[]
+  newPatientOnly   Boolean    @default(false)
+  onlineBookable   Boolean    @default(false)
+  minNoticeHours   Int        @default(2)
+  bookingWindowDays Int       @default(90)
+  color            String?
+  defaultCptHints  String[]
+  previsitQuestionnaireIds String[] @db.Uuid
+  active           Boolean    @default(true)
+  version          Int        @default(1) /// @server
+
+  appointments     Appointment[]
+}
+
+/// Weekly slot template per provider and location
+/// @tenant
+/// @versioned
+model ScheduleTemplate {
+  id              String       @id @default(uuid()) @db.Uuid
+  practiceId      String       @db.Uuid /// @server
+  practitionerId  String       @db.Uuid
+  practitioner    Practitioner @relation(fields: [practitionerId], references: [id])
+  locationId      String       @db.Uuid
+  effectiveFrom   DateTime     @db.Date
+  effectiveTo     DateTime?    @db.Date
+  slots           Json         /// [{weekday, start, end, visitTypeIds[], overbook}]
+  version         Int          @default(1) /// @server
+}
+
+/// Blocked time (admin, lunch, rounds, PTO)
+/// @tenant
+model ScheduleBlock {
+  id              String   @id @default(uuid()) @db.Uuid
+  practiceId      String   @db.Uuid /// @server
+  practitionerId  String?  @db.Uuid
+  roomId          String?  @db.Uuid
+  start           DateTime
+  end             DateTime
+  reason          String
+  createdById     String   @db.Uuid /// @server
+}
+
+/// @tenant
+/// @fhir Appointment
+/// @versioned
+model Appointment {
+  id               String            @id @default(uuid()) @db.Uuid
+  practiceId       String            @db.Uuid /// @server
+  patientId        String            @db.Uuid
+  patient          Patient           @relation(fields: [patientId], references: [id])
+  practitionerId   String            @db.Uuid
+  practitioner     Practitioner      @relation(fields: [practitionerId], references: [id])
+  locationId       String            @db.Uuid
+  location         Location          @relation(fields: [locationId], references: [id])
+  roomId           String?           @db.Uuid
+  room             Room?             @relation(fields: [roomId], references: [id])
+  visitTypeId      String            @db.Uuid
+  visitType        VisitType         @relation(fields: [visitTypeId], references: [id])
+  status           AppointmentStatus @default(BOOKED) /// @server changed only through transition endpoints
+  modality         Modality          @default(IN_PERSON)
+  start            DateTime
+  end              DateTime
+  reason           String?           /// @phi
+  comment          String?           /// @phi front-desk note
+  bookingChannel   BookingChannel    @default(STAFF)
+  assignedMaId     String?           @db.Uuid
+  cancellationReason String?
+  rescheduledFromId String?          @db.Uuid
+  version          Int               @default(1) /// @server
+  createdAt        DateTime          @default(now()) /// @server
+  updatedAt        DateTime          @updatedAt /// @server
+  createdById      String?           @db.Uuid /// @server
+
+  statusEvents     AppointmentStatusEvent[]
+  encounter        Encounter?
+  telehealthSession TelehealthSession?
+  checkin          CheckinSession?
+
+  @@index([practiceId, start])
+  @@index([practitionerId, start])
+  @@index([patientId, start])
+}
+
+/// Status timestamps for flow board timers and cycle-time reporting
+/// @tenant
+/// @append-only
+model AppointmentStatusEvent {
+  id             String            @id @default(uuid()) @db.Uuid
+  practiceId     String            @db.Uuid /// @server
+  appointmentId  String            @db.Uuid
+  appointment    Appointment       @relation(fields: [appointmentId], references: [id])
+  fromStatus     AppointmentStatus?
+  toStatus       AppointmentStatus
+  at             DateTime          @default(now())
+  byUserId       String?           @db.Uuid
+  byPortalUserId String?           @db.Uuid
+  note           String?
+
+  @@index([appointmentId, at])
+}
+
+/// @tenant
+model WaitlistEntry {
+  id              String         @id @default(uuid()) @db.Uuid
+  practiceId      String         @db.Uuid /// @server
+  patientId       String         @db.Uuid
+  patient         Patient        @relation(fields: [patientId], references: [id])
+  visitTypeId     String         @db.Uuid
+  practitionerId  String?        @db.Uuid
+  earliest        DateTime?
+  latest          DateTime?
+  status          WaitlistStatus @default(ACTIVE)
+  offeredSlotStart DateTime?     /// @server
+  offerExpiresAt  DateTime?      /// @server
+  createdAt       DateTime       @default(now()) /// @server
+}
+
+/// Follow-up and preventive recalls (schedule.recall-list)
+/// @tenant
+model Recall {
+  id              String       @id @default(uuid()) @db.Uuid
+  practiceId      String       @db.Uuid /// @server
+  patientId       String       @db.Uuid
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  reason          String
+  careGapId       String?      @db.Uuid
+  dueDate         DateTime     @db.Date
+  status          RecallStatus @default(DUE)
+  attempts        Int          @default(0) /// @server
+  lastContactAt   DateTime?    /// @server
+  createdAt       DateTime     @default(now()) /// @server
+}
+
+/// Pre-visit e-check-in progress (portal.todos)
+/// @tenant
+model CheckinSession {
+  id             String        @id @default(uuid()) @db.Uuid
+  practiceId     String        @db.Uuid /// @server
+  appointmentId  String        @unique @db.Uuid
+  appointment    Appointment   @relation(fields: [appointmentId], references: [id])
+  patientId      String        @db.Uuid
+  patient        Patient       @relation(fields: [patientId], references: [id])
+  status         CheckinStatus @default(NOT_STARTED)
+  steps          Json          /// {details, insurance, questionnaire, consents, payment: done|skipped|pending}
+  resumeTokenHash String?      /// @secret
+  completedAt    DateTime?     /// @server
+  updatedAt      DateTime      @updatedAt /// @server
+}
+
+// ============================================================================
+// ENCOUNTER & DOCUMENTATION
+// ============================================================================
+
+/// @tenant
+/// @fhir Encounter (US Core Encounter)
+/// @versioned
+model Encounter {
+  id               String          @id @default(uuid()) @db.Uuid
+  practiceId       String          @db.Uuid /// @server
+  patientId        String          @db.Uuid
+  patient          Patient         @relation(fields: [patientId], references: [id])
+  appointmentId    String?         @unique @db.Uuid
+  appointment      Appointment?    @relation(fields: [appointmentId], references: [id])
+  practitionerId   String          @db.Uuid
+  practitioner     Practitioner    @relation(fields: [practitionerId], references: [id])
+  locationId       String?         @db.Uuid
+  location         Location?       @relation(fields: [locationId], references: [id])
+  status           EncounterStatus @default(PLANNED) /// @server
+  class            EncounterClass  @default(AMB)
+  typeCode         String?         /// CPT/SNOMED visit type code
+  placeOfService   String?         /// CMS POS
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  chiefComplaint   String?         /// @phi
+  patientWords     String?         /// @phi
+  prechartNote     String?         /// @phi
+  prechartedAt     DateTime?       /// @server
+  readyForProviderAt DateTime?     /// @server
+  followUpInstruction String?      /// @phi
+  noChargeVisit    Boolean         @default(false)
+  emMethod         String?         /// mdm, time
+  emTotalMinutes   Int?
+  emSuggestedCode  String?         /// @server
+  mdmProblems      String?         /// minimal, low, moderate, high
+  mdmData          String?
+  mdmRisk          String?
+  securityLabels   String[]
+  version          Int             @default(1) /// @server
+  createdAt        DateTime        @default(now()) /// @server
+  updatedAt        DateTime        @updatedAt /// @server
+  createdById      String?         @db.Uuid /// @server
+
+  notes            ClinicalNote[]
+  conditions       Condition[]
+  observations     Observation[]
+  serviceRequests  ServiceRequest[]
+  medicationRequests MedicationRequest[]
+  immunizations    Immunization[]
+  chargeItems      ChargeItem[]
+  questionnaireResponses QuestionnaireResponse[]
+  avs              AfterVisitSummary[]
+  documents        DocumentReference[]
+
+  @@index([patientId, periodStart])
+  @@index([practitionerId, periodStart])
+}
+
+/// Visit note. Signed notes are immutable (INV-SAFE-02); changes are Addendum rows.
+/// @tenant
+/// @fhir DocumentReference (US Core Clinical Notes) + Composition
+/// @versioned
+model ClinicalNote {
+  id             String      @id @default(uuid()) @db.Uuid
+  practiceId     String      @db.Uuid /// @server
+  encounterId    String      @db.Uuid
+  encounter      Encounter   @relation(fields: [encounterId], references: [id])
+  patientId      String      @db.Uuid
+  authorId       String      @db.Uuid /// @server
+  noteType       String      @default("11506-3") /// LOINC: 11506-3 progress note, 34117-2 H&P, 11488-4 consult
+  status         NoteStatus  @default(DRAFT) /// @server
+  templateId     String?     @db.Uuid
+  lockedByUserId String?     @db.Uuid /// @server concurrent-edit lock
+  lockedAt       DateTime?   /// @server
+  signedById     String?     @db.Uuid /// @server
+  signedAt       DateTime?   /// @server
+  cosignRequired Boolean     @default(false) /// @server
+  cosignerId     String?     @db.Uuid /// @server
+  cosignedAt     DateTime?   /// @server
+  releasedToPortalAt DateTime? /// @server open notes release
+  securityLabels String[]
+  version        Int         @default(1) /// @server
+  createdAt      DateTime    @default(now()) /// @server
+  updatedAt      DateTime    @updatedAt /// @server
+
+  sections       NoteSection[]
+  addenda        Addendum[]
+
+  @@index([patientId])
+}
+
+/// @tenant
+model NoteSection {
+  id          String       @id @default(uuid()) @db.Uuid
+  practiceId  String       @db.Uuid /// @server
+  noteId      String       @db.Uuid
+  note        ClinicalNote @relation(fields: [noteId], references: [id])
+  key         String       /// cc, hpi, ros, exam, data, assessment-plan
+  ordinal     Int
+  content     String       /// @phi rich text (sanitised HTML or ProseMirror JSON)
+  updatedAt   DateTime     @updatedAt /// @server
+
+  aiSegments  AiDraftSegment[]
+
+  @@unique([noteId, key])
+}
+
+/// AI-drafted text kept marked until accepted (INV-DATA-02)
+/// @tenant
+model AiDraftSegment {
+  id           String          @id @default(uuid()) @db.Uuid
+  practiceId   String          @db.Uuid /// @server
+  sectionId    String          @db.Uuid
+  section      NoteSection     @relation(fields: [sectionId], references: [id])
+  text         String          /// @phi
+  sourceRefs   Json?           /// links to transcript spans
+  model        String          /// @server vendor/model id
+  status       AiSegmentStatus @default(PENDING)
+  decidedById  String?         @db.Uuid /// @server
+  decidedAt    DateTime?       /// @server
+  createdAt    DateTime        @default(now()) /// @server
+}
+
+/// @tenant
+/// @append-only
+model Addendum {
+  id          String       @id @default(uuid()) @db.Uuid
+  practiceId  String       @db.Uuid /// @server
+  noteId      String       @db.Uuid
+  note        ClinicalNote @relation(fields: [noteId], references: [id])
+  text        String       /// @phi
+  authorId    String       @db.Uuid /// @server
+  signedAt    DateTime     @default(now()) /// @server
+}
+
+/// @tenant
+/// @versioned
+model NoteTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  specialty   String?
+  ownerId     String?  @db.Uuid /// null = practice-wide
+  shared      Boolean  @default(true)
+  sections    Json     /// [{key, title, defaultText, pickLists}]
+  version     Int      @default(1) /// @server
+  active      Boolean  @default(true)
+}
+
+/// @tenant
+model SmartPhrase {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  trigger     String   /// typed after '.'
+  text        String
+  ownerId     String?  @db.Uuid
+  shared      Boolean  @default(false)
+
+  @@unique([practiceId, ownerId, trigger])
+}
+
+/// Patient-facing after-visit summary
+/// @tenant
+/// @fhir DocumentReference (AVS)
+model AfterVisitSummary {
+  id            String    @id @default(uuid()) @db.Uuid
+  practiceId    String    @db.Uuid /// @server
+  encounterId   String    @db.Uuid
+  encounter     Encounter @relation(fields: [encounterId], references: [id])
+  patientId     String    @db.Uuid
+  patient       Patient   @relation(fields: [patientId], references: [id])
+  language      String    @default("en")
+  instructions  String?   /// @phi
+  content       Json      /// @phi generated sections
+  educationIds  String[]
+  fileId        String?   @db.Uuid /// @server rendered PDF
+  releasedAt    DateTime? /// @server
+  printedAt     DateTime? /// @server
+}
+
+// ============================================================================
+// CLINICAL LISTS
+// ============================================================================
+
+/// Problems (problem-list-item) and encounter diagnoses (encounter-diagnosis)
+/// @tenant
+/// @fhir Condition (US Core Condition Problems and Health Concerns / Encounter Diagnosis)
+/// @versioned
+model Condition {
+  id                String                  @id @default(uuid()) @db.Uuid
+  practiceId        String                  @db.Uuid /// @server
+  patientId         String                  @db.Uuid
+  patient           Patient                 @relation(fields: [patientId], references: [id])
+  encounterId       String?                 @db.Uuid
+  encounter         Encounter?              @relation(fields: [encounterId], references: [id])
+  category          ConditionCategory
+  icd10Code         String?                 /// ICD-10-CM (CodeConcept ICD10CM)
+  snomedCode        String?
+  display           String                  /// @phi
+  clinicalStatus    ConditionClinicalStatus @default(ACTIVE)
+  verificationStatus VerificationStatus     @default(CONFIRMED)
+  onsetDate         DateTime?               @db.Date
+  abatementDate     DateTime?               @db.Date
+  rank              Int?                    /// encounter diagnosis order / claim pointer
+  note              String?                 /// @phi
+  lastAddressedAt   DateTime?               /// @server
+  stagingStatus     StagingStatus           @default(ACTIVE) /// @server
+  source            ProvenanceSource        @default(ENTERED) /// @server
+  mergedIntoId      String?                 @db.Uuid /// @server
+  securityLabels    String[]
+  version           Int                     @default(1) /// @server
+  createdAt         DateTime                @default(now()) /// @server
+  updatedAt         DateTime                @updatedAt /// @server
+  recordedById      String?                 @db.Uuid /// @server
+
+  serviceRequestLinks ServiceRequestReason[]
+
+  @@index([patientId, category, stagingStatus])
+}
+
+/// @tenant
+/// @fhir AllergyIntolerance (US Core AllergyIntolerance)
+/// @versioned
+model AllergyIntolerance {
+  id                String                @id @default(uuid()) @db.Uuid
+  practiceId        String                @db.Uuid /// @server
+  patientId         String                @db.Uuid
+  patient           Patient               @relation(fields: [patientId], references: [id])
+  substanceSystem   CodeSystem            /// RXNORM for drugs/classes, SNOMEDCT for food/environment
+  substanceCode     String
+  substanceDisplay  String                /// @phi
+  category          AllergyCategory
+  criticality       AllergyCriticality?
+  clinicalStatus    AllergyClinicalStatus @default(ACTIVE)
+  verificationStatus VerificationStatus   @default(CONFIRMED)
+  reactions         Json?                 /// @phi [{manifestation, severity}]
+  onsetDate         DateTime?             @db.Date
+  stagingStatus     StagingStatus         @default(ACTIVE) /// @server
+  source            ProvenanceSource      @default(ENTERED) /// @server
+  version           Int                   @default(1) /// @server
+  createdAt         DateTime              @default(now()) /// @server
+  updatedAt         DateTime              @updatedAt /// @server
+  recordedById      String?               @db.Uuid /// @server
+
+  @@index([patientId, stagingStatus])
+}
+
+/// What the patient actually takes (from any source)
+/// @tenant
+/// @fhir MedicationStatement (exposed via US Core MedicationRequest intent=plan where required)
+/// @versioned
+model MedicationStatement {
+  id              String                    @id @default(uuid()) @db.Uuid
+  practiceId      String                    @db.Uuid /// @server
+  patientId       String                    @db.Uuid
+  patient         Patient                   @relation(fields: [patientId], references: [id])
+  rxnormCode      String?                   /// RxNorm RXCUI (RxNav)
+  display         String                    /// @phi
+  dosageText      String?                   /// @phi sig
+  status          MedicationStatementStatus @default(ACTIVE)
+  statusReason    String?
+  effectiveStart  DateTime?                 @db.Date
+  effectiveEnd    DateTime?                 @db.Date
+  reasonConditionId String?                 @db.Uuid
+  prescriptionId  String?                   @db.Uuid /// MedicationRequest this came from, if prescribed here
+  lastFillDate    DateTime?                 @db.Date /// @server from pharmacy fill history
+  daysSupply      Int?                      /// @server
+  stagingStatus   StagingStatus             @default(ACTIVE) /// @server
+  source          ProvenanceSource          @default(ENTERED) /// @server
+  mergedIntoId    String?                   @db.Uuid /// @server
+  version         Int                       @default(1) /// @server
+  createdAt       DateTime                  @default(now()) /// @server
+  updatedAt       DateTime                  @updatedAt /// @server
+  recordedById    String?                   @db.Uuid /// @server
+
+  @@index([patientId, stagingStatus, status])
+}
+
+/// Outbound prescription (eRx via LogiCoy, NCPDP SCRIPT)
+/// @tenant
+/// @fhir MedicationRequest (US Core MedicationRequest)
+/// @versioned
+model MedicationRequest {
+  id               String                  @id @default(uuid()) @db.Uuid
+  practiceId       String                  @db.Uuid /// @server
+  patientId        String                  @db.Uuid
+  patient          Patient                 @relation(fields: [patientId], references: [id])
+  encounterId      String?                 @db.Uuid
+  encounter        Encounter?              @relation(fields: [encounterId], references: [id])
+  prescriberId     String                  @db.Uuid /// Practitioner
+  rxnormCode       String                  /// RXCUI
+  ndc              String?
+  display          String                  /// @phi
+  isControlled     Boolean                 @default(false) /// @server from RxNorm/DEA schedule
+  deaSchedule      String?                 /// @server
+  doseQuantity     String?
+  doseUnit         String?
+  route            String?
+  frequency        String?
+  durationDays     Int?
+  sigText          String                  /// @phi patient instructions
+  quantity         Decimal                 @db.Decimal(10, 3)
+  quantityUnit     String
+  refills          Int                     @default(0)
+  daysSupply       Int?
+  substitutionAllowed Boolean              @default(true)
+  noteToPharmacist String?                 /// @phi
+  reasonConditionId String?                @db.Uuid
+  pharmacyId       String?                 @db.Uuid
+  pharmacy         Pharmacy?               @relation(fields: [pharmacyId], references: [id])
+  status           MedicationRequestStatus @default(DRAFT) /// @server
+  intent           String                  @default("order")
+  priorPrescriptionId String?              @db.Uuid /// renewals and changes
+  pendedById       String?                 @db.Uuid /// @server MA pended (ADR-003)
+  signedById       String?                 @db.Uuid /// @server
+  signedAt         DateTime?               /// @server
+  epcsTwoFactorAt  DateTime?               /// @server
+  pdmpQueryId      String?                 @db.Uuid /// @server required for controlled (INV-SAFE-05)
+  pdmpExceptionReason String?
+  formularyStatus  Json?                   /// @server RTBC result: tier, copay, alternatives, PA required
+  erxStatus        ErxStatus               @default(NOT_SENT) /// @server
+  erxMessageId     String?                 /// @server LogiCoy message id
+  erxError         String?                 /// @server
+  version          Int                     @default(1) /// @server
+  createdAt        DateTime                @default(now()) /// @server
+  updatedAt        DateTime                @updatedAt /// @server
+
+  durAlerts        DurAlert[]
+
+  @@index([patientId, status])
+}
+
+/// DUR finding and its outcome. Overrides need a reason and are reportable (INV-SAFE-06)
+/// @tenant
+/// @append-only
+model DurAlert {
+  id                  String            @id @default(uuid()) @db.Uuid
+  practiceId          String            @db.Uuid /// @server
+  medicationRequestId String            @db.Uuid
+  medicationRequest   MedicationRequest @relation(fields: [medicationRequestId], references: [id])
+  type                DurAlertType
+  severity            CdsSeverity
+  message             String            /// @phi
+  evidence            Json?             /// allergy id or interacting drug
+  outcome             String            /// switched, removed, overridden, pending
+  overrideReason      String?
+  decidedById         String?           @db.Uuid
+  decidedAt           DateTime          @default(now())
+}
+
+/// PDMP query record (INV-SAFE-05)
+/// @tenant
+/// @append-only
+model PdmpQuery {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  patientId     String   @db.Uuid
+  practitionerId String  @db.Uuid
+  state         String   @db.Char(2)
+  queriedAt     DateTime @default(now())
+  reportFileId  String?  @db.Uuid
+  reviewedAt    DateTime?
+  interfaceMessageId String? @db.Uuid
+}
+
+/// Pharmacy renewal/change requests and portal refill requests (inbox.rx-requests)
+/// @tenant
+model RxRequest {
+  id                  String        @id @default(uuid()) @db.Uuid
+  practiceId          String        @db.Uuid /// @server
+  patientId           String        @db.Uuid
+  patient             Patient       @relation(fields: [patientId], references: [id])
+  type                RxRequestType
+  originalPrescriptionId String?    @db.Uuid
+  requestedChange     Json?         /// @phi
+  pharmacyId          String?       @db.Uuid
+  protocolResult      Json?         /// @server {pass, reasons[]}
+  responseStatus      String?       /// approved, denied, replaced
+  responseReason      String?
+  responsePrescriptionId String?    @db.Uuid
+  taskId              String?       @db.Uuid
+  interfaceMessageId  String?       @db.Uuid
+  receivedAt          DateTime      @default(now()) /// @server
+}
+
+/// Vitals, lab results, social history, survey scores, POC tests, device readings
+/// @tenant
+/// @fhir Observation (US Core Vital Signs / Laboratory Result / Smoking Status / Screening Assessment / SDOH)
+/// @versioned
+model Observation {
+  id               String              @id @default(uuid()) @db.Uuid
+  practiceId       String              @db.Uuid /// @server
+  patientId        String              @db.Uuid
+  patient          Patient             @relation(fields: [patientId], references: [id])
+  encounterId      String?             @db.Uuid
+  encounter        Encounter?          @relation(fields: [encounterId], references: [id])
+  diagnosticReportId String?           @db.Uuid
+  diagnosticReport DiagnosticReport?   @relation(fields: [diagnosticReportId], references: [id])
+  category         ObservationCategory
+  loincCode        String              /// LOINC
+  display          String
+  status           ObservationStatus   @default(FINAL)
+  effectiveAt      DateTime
+  valueQuantity    Decimal?            @db.Decimal(14, 4) /// @phi
+  valueUnit        String?             /// UCUM
+  valueString      String?             /// @phi
+  valueCode        String?             /// @phi coded answer (SNOMED/LOINC answer)
+  valueBoolean     Boolean?
+  components       Json?               /// @phi e.g. BP systolic/diastolic
+  referenceRangeLow  Decimal?          @db.Decimal(14, 4)
+  referenceRangeHigh Decimal?          @db.Decimal(14, 4)
+  referenceRangeText String?
+  interpretation   String?             /// H, L, HH, LL, A, N
+  flag             ResultFlag?         /// @server
+  previousValueId  String?             @db.Uuid /// @server corrected-from
+  deviceId         String?             @db.Uuid
+  performerId      String?             @db.Uuid
+  note             String?             /// @phi
+  stagingStatus    StagingStatus       @default(ACTIVE) /// @server device readings are STAGED until accepted
+  source           ProvenanceSource    @default(ENTERED) /// @server
+  version          Int                 @default(1) /// @server
+  createdAt        DateTime            @default(now()) /// @server
+  updatedAt        DateTime            @updatedAt /// @server
+
+  @@index([patientId, loincCode, effectiveAt])
+  @@index([patientId, category, effectiveAt])
+}
+
+/// Lab/imaging report; reviewed and signed in inbox.results
+/// @tenant
+/// @fhir DiagnosticReport (US Core DiagnosticReport for Laboratory Results / Report and Note)
+/// @versioned
+model DiagnosticReport {
+  id               String                 @id @default(uuid()) @db.Uuid
+  practiceId       String                 @db.Uuid /// @server
+  patientId        String                 @db.Uuid
+  patient          Patient                @relation(fields: [patientId], references: [id])
+  serviceRequestId String?                @db.Uuid
+  serviceRequest   ServiceRequest?        @relation(fields: [serviceRequestId], references: [id])
+  category         String                 /// LAB, RAD, other
+  loincCode        String
+  display          String
+  status           DiagnosticReportStatus
+  effectiveAt      DateTime?              /// collection time
+  issuedAt         DateTime?
+  performerLab     String?                /// Quest, LabCorp, via Health Gorilla
+  accessionNumber  String?
+  conclusion       String?                /// @phi
+  pdfFileId        String?                @db.Uuid
+  flag             ResultFlag?            /// @server
+  isCritical       Boolean                @default(false) /// @server
+  reviewedById     String?                @db.Uuid /// @server
+  reviewedAt       DateTime?              /// @server
+  reviewComment    String?                /// @phi shared with patient
+  correctionAcknowledgedAt DateTime?      /// @server
+  releasedToPortalAt DateTime?            /// @server (OPEN-Q6 release policy)
+  releaseDelayReason String?
+  securityLabels   String[]
+  version          Int                    @default(1) /// @server
+  createdAt        DateTime               @default(now()) /// @server
+  updatedAt        DateTime               @updatedAt /// @server
+
+  observations     Observation[]
+  criticalContacts CriticalResultContact[]
+
+  @@index([patientId, issuedAt])
+  @@index([practiceId, reviewedAt])
+}
+
+/// Documented communication of a critical value (INV-SAFE-04)
+/// @tenant
+/// @append-only
+model CriticalResultContact {
+  id                 String           @id @default(uuid()) @db.Uuid
+  practiceId         String           @db.Uuid /// @server
+  diagnosticReportId String           @db.Uuid
+  diagnosticReport   DiagnosticReport @relation(fields: [diagnosticReportId], references: [id])
+  reached            Boolean
+  spokeWith          String?          /// patient, caregiver, other clinician
+  method             String           /// phone, in-person, voicemail
+  contactedAt        DateTime
+  instructions       String?          /// @phi
+  readBack           Boolean          @default(false)
+  recordedById       String           @db.Uuid /// @server
+  recordedAt         DateTime         @default(now()) /// @server
+}
+
+/// Inbound result that could not be auto-matched (INV-SAFE-03)
+/// @tenant
+model InboundResult {
+  id                 String      @id @default(uuid()) @db.Uuid
+  practiceId         String      @db.Uuid /// @server
+  interfaceMessageId String      @db.Uuid
+  lab                String
+  accessionNumber    String?
+  placerOrderNumber  String?
+  demographics       Json        /// @phi name, dob, sex, ids from the message
+  candidates         Json?       /// @server [{patientId, serviceRequestId, score}]
+  matchStatus        MatchStatus @default(UNMATCHED) /// @server
+  matchedPatientId   String?     @db.Uuid /// @server
+  matchedServiceRequestId String? @db.Uuid /// @server
+  diagnosticReportId String?     @db.Uuid /// @server created on match
+  decidedById        String?     @db.Uuid /// @server
+  decidedAt          DateTime?   /// @server
+  receivedAt         DateTime    @default(now()) /// @server
+}
+
+/// @tenant
+/// @fhir Immunization (US Core Immunization)
+/// @versioned
+model Immunization {
+  id               String             @id @default(uuid()) @db.Uuid
+  practiceId       String             @db.Uuid /// @server
+  patientId        String             @db.Uuid
+  patient          Patient            @relation(fields: [patientId], references: [id])
+  encounterId      String?            @db.Uuid
+  encounter        Encounter?         @relation(fields: [encounterId], references: [id])
+  cvxCode          String             /// CVX
+  mvxCode          String?
+  display          String
+  status           ImmunizationStatus @default(COMPLETED)
+  statusReason     String?
+  occurrenceAt     DateTime
+  primarySource    Boolean            @default(true) /// false for historical/registry
+  lotId            String?            @db.Uuid
+  lotNumber        String?
+  expirationDate   DateTime?          @db.Date
+  site             String?
+  route            String?
+  doseQuantity     Decimal?           @db.Decimal(6, 2)
+  performerId      String?            @db.Uuid
+  visEditionDate   DateTime?          @db.Date
+  visPresentedAt   DateTime?
+  standingOrder    Boolean            @default(false)
+  registryStatus   String?            /// @server queued, sent, accepted, rejected
+  stagingStatus    StagingStatus      @default(ACTIVE) /// @server registry imports are STAGED
+  source           ProvenanceSource   @default(ENTERED) /// @server
+  version          Int                @default(1) /// @server
+  createdAt        DateTime           @default(now()) /// @server
+  updatedAt        DateTime           @updatedAt /// @server
+
+  @@index([patientId, occurrenceAt])
+}
+
+/// Vaccine inventory; expired lots cannot be administered
+/// @tenant
+model VaccineLot {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  locationId    String   @db.Uuid
+  cvxCode       String
+  mvxCode       String?
+  lotNumber     String
+  expirationDate DateTime @db.Date
+  quantityOnHand Int
+  fundingSource String?  /// VFC, private
+  active        Boolean  @default(true)
+
+  @@unique([practiceId, lotNumber, cvxCode])
+}
+
+/// Past surgical history and in-office procedures
+/// @tenant
+/// @fhir Procedure (US Core Procedure)
+/// @versioned
+model Procedure {
+  id           String           @id @default(uuid()) @db.Uuid
+  practiceId   String           @db.Uuid /// @server
+  patientId    String           @db.Uuid
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  encounterId  String?          @db.Uuid
+  codeSystem   CodeSystem       /// CPT, SNOMEDCT, HCPCS
+  code         String
+  display      String           /// @phi
+  performedOn  DateTime?        @db.Date
+  status       String           @default("completed")
+  stagingStatus StagingStatus   @default(ACTIVE) /// @server
+  source       ProvenanceSource @default(ENTERED) /// @server
+  version      Int              @default(1) /// @server
+  updatedAt    DateTime         @updatedAt /// @server
+}
+
+/// @tenant
+/// @fhir FamilyMemberHistory
+model FamilyMemberHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @db.Uuid /// @server
+  patientId    String   @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  relationship String   /// v3 RoleCode
+  conditions   Json     /// @phi [{code, display, onsetAge}]
+  deceased     Boolean?
+  updatedAt    DateTime @updatedAt /// @server
+}
+
+/// Form definitions (intake, PHQ-2/9, SDOH, consent forms, e-visit questionnaires)
+/// @tenant
+/// @fhir Questionnaire
+/// @versioned
+model Questionnaire {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  loincCode   String?
+  purpose     String   /// intake, screening, sdoh, consent, evisit
+  items       Json     /// FHIR Questionnaire.item compatible
+  languages   String[]
+  channels    String[] /// portal, kiosk, tablet, staff
+  scoring     Json?
+  status      String   @default("draft") /// draft, active, retired
+  version     Int      @default(1) /// @server
+
+  responses   QuestionnaireResponse[]
+}
+
+/// @tenant
+/// @fhir QuestionnaireResponse (US Core QuestionnaireResponse)
+/// @versioned
+model QuestionnaireResponse {
+  id              String           @id @default(uuid()) @db.Uuid
+  practiceId      String           @db.Uuid /// @server
+  questionnaireId String           @db.Uuid
+  questionnaire   Questionnaire    @relation(fields: [questionnaireId], references: [id])
+  patientId       String           @db.Uuid
+  patient         Patient          @relation(fields: [patientId], references: [id])
+  encounterId     String?          @db.Uuid
+  encounter       Encounter?       @relation(fields: [encounterId], references: [id])
+  status          String           @default("completed") /// in-progress, completed, amended
+  answers         Json             /// @phi
+  score           Decimal?         @db.Decimal(8, 2) /// @server
+  authoredAt      DateTime         @default(now())
+  source          ProvenanceSource @default(ENTERED) /// @server
+  stagingStatus   StagingStatus    @default(ACTIVE) /// @server
+  updatedAt       DateTime         @updatedAt /// @server
+}
+
+/// Remote monitoring devices
+/// @tenant
+/// @fhir Device
+model Device {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @db.Uuid /// @server
+  patientId    String   @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  type         String   /// bp-cuff, glucometer, scale, pulse-ox
+  vendorDeviceId String
+  udi          String?
+  enrolledAt   DateTime
+  active       Boolean  @default(true)
+}
+
+// ============================================================================
+// CARE MANAGEMENT & QUALITY
+// ============================================================================
+
+/// @tenant
+/// @fhir CarePlan (US Core CarePlan)
+/// @versioned
+model CarePlan {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @db.Uuid /// @server
+  patientId    String   @db.Uuid
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  category     String   /// ccm, pcm, assess-plan
+  status       String   @default("active")
+  title        String
+  activities   Json     /// @phi [{description, status, owner}]
+  ccmConsentId String?  @db.Uuid
+  periodStart  DateTime @db.Date
+  periodEnd    DateTime? @db.Date
+  version      Int      @default(1) /// @server
+  updatedAt    DateTime @updatedAt /// @server
+}
+
+/// @tenant
+/// @fhir Goal (US Core Goal)
+model Goal {
+  id           String     @id @default(uuid()) @db.Uuid
+  practiceId   String     @db.Uuid /// @server
+  patientId    String     @db.Uuid
+  patient      Patient    @relation(fields: [patientId], references: [id])
+  description  String     /// @phi
+  status       GoalStatus @default(ACTIVE)
+  target       Json?      /// {measure LOINC, detail, dueDate}
+  updatedAt    DateTime   @updatedAt /// @server
+}
+
+/// CCM/PCM/RPM minutes and e-visit time
+/// @tenant
+/// @append-only
+model TimeLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  patientId     String   @db.Uuid
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  program       String   /// ccm, pcm, rpm, evisit
+  minutes       Int
+  activity      String
+  performedById String   @db.Uuid /// @server
+  performedAt   DateTime @default(now())
+  billedChargeItemId String? @db.Uuid /// @server
+}
+
+/// eCQM / care-gap measure definitions
+/// @tenant
+/// @fhir Measure
+model Measure {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @db.Uuid /// @server
+  cmsId        String   /// CMS130, CMS165, …
+  name         String
+  lowerIsBetter Boolean @default(false)
+  goalPct      Decimal? @db.Decimal(5, 2)
+  logicVersion String
+  active       Boolean  @default(true)
+
+  gaps         CareGap[]
+  results      MeasureResult[]
+}
+
+/// @tenant
+/// @fhir MeasureReport (individual)
+model CareGap {
+  id           String        @id @default(uuid()) @db.Uuid
+  practiceId   String        @db.Uuid /// @server
+  patientId    String        @db.Uuid
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  measureId    String        @db.Uuid
+  measure      Measure       @relation(fields: [measureId], references: [id])
+  status       CareGapStatus @default(OPEN) /// @server
+  dueDate      DateTime?     @db.Date /// @server
+  lastDoneDate DateTime?     @db.Date /// @server
+  closedReason String?       /// declined, contraindicated, done-elsewhere
+  evidenceDocumentId String? @db.Uuid
+  updatedAt    DateTime      @updatedAt /// @server
+
+  @@index([patientId, status])
+}
+
+/// Computed measure results per period (reports.quality)
+/// @tenant
+/// @fhir MeasureReport (summary)
+model MeasureResult {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  measureId     String   @db.Uuid
+  measure       Measure  @relation(fields: [measureId], references: [id])
+  periodStart   DateTime @db.Date
+  periodEnd     DateTime @db.Date
+  practitionerId String? @db.Uuid
+  numerator     Int
+  denominator   Int
+  exclusions    Int
+  missingData   Int
+  computedAt    DateTime @default(now())
+}
+
+/// Clinical decision support rules and their firing history
+/// @tenant
+/// @versioned
+model CdsRule {
+  id           String      @id @default(uuid()) @db.Uuid
+  practiceId   String      @db.Uuid /// @server
+  name         String
+  kind         String      /// care-gap, dur, vital-range, order-duplicate, coding-edit
+  vendorManaged Boolean    @default(false)
+  severity     CdsSeverity
+  audienceRoles Role[]
+  logic        Json
+  active       Boolean     @default(true)
+  version      Int         @default(1) /// @server
+
+  firings      CdsFiring[]
+}
+
+/// @tenant
+/// @append-only
+model CdsFiring {
+  id           String   @id @default(uuid()) @db.Uuid
+  practiceId   String   @db.Uuid /// @server
+  ruleId       String   @db.Uuid
+  rule         CdsRule  @relation(fields: [ruleId], references: [id])
+  patientId    String   @db.Uuid
+  encounterId  String?  @db.Uuid
+  userId       String   @db.Uuid
+  outcome      String   /// accepted, dismissed, overridden, deferred
+  reason       String?
+  firedAt      DateTime @default(now())
+}
+
+// ============================================================================
+// ORDERS, REFERRALS, AUTHORIZATIONS
+// ============================================================================
+
+/// Lab, imaging, procedure, referral and DME orders
+/// @tenant
+/// @fhir ServiceRequest (US Core ServiceRequest)
+/// @versioned
+model ServiceRequest {
+  id               String          @id @default(uuid()) @db.Uuid
+  practiceId       String          @db.Uuid /// @server
+  patientId        String          @db.Uuid
+  patient          Patient         @relation(fields: [patientId], references: [id])
+  encounterId      String?         @db.Uuid
+  encounter        Encounter?      @relation(fields: [encounterId], references: [id])
+  category         OrderCategory
+  codeSystem       CodeSystem      /// LOINC (lab), CPT (imaging/procedure), SNOMEDCT (referral)
+  code             String
+  display          String
+  labCompendiumItemId String?      @db.Uuid
+  performerLab     String?         /// QUEST, LABCORP (via Health Gorilla or direct)
+  status           OrderStatus     @default(PENDED) /// @server
+  intent           String          @default("order")
+  priority         OrderPriority   @default(ROUTINE)
+  collectionMode   CollectionMode  @default(IN_OFFICE)
+  aoeAnswers       Json?           /// @phi ask-at-order-entry answers
+  expectedBy       DateTime?       @db.Date /// INV-SAFE-07
+  abnRequired      Boolean         @default(false) /// @server
+  abnSignedFileId  String?         @db.Uuid
+  orderSetId       String?         @db.Uuid
+  placerOrderNumber String?        @unique /// @server
+  accessionNumber  String?         /// @server
+  requisitionFileId String?        @db.Uuid /// @server
+  collectedAt      DateTime?       /// @server
+  pendedById       String?         @db.Uuid /// @server
+  signedById       String?         @db.Uuid /// @server
+  signedAt         DateTime?       /// @server
+  sentAt           DateTime?       /// @server
+  cancelledReason  String?
+  interfaceMessageId String?       @db.Uuid /// @server
+  version          Int             @default(1) /// @server
+  createdAt        DateTime        @default(now()) /// @server
+  updatedAt        DateTime        @updatedAt /// @server
+
+  reasons          ServiceRequestReason[]
+  diagnosticReports DiagnosticReport[]
+  specimens        Specimen[]
+  referral         Referral?
+
+  @@index([patientId, status])
+  @@index([practiceId, status, expectedBy])
+}
+
+/// Diagnosis linkage for orders (INV-SAFE-08)
+/// @tenant
+model ServiceRequestReason {
+  id               String         @id @default(uuid()) @db.Uuid
+  practiceId       String         @db.Uuid /// @server
+  serviceRequestId String         @db.Uuid
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  conditionId      String         @db.Uuid
+  condition        Condition      @relation(fields: [conditionId], references: [id])
+
+  @@unique([serviceRequestId, conditionId])
+}
+
+/// @tenant
+/// @fhir Specimen (US Core Specimen)
+model Specimen {
+  id               String         @id @default(uuid()) @db.Uuid
+  practiceId       String         @db.Uuid /// @server
+  serviceRequestId String         @db.Uuid
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  type             String         /// SNOMED specimen type
+  containerType    String?
+  collectedAt      DateTime
+  collectedById    String         @db.Uuid /// @server
+  labelPrinted     Boolean        @default(false)
+}
+
+/// @tenant
+/// @versioned
+model OrderSet {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  ownerId     String?  @db.Uuid
+  items       Json     /// [{category, codeSystem, code, display, defaultDxCode, priority, aoeDefaults}]
+  active      Boolean  @default(true)
+  version     Int      @default(1) /// @server
+}
+
+/// Lab test catalog mapped to LOINC with ask-at-order-entry questions
+/// @tenant
+model LabCompendiumItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  lab         String   /// QUEST, LABCORP
+  testCode    String
+  loincCode   String?
+  display     String
+  specimenType String?
+  aoeQuestions Json?
+  active      Boolean  @default(true)
+
+  @@unique([practiceId, lab, testCode])
+}
+
+/// Outbound/inbound referral workflow (referrals.worklist)
+/// @tenant
+/// @fhir ServiceRequest (category referral) + Task
+/// @versioned
+model Referral {
+  id               String         @id @default(uuid()) @db.Uuid
+  practiceId       String         @db.Uuid /// @server
+  patientId        String         @db.Uuid
+  patient          Patient        @relation(fields: [patientId], references: [id])
+  serviceRequestId String?        @unique @db.Uuid
+  serviceRequest   ServiceRequest? @relation(fields: [serviceRequestId], references: [id])
+  direction        String         @default("outgoing") /// outgoing, incoming
+  specialty        String
+  toOrganization   String?
+  toPractitionerNpi String?
+  directAddress    String?        /// Direct secure messaging address
+  urgency          OrderPriority  @default(ROUTINE)
+  reason           String         /// @phi
+  status           ReferralStatus @default(ORDERED) /// @server
+  authorizationId  String?        @db.Uuid
+  sentVia          String?        /// direct, fax
+  sentAt           DateTime?      /// @server
+  specialistAppointmentAt DateTime?
+  consultDocumentId String?       @db.Uuid /// @server
+  closedAt         DateTime?      /// @server
+  version          Int            @default(1) /// @server
+  createdAt        DateTime       @default(now()) /// @server
+  updatedAt        DateTime       @updatedAt /// @server
+}
+
+/// Prior authorization for services or drugs (ePA via LogiCoy for drugs)
+/// @tenant
+/// @fhir ClaimResponse (preauthorization)
+model Authorization {
+  id                  String              @id @default(uuid()) @db.Uuid
+  practiceId          String              @db.Uuid /// @server
+  patientId           String              @db.Uuid
+  patient             Patient             @relation(fields: [patientId], references: [id])
+  coverageId          String?             @db.Uuid
+  serviceRequestId    String?             @db.Uuid
+  medicationRequestId String?             @db.Uuid
+  status              AuthorizationStatus @default(DRAFT)
+  number              String?
+  validFrom           DateTime?           @db.Date
+  validTo             DateTime?           @db.Date
+  unitsApproved       Int?
+  submittedVia        String?             /// epa, payer-portal, fax, phone
+  submittedAt         DateTime?
+  decisionAt          DateTime?
+  denialReason        String?
+  taskId              String?             @db.Uuid
+  updatedAt           DateTime            @updatedAt /// @server
+}
+
+// ============================================================================
+// DOCUMENTS, CONSENT, PRIVACY REQUESTS
+// ============================================================================
+
+/// @tenant
+/// @fhir DocumentReference (US Core DocumentReference)
+/// @versioned
+model DocumentReference {
+  id            String         @id @default(uuid()) @db.Uuid
+  practiceId    String         @db.Uuid /// @server
+  patientId     String         @db.Uuid
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  encounterId   String?        @db.Uuid
+  encounter     Encounter?     @relation(fields: [encounterId], references: [id])
+  typeLoinc     String         /// document type (LOINC)
+  category      String         /// clinical-note, outside-record, consult, imaging, id-card, consent, other
+  title         String         /// @phi
+  documentDate  DateTime       @db.Date
+  author        String?        /// external author/organization
+  status        DocumentStatus @default(CURRENT)
+  fileId        String         @db.Uuid
+  sourceIncomingId String?     @db.Uuid
+  securityLabels String[]
+  filedById     String?        @db.Uuid /// @server
+  version       Int            @default(1) /// @server
+  createdAt     DateTime       @default(now()) /// @server
+  updatedAt     DateTime       @updatedAt /// @server
+
+  @@index([patientId, documentDate])
+}
+
+/// Fax / scan / Direct inbox awaiting filing (inbox.documents)
+/// @tenant
+model IncomingDocument {
+  id             String                 @id @default(uuid()) @db.Uuid
+  practiceId     String                 @db.Uuid /// @server
+  source         IncomingDocumentSource
+  fromNumberOrAddress String?           /// @phi
+  receivedAt     DateTime               @default(now()) /// @server
+  fileId         String                 @db.Uuid
+  pageCount      Int
+  ocrText        String?                /// @phi @server
+  suggestedType  String?                /// @server
+  patientCandidates Json?               /// @server [{patientId, score, matchedOn}]
+  foreignPages   Int[]                  /// @server pages that look like another patient
+  status         IncomingDocumentStatus @default(NEW) /// @server
+  parentId       String?                @db.Uuid /// split from
+  filedDocumentReferenceId String?      @db.Uuid /// @server
+  handledById    String?                @db.Uuid /// @server
+  handledAt      DateTime?              /// @server
+}
+
+/// Signed consents and authorizations (Part 2, TCPA, telehealth, CCM, proxy, ROI)
+/// @tenant
+/// @fhir Consent
+/// @versioned
+model Consent {
+  id           String        @id @default(uuid()) @db.Uuid
+  practiceId   String        @db.Uuid /// @server
+  patientId    String        @db.Uuid
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  type         ConsentType
+  status       ConsentStatus @default(ACTIVE)
+  scope        Json?         /// e.g. Part 2 recipients and purpose; proxy scope
+  signedAt     DateTime?
+  signedBy     String?       /// patient, guardian name
+  method       String?       /// tablet, portal, verbal, paper
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  documentFileId String?     @db.Uuid
+  recordedById String?       @db.Uuid /// @server
+  version      Int           @default(1) /// @server
+  updatedAt    DateTime      @updatedAt /// @server
+
+  @@index([patientId, type, status])
+}
+
+/// Right to amend (HIPAA §164.526)
+/// @tenant
+model AmendmentRequest {
+  id           String          @id @default(uuid()) @db.Uuid
+  practiceId   String          @db.Uuid /// @server
+  patientId    String          @db.Uuid
+  patient      Patient         @relation(fields: [patientId], references: [id])
+  requestText  String          /// @phi
+  targetType   String?
+  targetId     String?         @db.Uuid
+  status       AmendmentStatus @default(RECEIVED)
+  responseText String?
+  decidedById  String?         @db.Uuid
+  receivedAt   DateTime        @default(now())
+  dueBy        DateTime        /// 60 days from receipt
+  decidedAt    DateTime?
+}
+
+// ============================================================================
+// COMMUNICATION, TASKS, NOTIFICATIONS
+// ============================================================================
+
+/// Portal message thread (patient messages, e-visit conversation)
+/// @tenant
+/// @fhir Communication (thread)
+model MessageThread {
+  id            String          @id @default(uuid()) @db.Uuid
+  practiceId    String          @db.Uuid /// @server
+  patientId     String          @db.Uuid
+  patient       Patient         @relation(fields: [patientId], references: [id])
+  category      MessageCategory
+  subject       String          /// @phi
+  poolId        String?         @db.Uuid
+  pool          WorkPool?       @relation(fields: [poolId], references: [id])
+  assignedUserId String?        @db.Uuid
+  urgentKeywords String[]       /// @server
+  slaDueAt      DateTime?       /// @server
+  closedAt      DateTime?
+  taskId        String?         @db.Uuid /// @server
+  createdAt     DateTime        @default(now()) /// @server
+  updatedAt     DateTime        @updatedAt /// @server
+
+  messages      Message[]
+
+  @@index([practiceId, poolId, closedAt])
+}
+
+/// @tenant
+/// @fhir Communication
+/// @append-only
+model Message {
+  id               String        @id @default(uuid()) @db.Uuid
+  practiceId       String        @db.Uuid /// @server
+  threadId         String        @db.Uuid
+  thread           MessageThread @relation(fields: [threadId], references: [id])
+  kind             MessageKind
+  body             String        /// @phi
+  attachmentFileIds String[]     @db.Uuid
+  sentByUserId     String?       @db.Uuid /// @server
+  sentByPortalUserId String?     @db.Uuid /// @server
+  onBehalfOfProxy  Boolean       @default(false) /// @server
+  sentAt           DateTime      @default(now()) /// @server
+  readAt           DateTime?
+}
+
+/// Outbound/inbound SMS, email, voice, letters, fax. Bodies never contain clinical detail (INV-SEC-06).
+/// @tenant
+/// @fhir Communication
+model CommunicationLog {
+  id              String      @id @default(uuid()) @db.Uuid
+  practiceId      String      @db.Uuid /// @server
+  patientId       String?     @db.Uuid
+  patient         Patient?    @relation(fields: [patientId], references: [id])
+  channel         CommChannel
+  direction       String      @default("outbound")
+  purpose         String      /// reminder, recall, statement, receipt, portal-nudge, waitlist-offer, outreach, call
+  templateKey     String?
+  to              String      /// @phi phone/email (masked in API responses except to authorised roles)
+  status          CommStatus  @default(QUEUED) /// @server
+  providerMessageId String?   /// @server Twilio SID / SMTP message-id
+  relatedType     String?
+  relatedId       String?     @db.Uuid
+  summary         String?     /// @phi phone call summary (calls only)
+  error           String?     /// @server
+  sentAt          DateTime?   /// @server
+  createdById     String?     @db.Uuid /// @server
+  createdAt       DateTime    @default(now()) /// @server
+
+  @@index([patientId, createdAt])
+}
+
+/// Work item for every inbox/worklist (states.yaml#task)
+/// @tenant
+/// @fhir Task
+/// @versioned
+model Task {
+  id             String       @id @default(uuid()) @db.Uuid
+  practiceId     String       @db.Uuid /// @server
+  type           TaskType
+  status         TaskStatus   @default(OPEN) /// @server
+  priority       TaskPriority @default(NORMAL)
+  title          String       /// @phi
+  description    String?      /// @phi
+  patientId      String?      @db.Uuid
+  patient        Patient?     @relation(fields: [patientId], references: [id])
+  focusType      String?      /// DiagnosticReport, RxRequest, Claim, Denial, IncomingDocument, …
+  focusId        String?      @db.Uuid
+  poolId         String?      @db.Uuid
+  pool           WorkPool?    @relation(fields: [poolId], references: [id])
+  ownerUserId    String?      @db.Uuid
+  dueAt          DateTime?
+  escalatedAt    DateTime?    /// @server
+  completedAt    DateTime?    /// @server
+  completedById  String?      @db.Uuid /// @server
+  createdById    String?      @db.Uuid /// @server
+  version        Int          @default(1) /// @server
+  createdAt      DateTime     @default(now()) /// @server
+  updatedAt      DateTime     @updatedAt /// @server
+
+  comments       TaskComment[]
+
+  @@index([practiceId, status, poolId])
+  @@index([ownerUserId, status])
+  @@index([focusType, focusId])
+}
+
+/// @tenant
+/// @append-only
+model TaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  practiceId String  @db.Uuid /// @server
+  taskId    String   @db.Uuid
+  task      Task     @relation(fields: [taskId], references: [id])
+  body      String   /// @phi
+  authorId  String   @db.Uuid /// @server
+  createdAt DateTime @default(now()) /// @server
+}
+
+/// @tenant
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  practiceId String          @db.Uuid /// @server
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String           /// no PHI beyond patient initials
+  linkRoute String           /// spec/ui route
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ============================================================================
+// TELEHEALTH
+// ============================================================================
+
+/// @tenant
+model TelehealthSession {
+  id             String           @id @default(uuid()) @db.Uuid
+  practiceId     String           @db.Uuid /// @server
+  appointmentId  String           @unique @db.Uuid
+  appointment    Appointment      @relation(fields: [appointmentId], references: [id])
+  vendorRoomId   String           /// @server
+  status         TelehealthStatus @default(WAITING) /// @server
+  patientJoinedAt DateTime?       /// @server
+  providerJoinedAt DateTime?      /// @server
+  endedAt        DateTime?        /// @server
+  deviceCheck    Json?
+  participants   Json?            /// interpreter, caregiver
+  audioOnlyFrom  DateTime?        /// modality change for coding
+}
+
+/// Asynchronous online visit
+/// @tenant
+model EVisit {
+  id              String    @id @default(uuid()) @db.Uuid
+  practiceId      String    @db.Uuid /// @server
+  patientId       String    @db.Uuid
+  patient         Patient   @relation(fields: [patientId], references: [id])
+  questionnaireResponseId String @db.Uuid
+  threadId        String?   @db.Uuid
+  status          String    @default("submitted") /// submitted, in-review, completed, converted
+  cumulativeMinutes Int     @default(0) /// @server
+  encounterId     String?   @db.Uuid /// @server created on completion
+  submittedAt     DateTime  @default(now()) /// @server
+  completedAt     DateTime? /// @server
+}
+
+// ============================================================================
+// BILLING & REVENUE CYCLE
+// ============================================================================
+
+/// @tenant
+/// @versioned
+model FeeSchedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  practiceId  String   @db.Uuid /// @server
+  name        String
+  payerId     String?  @db.Uuid /// null = practice/self-pay schedule
+  payer       Payer?   @relation(fields: [payerId], references: [id])
+  isContract  Boolean  @default(false) /// contracted rates for underpayment detection
+  effectiveFrom DateTime @db.Date
+  version     Int      @default(1) /// @server
+
+  items       FeeScheduleItem[]
+}
+
+/// @tenant
+model FeeScheduleItem {
+  id            String      @id @default(uuid()) @db.Uuid
+  practiceId    String      @db.Uuid /// @server
+  feeScheduleId String      @db.Uuid
+  feeSchedule   FeeSchedule @relation(fields: [feeScheduleId], references: [id])
+  codeSystem    CodeSystem  /// CPT, HCPCS
+  code          String
+  modifier      String?
+  amount        Decimal     @db.Decimal(10, 2)
+
+  @@unique([feeScheduleId, codeSystem, code, modifier])
+}
+
+/// Billable line from an encounter. Released to claims on note sign (flow:rcm/01)
+/// @tenant
+/// @fhir ChargeItem
+/// @versioned
+model ChargeItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  practiceId     String       @db.Uuid /// @server
+  patientId      String       @db.Uuid
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  encounterId    String?      @db.Uuid
+  encounter      Encounter?   @relation(fields: [encounterId], references: [id])
+  codeSystem     CodeSystem   /// CPT, HCPCS
+  code           String
+  description    String
+  modifiers      String[]
+  units          Decimal      @default(1) @db.Decimal(8, 2)
+  dxConditionIds String[]     @db.Uuid /// ordered diagnosis pointers (INV-FIN-03)
+  fee            Decimal      @db.Decimal(10, 2)
+  serviceDate    DateTime     @db.Date
+  renderingPractitionerId String @db.Uuid
+  status         ChargeStatus @default(DRAFT) /// @server
+  holdReasons    Json?        /// @server coding edits [{rule, message, severity}]
+  holdNote       String?
+  claimLineId    String?      @db.Uuid /// @server
+  version        Int          @default(1) /// @server
+  createdAt      DateTime     @default(now()) /// @server
+  updatedAt      DateTime     @updatedAt /// @server
+  createdById    String?      @db.Uuid /// @server
+
+  @@index([practiceId, status])
+}
+
+/// Professional claim (837P) to a payer through Stedi
+/// @tenant
+/// @fhir Claim
+/// @versioned
+model Claim {
+  id                String      @id @default(uuid()) @db.Uuid
+  practiceId        String      @db.Uuid /// @server
+  claimNumber       String      /// @server practice claim control number
+  patientId         String      @db.Uuid
+  patient           Patient     @relation(fields: [patientId], references: [id])
+  payerId           String      @db.Uuid
+  payer             Payer       @relation(fields: [payerId], references: [id])
+  coverageId        String      @db.Uuid
+  coverage          Coverage    @relation(fields: [coverageId], references: [id])
+  encounterId       String?     @db.Uuid
+  status            ClaimStatus @default(DRAFT) /// @server
+  frequencyCode     String      @default("1") /// 1 original, 7 replacement, 8 void
+  originalClaimId   String?     @db.Uuid
+  billingProviderNpi String     /// INV-FIN-03
+  billingTin        String
+  renderingProviderNpi String
+  placeOfService    String
+  serviceDateFrom   DateTime    @db.Date
+  serviceDateTo     DateTime    @db.Date
+  totalBilled       Decimal     @db.Decimal(10, 2) /// @server
+  totalPaid         Decimal     @default(0) @db.Decimal(10, 2) /// @server
+  patientResponsibility Decimal @default(0) @db.Decimal(10, 2) /// @server
+  priorAuthNumber   String?
+  batchId           String?     @db.Uuid /// @server
+  payerClaimControlNumber String? /// @server
+  submittedAt       DateTime?   /// @server
+  filingDeadline    DateTime    @db.Date /// @server INV-FIN-05
+  rejectionReason   String?     /// @server plain-language reason
+  rejectionField    String?     /// @server field to fix
+  version           Int         @default(1) /// @server
+  createdAt         DateTime    @default(now()) /// @server
+  updatedAt         DateTime    @updatedAt /// @server
+
+  lines             ClaimLine[]
+  events            ClaimEvent[]
+  payments          RemittanceClaimPayment[]
+  denials           Denial[]
+
+  @@unique([practiceId, claimNumber])
+  @@index([practiceId, status])
+}
+
+/// @tenant
+model ClaimLine {
+  id           String     @id @default(uuid()) @db.Uuid
+  practiceId   String     @db.Uuid /// @server
+  claimId      String     @db.Uuid
+  claim        Claim      @relation(fields: [claimId], references: [id])
+  lineNumber   Int
+  chargeItemId String     @db.Uuid
+  code         String
+  modifiers    String[]
+  units        Decimal    @db.Decimal(8, 2)
+  charge       Decimal    @db.Decimal(10, 2)
+  dxPointers   String[]   /// A–L
+  icd10Codes   String[]   /// resolved codes in pointer order
+}
+
+/// 999 / 277CA / 276-277 / 835 events and notes
+/// @tenant
+/// @append-only
+model ClaimEvent {
+  id           String         @id @default(uuid()) @db.Uuid
+  practiceId   String         @db.Uuid /// @server
+  claimId      String         @db.Uuid
+  claim        Claim          @relation(fields: [claimId], references: [id])
+  type         ClaimEventType
+  statusCode   String?        /// e.g. 277CA category/status codes
+  description  String?
+  raw          Json?
+  interfaceMessageId String?  @db.Uuid
+  at           DateTime       @default(now())
+}
+
+/// @tenant
+model ClaimBatch {
+  id           String    @id @default(uuid()) @db.Uuid
+  practiceId   String    @db.Uuid /// @server
+  claimCount   Int
+  submittedAt  DateTime
+  interchangeControlNumber String?
+  interfaceMessageId String? @db.Uuid
+  status       String    /// submitted, accepted, rejected
+}
+
+/// 835 remittance (ERA) received from Stedi
+/// @tenant
+/// @fhir PaymentReconciliation
+model Remittance {
+  id             String           @id @default(uuid()) @db.Uuid
+  practiceId     String           @db.Uuid /// @server
+  payerId        String           @db.Uuid
+  payer          Payer            @relation(fields: [payerId], references: [id])
+  eftTraceNumber String
+  paymentMethod  String           /// ACH, CHK, NON
+  paymentAmount  Decimal          @db.Decimal(12, 2)
+  paymentDate    DateTime         @db.Date
+  receivedAt     DateTime         @default(now()) /// @server
+  status         RemittanceStatus @default(RECEIVED) /// @server
+  depositMatched Boolean          @default(false) /// @server
+  rawFileId      String?          @db.Uuid /// @server
+  postedById     String?          @db.Uuid /// @server
+  postedAt       DateTime?        /// @server
+
+  claimPayments  RemittanceClaimPayment[]
+  providerAdjustments ProviderLevelAdjustment[]
+
+  @@unique([practiceId, payerId, eftTraceNumber])
+}
+
+/// @tenant
+model RemittanceClaimPayment {
+  id             String     @id @default(uuid()) @db.Uuid
+  practiceId     String     @db.Uuid /// @server
+  remittanceId   String     @db.Uuid
+  remittance     Remittance @relation(fields: [remittanceId], references: [id])
+  claimId        String?    @db.Uuid /// null = unmatched (exception)
+  claim          Claim?     @relation(fields: [claimId], references: [id])
+  payerClaimControlNumber String?
+  patientControlNumber String
+  billed         Decimal    @db.Decimal(10, 2)
+  allowed        Decimal?   @db.Decimal(10, 2)
+  paid           Decimal    @db.Decimal(10, 2)
+  patientResponsibility Decimal @db.Decimal(10, 2)
+  claimStatusCode String    /// 1 primary, 4 denied, 22 reversal …
+  underpaidBy    Decimal?   @db.Decimal(10, 2) /// @server vs contract fee schedule
+  posted         Boolean    @default(false) /// @server
+
+  adjustments    RemittanceAdjustment[]
+}
+
+/// CARC/RARC adjustments per claim or line
+/// @tenant
+model RemittanceAdjustment {
+  id              String                 @id @default(uuid()) @db.Uuid
+  practiceId      String                 @db.Uuid /// @server
+  claimPaymentId  String                 @db.Uuid
+  claimPayment    RemittanceClaimPayment @relation(fields: [claimPaymentId], references: [id])
+  lineNumber      Int?
+  group           AdjustmentGroup
+  carc            String
+  rarc            String[]
+  amount          Decimal                @db.Decimal(10, 2)
+}
+
+/// PLB segment (recoupments, interest)
+/// @tenant
+model ProviderLevelAdjustment {
+  id             String     @id @default(uuid()) @db.Uuid
+  practiceId     String     @db.Uuid /// @server
+  remittanceId   String     @db.Uuid
+  remittance     Remittance @relation(fields: [remittanceId], references: [id])
+  reasonCode     String     /// WO, L6, FB …
+  reference      String?    /// source claim reference
+  amount         Decimal    @db.Decimal(10, 2)
+  postedToClaimId String?   @db.Uuid /// @server
+}
+
+/// @tenant
+model Denial {
+  id           String       @id @default(uuid()) @db.Uuid
+  practiceId   String       @db.Uuid /// @server
+  claimId      String       @db.Uuid
+  claim        Claim        @relation(fields: [claimId], references: [id])
+  carc         String
+  rarc         String[]
+  rootCause    String       /// @server grouping key (no-auth, medical-necessity, cob, underpaid, …)
+  amount       Decimal      @db.Decimal(10, 2)
+  appealDeadline DateTime   @db.Date /// @server INV-FIN-05
+  status       DenialStatus @default(OPEN)
+  action       DenialAction?
+  snoozedUntil DateTime?
+  taskId       String?      @db.Uuid /// @server
+  createdAt    DateTime     @default(now()) /// @server
+
+  appeals      Appeal[]
+}
+
+/// @tenant
+model Appeal {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  denialId      String   @db.Uuid
+  denial        Denial   @relation(fields: [denialId], references: [id])
+  level         Int      @default(1)
+  letterFileId  String   @db.Uuid
+  attachmentFileIds String[] @db.Uuid
+  submittedVia  String   /// payer-portal, fax, mail, x12-275
+  submittedAt   DateTime
+  outcome       String?
+  submittedById String   @db.Uuid /// @server
+}
+
+/// Append-only financial ledger; balances are derived (INV-FIN-01, INV-FIN-02)
+/// @tenant
+/// @append-only
+model LedgerEntry {
+  id             String          @id @default(uuid()) @db.Uuid
+  practiceId     String          @db.Uuid /// @server
+  patientId      String          @db.Uuid
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  guarantorId    String?         @db.Uuid
+  encounterId    String?         @db.Uuid
+  chargeItemId   String?         @db.Uuid
+  claimId        String?         @db.Uuid
+  paymentId      String?         @db.Uuid
+  remittanceId   String?         @db.Uuid
+  type           LedgerEntryType
+  responsibility Responsibility
+  amount         Decimal         @db.Decimal(12, 2) /// positive increases what is owed, negative reduces
+  carc           String?
+  reversalOfId   String?         @db.Uuid
+  depositBatchId String?         @db.Uuid
+  memo           String?
+  postedAt       DateTime        @default(now())
+  postedById     String?         @db.Uuid
+
+  @@index([patientId, postedAt])
+  @@index([encounterId])
+}
+
+/// Tokenised card on file (no PAN stored; PCI scope stays with the payment processor)
+/// @tenant
+model PaymentMethod {
+  id             String   @id @default(uuid()) @db.Uuid
+  practiceId     String   @db.Uuid /// @server
+  patientId      String   @db.Uuid
+  patient        Patient  @relation(fields: [patientId], references: [id])
+  processorToken String   /// @secret
+  brand          String
+  last4          String
+  expMonth       Int
+  expYear        Int
+  consentId      String?  @db.Uuid /// card-on-file consent
+  isDefault      Boolean  @default(false)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) /// @server
+}
+
+/// @tenant
+/// @fhir PaymentNotice
+model Payment {
+  id              String            @id @default(uuid()) @db.Uuid
+  practiceId      String            @db.Uuid /// @server
+  patientId       String            @db.Uuid
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  method          PaymentMethodType
+  paymentMethodId String?           @db.Uuid
+  amount          Decimal           @db.Decimal(10, 2)
+  status          PaymentStatus     @default(PENDING) /// @server
+  processorRef    String?           /// @server
+  checkNumber     String?
+  appliedTo       Json?             /// [{encounterId, amount}]
+  channel         String            /// front-desk, portal, autopay, mail
+  locationId      String?           @db.Uuid
+  receiptChannel  String?
+  depositBatchId  String?           @db.Uuid /// @server
+  takenById       String?           @db.Uuid /// @server
+  takenAt         DateTime          @default(now()) /// @server
+  refundOfId      String?           @db.Uuid
+}
+
+/// @tenant
+model PaymentPlan {
+  id             String     @id @default(uuid()) @db.Uuid
+  practiceId     String     @db.Uuid /// @server
+  patientId      String     @db.Uuid
+  patient        Patient    @relation(fields: [patientId], references: [id])
+  totalAmount    Decimal    @db.Decimal(10, 2)
+  months         Int
+  monthlyAmount  Decimal    @db.Decimal(10, 2)
+  firstPaymentOn DateTime   @db.Date
+  paymentMethodId String    @db.Uuid
+  status         PlanStatus @default(ACTIVE)
+  missedCount    Int        @default(0) /// @server
+  createdById    String?    @db.Uuid /// @server
+  createdAt      DateTime   @default(now()) /// @server
+}
+
+/// @tenant
+model Statement {
+  id            String   @id @default(uuid()) @db.Uuid
+  practiceId    String   @db.Uuid /// @server
+  patientId     String   @db.Uuid
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  cycleNumber   Int
+  amountDue     Decimal  @db.Decimal(10, 2)
+  dueDate       DateTime @db.Date
+  channels      String[] /// sms, email, mail, portal
+  fileId        String   @db.Uuid
+  sentAt        DateTime @default(now())
+  openedAt      DateTime?
+  paidAt        DateTime?
+  holdReason    String?  /// payment-plan, dispute, collections-hold
+}
+
+/// Good-faith estimate for self-pay patients
+/// @tenant
+model Estimate {
+  id          String         @id @default(uuid()) @db.Uuid
+  practiceId  String         @db.Uuid /// @server
+  patientId   String         @db.Uuid
+  patient     Patient        @relation(fields: [patientId], references: [id])
+  items       Json           /// [{code, description, amount}]
+  total       Decimal        @db.Decimal(10, 2) /// @server
+  status      EstimateStatus @default(DRAFT)
+  fileId      String?        @db.Uuid /// @server
+  sentAt      DateTime?      /// @server
+  createdById String?        @db.Uuid /// @server
+  createdAt   DateTime       @default(now()) /// @server
+}
+
+/// Day close: drawer counts vs posted payments vs bank deposit (INV-FIN-04)
+/// @tenant
+model DepositBatch {
+  id            String      @id @default(uuid()) @db.Uuid
+  practiceId    String      @db.Uuid /// @server
+  businessDate  DateTime    @db.Date
+  locationId    String      @db.Uuid
+  expected      Json        /// @server totals by user and method
+  counted       Json?       /// counts entered at close
+  depositTotal  Decimal?    @db.Decimal(12, 2)
+  bankMatched   Boolean     @default(false) /// @server
+  variance      Decimal     @default(0) @db.Decimal(12, 2) /// @server
+  varianceReason String?
+  status        BatchStatus @default(OPEN)
+  closedById    String?     @db.Uuid /// @server
+  closedAt      DateTime?   /// @server
+
+  @@unique([practiceId, locationId, businessDate])
+}
+
+// ============================================================================
+// PATIENT PORTAL & THIRD-PARTY APPS
+// ============================================================================
+
+/// Patient or proxy login (separate identity from staff). Global so a parent can access children at more than one practice.
+model PortalUser {
+  id               String        @id @default(uuid()) @db.Uuid
+  email            String        @unique /// @phi
+  phone            String?       /// @phi
+  passwordHash     String?       /// @secret
+  status           AccountStatus @default(INVITED) /// @server
+  emailVerifiedAt  DateTime?     /// @server
+  failedLoginCount Int           @default(0) /// @server
+  lockedUntil      DateTime?     /// @server
+  lastLoginAt      DateTime?     /// @server
+  createdAt        DateTime      @default(now()) /// @server
+
+  access           PortalAccess[]
+  mfaFactors       MfaFactor[]
+}
+
+/// Which patient records a portal user may act for, and with what scope (proxy, adolescent rules OPEN-Q10)
+model PortalAccess {
+  id            String             @id @default(uuid()) @db.Uuid
+  practiceId    String             @db.Uuid /// @server
+  portalUserId  String             @db.Uuid
+  portalUser    PortalUser         @relation(fields: [portalUserId], references: [id])
+  patientId     String             @db.Uuid
+  patient       Patient            @relation(fields: [patientId], references: [id])
+  relationship  PortalRelationship
+  scope         String[]           /// messages, appointments, results, billing, record, notes
+  validFrom     DateTime           @default(now())
+  validUntil    DateTime?          /// e.g. proxy ends at child's 12th/18th birthday per state rule
+  grantedById   String?            @db.Uuid /// @server
+  revokedAt     DateTime?
+
+  @@unique([portalUserId, patientId])
+}
+
+/// Registered SMART on FHIR client app (patient-access and bulk)
+model SmartClient {
+  id              String   @id @default(uuid()) @db.Uuid
+  clientId        String   @unique
+  name            String
+  redirectUris    String[]
+  scopes          String[]
+  confidential    Boolean  @default(false)
+  clientSecretHash String? /// @secret
+  jwksUri         String?
+  backendService  Boolean  @default(false) /// bulk data
+  practiceId      String?  @db.Uuid /// null = available to all practices
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  grants          SmartGrant[]
+}
+
+/// Patient authorisation of an app (portal.profile#apps)
+model SmartGrant {
+  id            String      @id @default(uuid()) @db.Uuid
+  smartClientId String      @db.Uuid
+  smartClient   SmartClient @relation(fields: [smartClientId], references: [id])
+  portalUserId  String      @db.Uuid
+  patientId     String      @db.Uuid
+  scopes        String[]
+  grantedAt     DateTime    @default(now())
+  lastAccessAt  DateTime?
+  revokedAt     DateTime?
+}
+
+// ============================================================================
+// INTEGRATIONS (ADR-005): connections, message log, webhooks, outbox
+// ============================================================================
+
+/// One configured connection per practice and vendor. Secrets live in a secret store; only references here.
+/// @tenant
+model IntegrationConnection {
+  id                  String            @id @default(uuid()) @db.Uuid
+  practiceId          String            @db.Uuid /// @server
+  kind                IntegrationKind
+  gateway             String            /// ClearinghouseGateway, ErxGateway, LabGateway, …
+  displayName         String
+  config              Json              /// non-secret settings (endpoints, sender ids, facility ids)
+  secretRef           String            /// @secret secret-store path
+  health              IntegrationHealth @default(HEALTHY) /// @server
+  healthSince         DateTime          @default(now()) /// @server
+  lastSuccessAt       DateTime?         /// @server
+  lastError           String?           /// @server
+  certificateExpiresAt DateTime?
+  baaOnFile           Boolean           @default(false) /// HIPAA BAA signed with vendor
+  enabled             Boolean           @default(true)
+  updatedAt           DateTime          @updatedAt /// @server
+
+  messages            InterfaceMessage[]
+
+  @@unique([practiceId, kind])
+}
+
+/// Every message to/from an external system. Idempotent retries (INV-OPS-01).
+/// @tenant
+model InterfaceMessage {
+  id             String                 @id @default(uuid()) @db.Uuid
+  practiceId     String                 @db.Uuid /// @server
+  connectionId   String                 @db.Uuid
+  connection     IntegrationConnection  @relation(fields: [connectionId], references: [id])
+  direction      InterfaceDirection
+  messageType    String                 /// X12_270, X12_837P, X12_835, HL7_ORM, HL7_ORU, HL7_VXU, NCPDP_NEWRX, SMS, EMAIL, …
+  idempotencyKey String                 @unique
+  status         InterfaceMessageStatus @default(QUEUED)
+  attempts       Int                    @default(0)
+  nextAttemptAt  DateTime?
+  payloadFileId  String?                @db.Uuid /// @phi encrypted payload on volume
+  vendorRef      String?
+  correlationType String?
+  correlationId  String?                @db.Uuid
+  error          String?
+  createdAt      DateTime               @default(now())
+  completedAt    DateTime?
+
+  @@index([connectionId, status, nextAttemptAt])
+  @@index([correlationType, correlationId])
+}
+
+/// Inbound webhook receipts (Stedi, Twilio, LogiCoy, Health Gorilla). Deduplicated by vendor event id.
+model WebhookEvent {
+  id                String   @id @default(uuid()) @db.Uuid
+  practiceId        String?  @db.Uuid
+  provider          IntegrationKind
+  vendorEventId     String
+  signatureVerified Boolean
+  payloadFileId     String?  @db.Uuid /// @phi
+  receivedAt        DateTime @default(now())
+  processedAt       DateTime?
+  error             String?
+
+  @@unique([provider, vendorEventId])
+}
+
+/// Transactional outbox: domain events written in the same transaction, delivered by workers
+model OutboxEvent {
+  id          BigInt   @id @default(autoincrement())
+  practiceId  String?  @db.Uuid
+  topic       String   /// appointment.status-changed, order.signed, note.signed, claim.ready, …
+  payload     Json     /// ids only; consumers re-read the row
+  createdAt   DateTime @default(now())
+  dispatchedAt DateTime?
+  attempts    Int      @default(0)
+
+  @@index([dispatchedAt, createdAt])
+}
+
+/// Async jobs: exports (CSV, bulk FHIR, EHI), statement runs, eligibility batches, measure computation
+/// @tenant
+model Job {
+  id            String     @id @default(uuid()) @db.Uuid
+  practiceId    String     @db.Uuid /// @server
+  type          String     /// export, statement-run, eligibility-batch, measure-compute, registry-query
+  exportType    ExportType?
+  params        Json
+  status        JobStatus  @default(QUEUED) /// @server
+  progress      Int        @default(0) /// @server
+  resultFileIds String[]   @db.Uuid /// @server
+  error         String?    /// @server
+  requestedById String?    @db.Uuid /// @server
+  requestedAt   DateTime   @default(now()) /// @server
+  finishedAt    DateTime?  /// @server
+  expiresAt     DateTime?  /// @server download link expiry
+}
+
+// ============================================================================
+// REFERENCE DATA (global): ICD-10-CM, CVX, POS, LOINC, CPT/HCPCS, CARC/RARC, NUCC, RxNorm cache, NPPES cache
+// ============================================================================
+
+/// Code systems loaded from authoritative sources (CMS ICD-10-CM, CDC CVX, CMS POS, LOINC, X12 CARC/RARC, NUCC).
+/// CPT content requires an AMA licence; load only what the practice is licensed for.
+/// @reference
+model CodeConcept {
+  id          String     @id @default(uuid()) @db.Uuid
+  system      CodeSystem
+  code        String
+  display     String
+  shortDisplay String?
+  active      Boolean    @default(true)
+  billable    Boolean?   /// ICD-10-CM leaf codes
+  attributes  Json?      /// e.g. CVX status, POS description, laterality hints
+  sourceVersion String   /// release, e.g. "ICD-10-CM 2026"
+  effectiveFrom DateTime? @db.Date
+  effectiveTo DateTime?  @db.Date
+
+  @@unique([system, code, sourceVersion])
+  @@index([system, display])
+}
+
+/// RxNorm concepts cached from RxNav (drug search, schedules, NDC links)
+/// @reference
+model RxNormConcept {
+  rxcui        String   @id
+  name         String
+  tty          String   /// SCD, SBD, GPCK, IN, …
+  deaSchedule  String?
+  ndcs         String[]
+  ingredients  String[]
+  fetchedAt    DateTime @default(now())
+
+  @@index([name])
+}
+
+/// NPPES NPI Registry lookups cached for providers, organisations and referral recipients
+/// @reference
+model NpiRegistryEntry {
+  npi          String   @id
+  entityType   String   /// 1 individual, 2 organisation
+  name         String
+  taxonomies   Json
+  addresses    Json
+  status       String
+  fetchedAt    DateTime @default(now())
+}

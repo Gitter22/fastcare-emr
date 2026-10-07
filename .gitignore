@@ -1,0 +1,36 @@
+node_modules/
+dist/
+build/
+target/
+generated/
+*.log
+.env
+.env.*
+!.env.example
+
+# Frontend
+apps/web/dist/
+
+# Java
+apps/fhir/target/
+*.class
+
+# Step 8 -- database backups contain raw PHI (patient data, even though
+# individual PHI fields are encrypted at rest, other columns are not) --
+# must never be committed. See DR_RUNBOOK.md.
+backups/
+apps/api/backups/
+
+# Step 8 -- tenant export/offboarding artifacts contain raw PHI, same
+# reasoning as backups/ above.
+tenant-exports/
+ops-logs/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+.claude/worktrees
