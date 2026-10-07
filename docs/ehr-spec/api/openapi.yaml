@@ -40301,17 +40301,17 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Payment'
-            expected:
+            expectedTotal:
               type: string
               pattern: ^-?\d+\.\d{2}$
               description: decimal amount, 2 places
-            counted:
+            countedTotal:
               type: string
               pattern: ^-?\d+\.\d{2}$
               description: decimal amount, 2 places
           required:
             - payments
-            - expected
+            - expectedTotal
     Device:
       type: object
       properties:
@@ -41234,7 +41234,7 @@ components:
         - $ref: '#/components/schemas/EligibilityCheck'
         - type: object
           properties:
-            benefits:
+            benefitLines:
               type: array
               items:
                 type: object
@@ -41270,7 +41270,7 @@ components:
               items:
                 type: string
           required:
-            - benefits
+            - benefitLines
             - messages
     EligibilityCheckRequest:
       type: object
@@ -42944,7 +42944,7 @@ components:
         - $ref: '#/components/schemas/InboundResult'
         - type: object
           properties:
-            candidates:
+            candidateMatches:
               type: array
               items:
                 type: object
@@ -42963,7 +42963,7 @@ components:
               type: string
               maxLength: 20000
           required:
-            - candidates
+            - candidateMatches
             - rawPreview
     InboxCounts:
       type: object
@@ -47330,7 +47330,11 @@ components:
       x-tenant: true
     PaymentCreateRequest:
       type: object
+      description: patientId or appointmentId identifies whose ledger the payment posts to (balance payments have no appointment).
       properties:
+        patientId:
+          type: string
+          format: uuid
         amount:
           type: string
           pattern: ^-?\d+\.\d{2}$
@@ -49642,13 +49646,13 @@ components:
           properties:
             patient:
               $ref: '#/components/schemas/PatientSummary'
-            attempts:
+            outreach:
               type: array
               items:
                 $ref: '#/components/schemas/OutreachAttempt'
           required:
             - patient
-            - attempts
+            - outreach
     ReconcileDecision:
       type: object
       description: Reconcile staged outside or patient-reported items into the active list (INV-DATA-01).
@@ -52594,7 +52598,7 @@ components:
         - $ref: '#/components/schemas/TelehealthSession'
         - type: object
           properties:
-            participants:
+            participantList:
               type: array
               items:
                 type: object
@@ -52616,7 +52620,7 @@ components:
                   - name
                   - role
           required:
-            - participants
+            - participantList
     TelehealthStatus:
       type: string
       enum:

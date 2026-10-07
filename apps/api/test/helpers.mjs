@@ -77,3 +77,20 @@ export async function asTenantOf(email, fn) {
   const rows = await prisma.$queryRaw`SELECT "practiceId" FROM find_staff_users_for_login(${email})`;
   return withTenant(rows[0].practiceId, fn);
 }
+
+const NIL = "00000000-0000-0000-0000-000000000000";
+/** A registration body for a distinct, fictional person (random name, DOB and phone so duplicate checks pass). */
+export function newPatientBody(extra = {}) {
+  const r = (n) => Math.floor(Math.random() * n);
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const word = (n) => Array.from({ length: n }, () => letters[r(26)]).join("");
+  const cap = (w) => w[0].toUpperCase() + w.slice(1);
+  const dob = `${1940 + r(70)}-${String(1 + r(12)).padStart(2, "0")}-${String(1 + r(28)).padStart(2, "0")}`;
+  const phone = `312-${String(200 + r(700))}-${String(r(10000)).padStart(4, "0")}`;
+  const { patient, ...rest } = extra;
+  return {
+    patient: { firstName: cap(word(6)), lastName: cap(word(8)), birthDate: dob, administrativeGender: r(2) ? "FEMALE" : "MALE", ...(patient ?? {}) },
+    contactPoints: [{ patientId: NIL, system: "PHONE", use: "MOBILE", value: phone }],
+    ...rest,
+  };
+}

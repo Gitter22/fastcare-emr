@@ -41,3 +41,10 @@ export function assertTransition(
 export function toEnum(stateId: string): string {
   return stateId.toUpperCase().replace(/-/g, "_");
 }
+
+/** Transitions available from a state, as "machine:from->to" (AppointmentDetail.allowedTransitions etc.). */
+export function transitionsFrom(machine: MachineId, fromId: string): string[] {
+  return (machines[machine].transitions as readonly TransitionDef[])
+    .filter((t) => t.from.includes(fromId))
+    .map((t) => `${machine}:${fromId}->${t.to}`);
+}

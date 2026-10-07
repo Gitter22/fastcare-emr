@@ -13,7 +13,7 @@ import {
 } from "../../platform/patientAccess.js";
 import { conflict, notFound, unprocessable } from "../../platform/problem.js";
 import { writeVersion } from "../../platform/versioning.js";
-import { ageText, displayName, parseDate, parseSearch } from "./domain.js";
+import { parseDate, parseSearch } from "./domain.js";
 import {
   MERGEABLE_FIELDS,
   contactData,
@@ -23,7 +23,6 @@ import {
   isBlocking,
   nextMrn,
   patientDetail,
-  patientFlags,
   primaryEmail,
   primaryPhone,
   relatedData,
@@ -31,7 +30,7 @@ import {
   summaries,
   toSummary,
 } from "./service.js";
-import { bannerExtras } from "./banner.js";
+import { buildBanner } from "./banner.js";
 
 const date = (s: string | null | undefined) =>
   s ? new Date(s.length === 10 ? `${s}T00:00:00Z` : s) : s === null ? null : undefined;
@@ -388,31 +387,7 @@ export const patientHandlers: HandlerMap = {
       ctx.afterCommit(() =>
         rememberRecentPatient((ctx.principal as { userId: string }).userId, p.id),
       );
-    const extras = await bannerExtras(ctx.db, p);
-    return {
-      id: p.id,
-      mrn: p.mrn,
-      name: displayName(p),
-      ...(p.preferredName ? { preferredName: p.preferredName } : {}),
-      ...(p.pronouns ? { pronouns: p.pronouns } : {}),
-      birthDate: p.birthDate.toISOString().slice(0, 10),
-      age: ageText(p.birthDate, new Date(), p.deceasedAt),
-      ...(p.sexForClinicalUse ? { sexForClinicalUse: p.sexForClinicalUse } : {}),
-      ...(p.photoFileId ? { photoFileId: p.photoFileId } : {}),
-      allergies: extras.allergies,
-      noKnownAllergies: p.noKnownAllergies,
-      ...(p.codeStatus ? { codeStatus: p.codeStatus } : {}),
-      ...(extras.pcp ? { pcp: extras.pcp } : {}),
-      ...(extras.primaryCoverage ? { primaryCoverage: extras.primaryCoverage } : {}),
-      ...(extras.eligibility ? { eligibility: extras.eligibility } : {}),
-      balance: extras.balance,
-      ...(p.preferredLanguage ? { preferredLanguage: p.preferredLanguage } : {}),
-      interpreterNeeded: p.interpreterNeeded,
-      flags: [...patientFlags(p), ...extras.flags],
-      restricted:
-        p.securityLabels.some((l) => RESTRICTED_LABELS.includes(l)) || extras.restrictedRows > 0,
-      part2: p.securityLabels.includes("42CFRPart2") || extras.part2Rows > 0,
-    };
+    return buildBanner(ctx.db, p);
   },
 
   async requestEmergencyAccess(ctx) {

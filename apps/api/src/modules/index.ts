@@ -5,6 +5,10 @@ import { userHandlers } from "./admin/users.js";
 import { authHandlers } from "./auth/handlers.js";
 import { patientHandlers } from "./patients/handlers.js";
 import { workspaceHandlers } from "./workspace/handlers.js";
+import { schedulingHandlers } from "./scheduling/handlers.js";
+import { frontDeskBillingHandlers } from "./billing/frontdesk.js";
+import { schedulingSetupHandlers } from "./admin/schedulingSetup.js";
+import { payerHandlers } from "./admin/payers.js";
 
 /** Every module's operation handlers, keyed by operationId (api/openapi.yaml). */
 export const handlers: HandlerMap = {
@@ -14,4 +18,8 @@ export const handlers: HandlerMap = {
   ...securityHandlers,
   ...organisationHandlers,
   ...workspaceHandlers,
+  ...schedulingHandlers,
+  ...frontDeskBillingHandlers,
+  ...schedulingSetupHandlers,
+  ...payerHandlers,
 };

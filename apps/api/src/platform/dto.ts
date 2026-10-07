@@ -55,7 +55,8 @@ function convert(value: unknown, schema: Schema): unknown {
       : value.toString();
   if (isDecimal(value)) {
     const n = value.toNumber();
-    return s.pattern === MONEY ? n.toFixed(2) : types(s).includes("string") ? value.toString() : n;
+    // Every Decimal column in the schema has scale 2 (money, percentages): always two places as a string.
+    return types(s).includes("string") || s.pattern === MONEY ? n.toFixed(2) : n;
   }
   if (typeof value === "number" && s.pattern === MONEY) return value.toFixed(2);
   if (Array.isArray(value)) return s.items ? value.map((v) => convert(v, s.items!)) : value;

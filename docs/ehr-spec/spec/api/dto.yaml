@@ -287,7 +287,7 @@ CardScanResult:
 EligibilityCheckRequest: {serviceTypeCodes: "string[]?", dateOfService: date?, practitionerId: uuid?}
 EligibilityCheckDetail:
   _base: EligibilityCheck
-  benefits: "{serviceType: string, inNetwork: bool?, copay: money?, coinsurancePercent: number?, deductible: money?, deductibleRemaining: money?, oopRemaining: money?, authRequired: bool?}[]"
+  benefitLines: "{serviceType: string, inNetwork: bool?, copay: money?, coinsurancePercent: number?, deductible: money?, deductibleRemaining: money?, oopRemaining: money?, authRequired: bool?}[]"
   messages: "string[]"
 ConsentSignatureRequest: {type: ConsentType, signerName: string, signerRelationship: PortalRelationship, signatureFileId: uuid?, documentVersion: string, expiresAt: date?}
 PortalAccessView: {id: uuid, portalUserName: string, email: email, relationship: PortalRelationship, scopes: "string[]", status: AccountStatus, lastSignInAt: datetime?, patient: PatientSummary}
@@ -369,7 +369,7 @@ FlowBoard:
 RoomBoard: {locationId: uuid, rooms: "{room: Room, appointment: AppointmentView?, since: datetime?}[]"}
 WaitlistView: {_base: WaitlistEntry, patient: PatientSummary, visitType: VisitType?, practitionerName: string?}
 SlotOfferRequest: {start: datetime, practitionerId: uuid, locationId: uuid, visitTypeId: uuid, channel: CommChannel, expiresInMinutes: int}
-RecallView: {_base: Recall, patient: PatientSummary, attempts: "OutreachAttempt[]"}
+RecallView: {_base: Recall, patient: PatientSummary, outreach: "OutreachAttempt[]"}
 RecallCreateRequest: {patientId: uuid, reason: string, dueDate: date, visitTypeId: uuid?, practitionerId: uuid?}
 OutreachAttempt: {at: datetime, channel: CommChannel, outcome: sent|reached|left-message|no-answer|booked|declined, note: text?}
 OutreachCampaignRequest: {recallIds: "uuid[]", channel: CommChannel, templateId: uuid}
@@ -525,7 +525,7 @@ OverdueOrderRow: {serviceRequest: ServiceRequestView, patient: PatientSummary, d
 ResultInboxItem: {report: DiagnosticReportSummary, patient: PatientSummary, orderingProvider: string, critical: bool, assignedToMe: bool, taskId: uuid?}
 ReviewResultRequest: {comment: text?, patientComment: text?, release: bool?, followUp: "{kind: task|order|appointment|message, detail: text}?", version: int}
 BulkReviewRequest: {ids: "uuid[]", release: bool?, comment: text?}
-InboundResultDetail: {_base: InboundResult, candidates: "{patient: PatientSummary, score: number, orderId: uuid?}[]", rawPreview: text}
+InboundResultDetail: {_base: InboundResult, candidateMatches: "{patient: PatientSummary, score: number, orderId: uuid?}[]", rawPreview: text}
 MatchResultRequest: {patientId: uuid, serviceRequestId: uuid?, reason: text}
 ReferralView:
   _base: Referral
@@ -578,6 +578,8 @@ FileIncomingRequest: {patientId: uuid, documentType: string, loinc: string?, tit
 EligibilityRow: {appointment: AppointmentView, coverage: CoverageView?, status: EligibilityStatus, checkedAt: datetime?, issue: string?}
 PatientBalance: {patientId: uuid, insurancePending: money, patientDue: money, credit: money, inCollections: bool, oldestDays: int?}
 PaymentCreateRequest:
+  _: "patientId or appointmentId identifies whose ledger the payment posts to (balance payments have no appointment)."
+  patientId: uuid?
   amount: money
   method: PaymentMethodType
   paymentMethodId: uuid?
@@ -624,7 +626,7 @@ PatientAccount:
   paymentPlans: "PaymentPlan[]"
   statements: "Statement[]"
   paymentMethods: "PaymentMethod[]"
-DepositBatchView: {_base: DepositBatch, payments: "Payment[]", expected: money, counted: money?}
+DepositBatchView: {_base: DepositBatch, payments: "Payment[]", expectedTotal: money, countedTotal: money?}
 DrawerCounts: {cash: money, checks: money, cardTerminal: money?}
 DayCloseRequest: {locationId: uuid, date: date, counts: DrawerCounts, varianceReason: text?}
 
@@ -644,7 +646,7 @@ RpmRow: {patient: PatientSummary, program: string, month: string, readingsDays: 
 
 # ---------- telehealth ----------
 VirtualVisitRow: {appointment: AppointmentView, session: TelehealthSessionView?, patientReady: bool, deviceCheckPassed: bool?}
-TelehealthSessionView: {_base: TelehealthSession, participants: "{name: string, role: patient|proxy|interpreter|provider|staff, joinedAt: datetime?}[]"}
+TelehealthSessionView: {_base: TelehealthSession, participantList: "{name: string, role: patient|proxy|interpreter|provider|staff, joinedAt: datetime?}[]"}
 TelehealthJoin: {_phi: false, roomName: string, token: string, expiresAt: datetime, provider: string}
 ParticipantInvite: {name: string, role: proxy|interpreter|staff, phone: phone?, email: email?}
 

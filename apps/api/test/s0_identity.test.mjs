@@ -1,7 +1,7 @@
 // S0 identity invariants: INV-ID-02 (duplicate search before create), INV-ID-04 (reversible merge), INV-SEC-03.
 import { test, after, before } from "node:test";
 import assert from "node:assert/strict";
-import { call, closeApp, signIn, stepUp, unique } from "./helpers.mjs";
+import { call, closeApp, newPatientBody, signIn, stepUp, unique } from "./helpers.mjs";
 
 let frontdesk, manager, provider;
 before(async () => {
@@ -53,9 +53,10 @@ test("search is fuzzy, matches DOB and phone, and returns DOB on every row (INV-
 });
 
 test("contact values are encrypted at rest and searchable through the blind index", async () => {
-  const created = await call("POST", "/patients", { token: frontdesk, body: newPatient(unique("Enc"), unique("Tester"), "2001-01-01", "312-555-0999") });
+  const body = newPatientBody();
+  const created = await call("POST", "/patients", { token: frontdesk, body });
   assert.equal(created.status, 201);
-  assert.equal(created.body.contactPoints[0].value, "312-555-0999");
+  assert.equal(created.body.contactPoints[0].value, body.contactPoints[0].value);
   const { asTenantOf } = await import("./helpers.mjs");
   const raw = await asTenantOf("frontdesk@example.com", (tx) => tx.patientContactPoint.findFirst({ where: { patientId: created.body.id } }));
   assert.match(raw.value, /^v1:/);

@@ -1577,9 +1577,9 @@ export interface DepositBatch {
 export type DepositBatchView = DepositBatch & {
   payments: Array<Payment>;
   /** decimal amount, 2 places */
-  expected: string;
+  expectedTotal: string;
   /** decimal amount, 2 places */
-  counted?: string;
+  countedTotal?: string;
 };
 
 /** Remote monitoring devices */
@@ -1887,7 +1887,7 @@ export interface EligibilityCheck {
 }
 
 export type EligibilityCheckDetail = EligibilityCheck & {
-  benefits: Array<{
+  benefitLines: Array<{
     serviceType: string;
     inNetwork?: boolean;
     /** decimal amount, 2 places */
@@ -2443,7 +2443,7 @@ export interface InboundResult {
 }
 
 export type InboundResultDetail = InboundResult & {
-  candidates: Array<{
+  candidateMatches: Array<{
     patient: PatientSummary;
     score: number;
     orderId?: string;
@@ -3885,7 +3885,9 @@ export interface Payment {
   refundOfId?: string | null;
 }
 
+/** patientId or appointmentId identifies whose ledger the payment posts to (balance payments have no appointment). */
 export interface PaymentCreateRequest {
+  patientId?: string;
   /** decimal amount, 2 places */
   amount: string;
   method: PaymentMethodType;
@@ -4704,7 +4706,7 @@ export type RecallStatus = "DUE" | "CONTACTED" | "BOOKED" | "CLOSED";
 
 export type RecallView = Recall & {
   patient: PatientSummary;
-  attempts: Array<OutreachAttempt>;
+  outreach: Array<OutreachAttempt>;
 };
 
 /** Reconcile staged outside or patient-reported items into the active list (INV-DATA-01). */
@@ -5687,7 +5689,7 @@ export interface TelehealthSession {
 }
 
 export type TelehealthSessionView = TelehealthSession & {
-  participants: Array<{
+  participantList: Array<{
     name: string;
     role: "patient" | "proxy" | "interpreter" | "provider" | "staff";
     joinedAt?: string;

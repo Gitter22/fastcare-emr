@@ -1,7 +1,7 @@
 import argon2 from "argon2";
 import { npiWithCheckDigit } from "@agile-emr/shared";
 import type { PrismaClient, Role } from "../../generated/prisma-client/index.js";
-import { encryptField } from "../../apps/api/src/encryption.js";
+import { decryptField, encryptField } from "../../apps/api/src/encryption.js";
 import { blindIndex, encryptToBytes } from "../../apps/api/src/platform/crypto.js";
 
 export const SEED_PASSWORD = "TestPassword123!";
@@ -219,7 +219,9 @@ export async function seedDemoPractice(
   key: keyof typeof PRACTICES,
 ): Promise<void> {
   const def = PRACTICES[key];
-  const existing = await prisma.practice.findFirst({ where: { tin: def.tin } });
+  // TIN is encrypted at rest (random IV), so look it up by decrypting the few practice rows.
+  const all = await prisma.practice.findMany({ select: { id: true, tin: true } });
+  const existing = all.find((p) => decryptField(p.tin) === def.tin);
   if (existing) {
     console.log(`Demo practice ${def.legalName} exists; skipped.`);
     return;

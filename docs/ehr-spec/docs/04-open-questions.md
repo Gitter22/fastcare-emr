@@ -21,3 +21,12 @@ The agent adds questions here instead of guessing. Humans answer them; answered 
 | OPEN-Q15 | Breached-password check: agile-emr has no k-anonymity breach service (e.g. HIBP). Add one as a new integration, or keep a local list? | S0 | Local list of common leaked passwords + 12-character minimum + name/email check | Open |
 | OPEN-Q16 | WebAuthn (security keys) is specified for staff MFA. Which library/attestation policy? | S0 | TOTP, SMS, email codes and recovery codes only; security keys hidden in the UI | Open |
 | OPEN-Q17 | Which consents (if any) let staff open a restricted record (VIP, confidential, Part 2) without break-the-glass — e.g. the patient's PCP or care team? | S0, S2 | Every staff read of restricted clinical detail needs an active EmergencyAccessGrant; identity banner and search rows stay visible | Open |
+
+## Spec corrections made during the build
+
+| Date | Item | Change | Why |
+|---|---|---|---|
+| 2026-10-07 | `EligibilityCheckDetail.benefits`, `RecallView.attempts`, `InboundResultDetail.candidates`, `TelehealthSessionView.participants`, `DepositBatchView.expected/counted` | Renamed to `benefitLines`, `outreach`, `candidateMatches`, `participantList`, `expectedTotal/countedTotal` | Each view extends a model (`_base`) that already has a field of that name with a different type (object or int vs array/money), so the combined schema could never validate. The model field keeps its meaning. |
+| 2026-10-07 | `PaymentCreateRequest.patientId` | Added (optional) | Balance payments at `billing.payment-capture` have no appointment, so the request had no way to say whose ledger to post to. |
+| 2026-10-07 | `PatientBanner.balance/eligibility/preferredLanguage/interpreterNeeded`, `AuditEventEntry.patientName/patientMrn/operation`, `DuplicateCandidateView.mergeId/survivorId`, `MfaEnrollmentChallenge.qrCodeDataUrl` | Added | `spec/ui` binds these (banner-balance, banner-language, au-table patient column, unmerge, totp-qr) but the DTOs had no field for them. |
+| 2026-10-07 | `MfaFactorType.RECOVERY_CODE`, `PatientContactPoint.valueIndex`, `@encrypted` tags on contact values, member id, TIN, guarantor contacts | Added | Recovery codes had no storage; contact values are encrypted (agile-emr's PHI model) and need a keyed blind index for phone search. |

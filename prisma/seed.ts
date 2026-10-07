@@ -22,10 +22,14 @@
  * DEV_STATIC_MFA_CODE is also accepted (same convention as agile-emr).
  */
 import { PrismaClient } from "../generated/prisma-client/index.js";
+import { decryptField } from "../apps/api/src/encryption.js";
 import { loadReferenceData } from "./loadReferenceData.js";
 import { seedDemoPractice } from "./seed/practice.js";
+import { ensureDemoDay, seedScheduling } from "./seed/schedule.js";
 
 const prisma = new PrismaClient();
+/** Only the documented demo practices get demo schedule data. */
+const DEMO_TINS = ["84-1234567", "84-7654321"];
 
 async function main() {
   const me = (
@@ -39,6 +43,13 @@ async function main() {
   await loadReferenceData(prisma);
   await seedDemoPractice(prisma, "riverbend");
   await seedDemoPractice(prisma, "second");
+  for (const tin of DEMO_TINS) {
+    const practice = await prisma.practice.findMany({ select: { id: true, tin: true } });
+    const p = practice.find((x) => decryptField(x.tin) === tin);
+    if (!p) continue;
+    await seedScheduling(prisma, p.id);
+    await ensureDemoDay(prisma, p.id);
+  }
 }
 
 main()
