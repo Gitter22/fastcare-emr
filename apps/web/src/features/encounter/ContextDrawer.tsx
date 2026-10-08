@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Tag } from "@/components/ui/tag";
 import { NoteView } from "./NoteView";
 import { useEncounter } from "./EncounterWorkspace";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "encounter.note";
 type Tab = "summary" | "alerts" | "prior";
@@ -85,7 +86,7 @@ export function ContextDrawer({ onCopyForward }: { onCopyForward?: () => void })
             ],
           ] as Array<[Tab, string]>
         ).map(([id, label]) => (
-          <button
+          <Pressable
             key={id}
             type="button"
             role="tab"
@@ -97,7 +98,7 @@ export function ContextDrawer({ onCopyForward }: { onCopyForward?: () => void })
             )}
           >
             {label}
-          </button>
+          </Pressable>
         ))}
       </div>
       {tab === "summary" && s ? (
@@ -200,13 +201,13 @@ export function ContextDrawer({ onCopyForward }: { onCopyForward?: () => void })
               {priorNote?.title} · {priorNote?.authorName}
             </p>
             {onCopyForward ? (
-              <button
+              <Pressable
                 type="button"
                 className="justify-self-start text-body underline underline-offset-4 hover:text-pine-700"
                 onClick={onCopyForward}
               >
                 Copy forward with diff
-              </button>
+              </Pressable>
             ) : null}
             <NoteView note={priorDetail.data} diagnoses={priorDx.data ?? []} />
           </div>

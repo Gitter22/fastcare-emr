@@ -1,3 +1,4 @@
+import * as React from "react";
 import { formatShortDate } from "@/lib/format";
 
 /**
@@ -23,9 +24,20 @@ export function TrendChart({
   testId?: string;
   caption: string;
 }) {
+  // The drawing is laid out in real pixels (viewBox = rendered width), so labels stay 12px on any pane width.
+  const ref = React.useRef<HTMLElement>(null);
+  const [W, setW] = React.useState(360);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(
+      ([e]) => e && setW(Math.max(240, Math.round(e.contentRect.width))),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const all = series.flatMap((s) => s.points);
   if (!all.length) return <p className="py-6 text-body text-ink-2">No readings yet.</p>;
-  const W = 360;
   const H = height;
   const pad = { l: 36, r: 12, t: 12, b: 24 };
   const times = all.map((p) => new Date(p.at).getTime());
@@ -41,8 +53,8 @@ export function TrendChart({
     (tMax === tMin ? (W - pad.l - pad.r) / 2 : ((t - tMin) / (tMax - tMin)) * (W - pad.l - pad.r));
   const y = (v: number) => pad.t + (1 - (v - vMin) / (vMax - vMin || 1)) * (H - pad.t - pad.b);
   return (
-    <figure className="grid gap-2" data-testid={testId}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" aria-hidden>
+    <figure ref={ref} className="grid gap-2" data-testid={testId}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="max-w-full" aria-hidden>
         <line
           x1={pad.l}
           x2={W - pad.r}

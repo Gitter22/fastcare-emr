@@ -528,7 +528,9 @@ ServiceRequestView:
 OrderValidation:
   ok: bool
   issues: "{serviceRequestId: uuid, severity: error|warning, code: missing-dx|medical-necessity|aoe|duplicate|auth-required|abn, text: string}[]"
-SignOrdersRequest: {ids: "uuid[]", abnSigned: bool?, acknowledgedWarnings: "string[]?"}
+ServiceRequestEntry: {_base: ServiceRequestCreate, reasonConditionIds: "uuid[]"}
+ServiceRequestEdit: {_base: ServiceRequestUpdate, reasonConditionIds: "uuid[]?"}
+SignOrdersRequest: {patientId: uuid, ids: "uuid[]", abnSigned: bool?, acknowledgedWarnings: "string[]?"}
 ExpectedDateRequest: {expectedBy: date}
 KitHandoffRequest: {instructionsGiven: bool, kitLot: string?, expectedReturnBy: date?}
 CollectionItem: {serviceRequest: ServiceRequestView, patient: PatientSummary, tube: string?, fasting: bool?, dueAt: datetime?}

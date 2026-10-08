@@ -50,6 +50,7 @@ import {
   registrationSchema,
   type RegistrationValues,
 } from "./registrationSchema";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "patients.registration";
 const NIL = "00000000-0000-0000-0000-000000000000";
@@ -220,7 +221,7 @@ export function RegistrationPage() {
             <ol className="grid gap-1" aria-label="Steps">
               {STEPS.map((s, i) => (
                 <li key={s.testId}>
-                  <button
+                  <Pressable
                     type="button"
                     onClick={() => void goStep(i)}
                     data-testid={tid(S, s.testId)}
@@ -243,7 +244,7 @@ export function RegistrationPage() {
                       {i + 1}
                     </span>
                     {s.label}
-                  </button>
+                  </Pressable>
                 </li>
               ))}
             </ol>

@@ -26,6 +26,7 @@ import { decryptField } from "../apps/api/src/encryption.js";
 import { loadReferenceData } from "./loadReferenceData.js";
 import { seedDemoPractice } from "./seed/practice.js";
 import { seedClinical } from "./seed/clinical.js";
+import { seedOrders } from "./seed/orders.js";
 import { ensureDemoDay, seedScheduling } from "./seed/schedule.js";
 
 const prisma = new PrismaClient();
@@ -51,6 +52,7 @@ async function main() {
     await seedScheduling(prisma, p.id);
     await ensureDemoDay(prisma, p.id);
     await seedClinical(prisma, p.id);
+    await seedOrders(prisma, p.id);
   }
 }
 

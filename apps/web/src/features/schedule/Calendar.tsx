@@ -31,6 +31,7 @@ import { StatusChip } from "@/components/domain/StatusChip";
 import { SubNav } from "@/shell/patterns";
 import { AppointmentDrawer } from "./AppointmentDrawer";
 import { BookingDrawer } from "./BookingDrawer";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "schedule.calendar";
 const DAY_START = 7 * 60;
@@ -278,7 +279,7 @@ export function CalendarPage() {
                 {needsLook.slice(0, 8).map((n) => (
                   <li key={`${n.kind}-${n.id}`} className="flex items-start gap-2 text-body">
                     <Tag tone="caution">{n.kind}</Tag>
-                    <button
+                    <Pressable
                       type="button"
                       className="text-left hover:underline"
                       onClick={() =>
@@ -288,7 +289,7 @@ export function CalendarPage() {
                       }
                     >
                       {n.text}
-                    </button>
+                    </Pressable>
                   </li>
                 ))}
               </ul>
@@ -442,7 +443,7 @@ function DayGrid({
                 .map((o) => {
                   const m = zonedParts(o.start).minutes;
                   return (
-                    <button
+                    <Pressable
                       key={o.start}
                       type="button"
                       data-testid={tid(S, "open-slot")}
@@ -454,7 +455,7 @@ function DayGrid({
                       }}
                     >
                       Open
-                    </button>
+                    </Pressable>
                   );
                 })}
               {myBlocks.map((b) => {
@@ -480,7 +481,7 @@ function DayGrid({
                 const isNew = newPatientTypeIds.has(a.visitType.id);
                 const done = ["COMPLETED", "NO_SHOW", "LEFT_WITHOUT_BEING_SEEN"].includes(a.status);
                 return (
-                  <button
+                  <Pressable
                     key={a.id}
                     type="button"
                     onClick={() => onOpen(a)}
@@ -518,7 +519,7 @@ function DayGrid({
                         ) : null}
                       </span>
                     ) : null}
-                  </button>
+                  </Pressable>
                 );
               })}
             </div>
@@ -568,7 +569,7 @@ function WeekList({
             <h3 className="text-label text-ink">{formatDayTitle(d)}</h3>
             <span className="text-small text-ink-2">{list.length} booked</span>
             {list.map((a) => (
-              <button
+              <Pressable
                 key={a.id}
                 type="button"
                 onClick={() => onOpen(a)}
@@ -577,7 +578,7 @@ function WeekList({
               >
                 <span className="tabular-nums text-ink-2">{formatTime(a.start)}</span>
                 <span className="truncate font-semibold">{a.patient.name}</span>
-              </button>
+              </Pressable>
             ))}
           </section>
         );

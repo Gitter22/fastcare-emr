@@ -34,6 +34,7 @@ import {
 import { Tag } from "@/components/ui/tag";
 import { SubNav } from "@/shell/patterns";
 import { pathTo } from "@/app/routes";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "patients.merge-review";
 const FIELD_LABEL: Record<string, string> = {
@@ -102,7 +103,7 @@ export function MergeReviewPage() {
           <ul className="grid">
             {list.data?.data.map((c) => (
               <li key={c.id}>
-                <button
+                <Pressable
                   type="button"
                   data-testid={tid(S, "pair-row")}
                   onClick={() => setParams({ pair: c.id })}
@@ -120,7 +121,7 @@ export function MergeReviewPage() {
                   <span className="text-small text-ink-2">
                     and {c.b.name} · DOB {formatDate(c.a.birthDate)}
                   </span>
-                </button>
+                </Pressable>
               </li>
             ))}
           </ul>

@@ -1,5 +1,6 @@
 import { getEnv } from "../env.js";
 import { isStediConfigured } from "../gateways/clearinghouse/stediClient.js";
+import { isLabConnected } from "../gateways/lab/index.js";
 import type { IntegrationHealth, IntegrationKind, Tx } from "../db.js";
 import { notifyRole } from "./notify.js";
 import { createTask } from "./tasks.js";
@@ -29,16 +30,27 @@ export const GATEWAY_FOR: Record<IntegrationKind, string> = {
   HIE: "HieGateway",
 };
 
-const DISPLAY: Partial<Record<IntegrationKind, string>> = {
+const DISPLAY: Record<IntegrationKind, string> = {
   STEDI: "Stedi clearinghouse",
   LOGICOY: "LogiCoy e-prescribing",
-  HEALTH_GORILLA: "Health Gorilla labs",
+  HEALTH_GORILLA: "Lab interface (Health Gorilla)",
+  LABCORP: "LabCorp (direct)",
+  QUEST: "Quest Diagnostics (direct)",
   TWILIO: "Twilio SMS",
   SMTP: "Email (SMTP)",
   NPPES: "NPPES NPI registry",
   RXNAV: "NLM RxNav",
+  IIS: "State immunization registry",
+  PDMP: "State PDMP",
+  DIRECT: "Direct secure messaging",
+  FAX: "Fax",
+  MFA: "Two-factor service",
   PAYMENT: "Card payments",
+  VIDEO: "Telehealth video",
+  HIE: "Health information exchange",
 };
+
+export const integrationDisplayName = (kind: IntegrationKind) => DISPLAY[kind];
 
 export async function connectionFor(tx: Tx, practiceId: string, kind: IntegrationKind) {
   const existing = await tx.integrationConnection.findFirst({ where: { kind } });
@@ -48,7 +60,7 @@ export async function connectionFor(tx: Tx, practiceId: string, kind: Integratio
       practiceId,
       kind,
       gateway: GATEWAY_FOR[kind],
-      displayName: DISPLAY[kind] ?? kind,
+      displayName: DISPLAY[kind],
       config: {},
       secretRef: `env:${kind}`,
       baaOnFile: false,
@@ -194,6 +206,8 @@ export function connectedGateways(): string[] {
   const env = getEnv();
   const out = ["ReferenceDataGateway"];
   if (isStediConfigured()) out.push("ClearinghouseGateway");
+  // Simulated lab outside production (gateways/lab); a contracted vendor replaces it.
+  if (isLabConnected()) out.push("LabGateway");
   const test = env.NODE_ENV === "test";
   if (test || (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER))
     out.push("MessagingGateway:sms");

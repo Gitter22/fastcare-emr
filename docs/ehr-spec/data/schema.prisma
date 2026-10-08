@@ -2338,7 +2338,7 @@ model InboundResult {
   accessionNumber    String?
   placerOrderNumber  String?
   demographics       Json        /// @phi name, dob, sex, ids from the message
-  candidates         Json?       /// @server [{patientId, serviceRequestId, score}]
+  candidates         Json?       /// @server {items: [{patientId, serviceRequestId, score}]}
   matchStatus        MatchStatus @default(UNMATCHED) /// @server
   matchedPatientId   String?     @db.Uuid /// @server
   matchedServiceRequestId String? @db.Uuid /// @server

@@ -9,6 +9,7 @@ import { schedulingHandlers } from "./scheduling/handlers.js";
 import { frontDeskBillingHandlers } from "./billing/frontdesk.js";
 import { schedulingSetupHandlers } from "./admin/schedulingSetup.js";
 import { payerHandlers } from "./admin/payers.js";
+import { integrationHandlers } from "./admin/integrations.js";
 import { allergyHandlers } from "./clinical/allergies.js";
 import { conditionHandlers } from "./clinical/conditions.js";
 import { immunizationHandlers } from "./clinical/immunizations.js";
@@ -22,6 +23,11 @@ import { diagnosisHandlers } from "./encounters/diagnoses.js";
 import { encounterHandlers } from "./encounters/handlers.js";
 import { noteHandlers } from "./encounters/notes/handlers.js";
 import { clinicalWorkspaceHandlers } from "./workspace/clinical.js";
+import { catalogHandlers } from "./orders/catalog.js";
+import { collectionHandlers } from "./orders/collection.js";
+import { orderHandlers } from "./orders/handlers.js";
+import { trackingHandlers } from "./orders/tracking.js";
+import { resultHandlers } from "./results/handlers.js";
 
 /** Every module's operation handlers, keyed by operationId (api/openapi.yaml). */
 export const handlers: HandlerMap = {
@@ -35,6 +41,7 @@ export const handlers: HandlerMap = {
   ...frontDeskBillingHandlers,
   ...schedulingSetupHandlers,
   ...payerHandlers,
+  ...integrationHandlers,
   ...referenceHandlers,
   ...conditionHandlers,
   ...allergyHandlers,
@@ -48,4 +55,9 @@ export const handlers: HandlerMap = {
   ...noteHandlers,
   ...avsHandlers,
   ...clinicalWorkspaceHandlers,
+  ...catalogHandlers,
+  ...orderHandlers,
+  ...collectionHandlers,
+  ...trackingHandlers,
+  ...resultHandlers,
 };

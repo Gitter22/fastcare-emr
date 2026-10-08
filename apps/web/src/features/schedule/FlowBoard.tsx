@@ -37,6 +37,7 @@ import {
 import { Select, Switch } from "@/components/ui/select";
 import { Tag } from "@/components/ui/tag";
 import { SubNav } from "@/shell/patterns";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "schedule.flow-board";
 const COLUMNS: Array<{ status: AppointmentStatus; id: string }> = [
@@ -121,7 +122,7 @@ export function FlowBoardPage() {
       >
         <div className="flex items-start justify-between gap-2">
           {isBuilt("chart.summary") || isBuilt("chart.demographics") ? (
-            <button
+            <Pressable
               type="button"
               className="text-left text-h3 text-ink hover:underline"
               onClick={() =>
@@ -134,7 +135,7 @@ export function FlowBoardPage() {
               data-testid={tid(S, "card-name")}
             >
               {a.patient.name}
-            </button>
+            </Pressable>
           ) : (
             <span className="text-h3 text-ink" data-testid={tid(S, "card-name")}>
               {a.patient.name}

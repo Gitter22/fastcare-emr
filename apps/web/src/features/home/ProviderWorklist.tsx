@@ -24,6 +24,7 @@ import { Unavailable } from "@/components/ui/unavailable";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { PatientLink } from "@/features/patients/PatientBits";
 import { useOpenEncounter } from "@/features/encounter/useOpenEncounter";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "home.provider-worklist";
 type Readiness = ProviderWorklist["readiness"][number];
@@ -318,6 +319,7 @@ export function ProviderWorklistPage() {
                 label="Results to review"
                 value={data?.resultsToReview}
                 testId={tid(S, "inbox-results")}
+                to={isBuilt("inbox.results") ? pathTo("inbox.results") : undefined}
               />
               <Count
                 label="Rx renewals & changes"
@@ -352,7 +354,7 @@ export function ProviderWorklistPage() {
               <ul>
                 {data.unsignedNotes.map((n) => (
                   <li key={n.id} className="border-b border-line last:border-0">
-                    <button
+                    <Pressable
                       type="button"
                       className="flex w-full items-baseline justify-between gap-3 py-3 text-left hover:bg-surface-hover"
                       onClick={() =>
@@ -374,7 +376,7 @@ export function ProviderWorklistPage() {
                       <span className="shrink-0 text-small tabular-nums">
                         {noteAge(n.dateOfService)}
                       </span>
-                    </button>
+                    </Pressable>
                   </li>
                 ))}
               </ul>

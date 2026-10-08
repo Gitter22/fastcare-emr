@@ -20513,7 +20513,7 @@ export interface OperationTypes {
   createServiceRequest: {
     params: { encounterId: string };
     query: never;
-    body: T.ServiceRequestCreate;
+    body: T.ServiceRequestEntry;
     response: T.ServiceRequestView;
   };
   createSmartPhrase: {
@@ -23525,7 +23525,7 @@ export interface OperationTypes {
   updateServiceRequest: {
     params: { serviceRequestId: string };
     query: never;
-    body: T.ServiceRequestUpdate;
+    body: T.ServiceRequestEdit;
     response: T.ServiceRequestView;
   };
   updateSmartPhrase: {

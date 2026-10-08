@@ -11,6 +11,7 @@ import { MergeReviewPage } from "@/features/patients/MergeReview";
 import { UsersRolesPage } from "@/features/admin/UsersRoles";
 import { SecurityPolicyPage } from "@/features/admin/SecurityPolicy";
 import { AuditLogPage } from "@/features/admin/AuditLog";
+import { InterfacesPage } from "@/features/admin/Interfaces";
 import { FrontDeskBoardPage } from "@/features/home/FrontDeskBoard";
 import { CalendarPage } from "@/features/schedule/Calendar";
 import { FlowBoardPage } from "@/features/schedule/FlowBoard";
@@ -23,10 +24,13 @@ import { ProblemsPage } from "@/features/chart/Problems";
 import { MedicationsPage } from "@/features/chart/Medications";
 import { AllergiesPage } from "@/features/chart/Allergies";
 import { VitalsPage } from "@/features/chart/Vitals";
+import { ResultsPage } from "@/features/chart/Results";
+import { OrdersListPage } from "@/features/chart/Orders";
 import { TimelinePage } from "@/features/chart/Timeline";
 import { PrechartPage } from "@/features/encounter/PrechartPage";
 import { RoomingPage } from "@/features/encounter/rooming/RoomingPage";
 import { NotePage } from "@/features/encounter/NotePage";
+import { OrdersPage } from "@/features/encounter/orders/OrdersPage";
 import { DxCodingPage } from "@/features/encounter/DxCodingPage";
 import { AvsPage } from "@/features/encounter/AvsPage";
 import { SignPage } from "@/features/encounter/SignPage";
@@ -34,6 +38,10 @@ import { ClinicalDayListPage } from "@/features/home/ClinicalDayList";
 import { ProviderWorklistPage } from "@/features/home/ProviderWorklist";
 import { CheckoutPage } from "@/features/schedule/Checkout";
 import { CosignInboxPage } from "@/features/inbox/CosignInbox";
+import { ResultsInboxPage } from "@/features/inbox/ResultsInbox";
+import { CollectionPage } from "@/features/orders/Collection";
+import { ResultReconciliationPage } from "@/features/orders/ResultReconciliation";
+import { TrackingPage } from "@/features/orders/Tracking";
 
 /** Built screens by spec id. Anything not listed is hidden from navigation (NAV-09). */
 export const publicScreens: Partial<Record<ScreenId, ComponentType>> = {
@@ -53,6 +61,7 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "admin.users-roles": UsersRolesPage,
   "admin.security": SecurityPolicyPage,
   "admin.audit-log": AuditLogPage,
+  "admin.interfaces": InterfacesPage,
   "home.frontdesk-board": FrontDeskBoardPage,
   "schedule.calendar": CalendarPage,
   "schedule.booking-drawer": CalendarPage,
@@ -68,9 +77,12 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "chart.medications": MedicationsPage,
   "chart.allergies": AllergiesPage,
   "chart.vitals": VitalsPage,
+  "chart.results": ResultsPage,
+  "chart.orders": OrdersListPage,
   "encounter.prechart": PrechartPage,
   "encounter.rooming": RoomingPage,
   "encounter.note": NotePage,
+  "encounter.orders": OrdersPage,
   "encounter.dx-coding": DxCodingPage,
   "encounter.avs": AvsPage,
   "encounter.sign": SignPage,
@@ -78,4 +90,8 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "home.provider-worklist": ProviderWorklistPage,
   "schedule.checkout": CheckoutPage,
   "inbox.cosign": CosignInboxPage,
+  "inbox.results": ResultsInboxPage,
+  "orders.collection": CollectionPage,
+  "orders.result-reconciliation": ResultReconciliationPage,
+  "orders.tracking": TrackingPage,
 };

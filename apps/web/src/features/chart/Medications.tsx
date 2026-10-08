@@ -36,6 +36,7 @@ import { Tag } from "@/components/ui/tag";
 import { DrugPicker, type DrugChoice } from "@/components/domain/CodePickers";
 import { IncomingCard, ReconcileItem, SOURCE_LABEL } from "./Incoming";
 import { printList } from "./printList";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "chart.medications";
 const INVALIDATES = ["listMedicationStatements", "getPatientSummary", "getRooming"] as const;
@@ -396,7 +397,7 @@ function TabButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Pressable
       type="button"
       role="tab"
       aria-selected={!!active}
@@ -410,7 +411,7 @@ function TabButton({
       }
     >
       {children}
-    </button>
+    </Pressable>
   );
 }
 

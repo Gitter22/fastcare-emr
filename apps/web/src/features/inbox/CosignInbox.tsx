@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { CosignItem } from "@agile-emr/shared";
 import { useAuth } from "@/app/auth";
@@ -10,6 +10,7 @@ import { useApi, useApiMutation } from "@/lib/api/hooks";
 import { formatDate, formatShortDate } from "@/lib/format";
 import { useView } from "@/lib/useView";
 import { cn } from "@/lib/utils";
+import { InboxLayout } from "./InboxLayout";
 import { Button } from "@/components/ui/button";
 import {
   ConfirmDialog,
@@ -21,9 +22,10 @@ import {
 } from "@/components/ui/dialog";
 import { FieldShell } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/input";
-import { Alert, Card, CardHeader, LoadingRows, Page, PageHeader } from "@/components/ui/layout";
+import { Alert, Card, CardHeader, LoadingRows } from "@/components/ui/layout";
 import { Checkbox } from "@/components/ui/select";
 import { NoteView } from "@/features/encounter/NoteView";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "inbox.cosign";
 
@@ -34,60 +36,42 @@ export function CosignInboxPage() {
   const items = queue.data?.data ?? [];
   const selected = items.find((i) => i.note.id === v.id) ?? items[0] ?? null;
   return (
-    <Page>
-      <PageHeader title="Inbox" />
-      <div className="grid grid-cols-[200px_340px_minmax(0,1fr)] items-start gap-6">
-        <nav aria-label="Inbox folders" className="grid gap-0.5">
-          <NavLink
-            to={pathTo("inbox.cosign")}
-            className={({ isActive }) =>
-              cn(
-                "flex h-row-compact items-center justify-between px-3 text-body",
-                isActive
-                  ? "bg-pine-50 font-semibold text-pine-700"
-                  : "text-ink-2 hover:bg-surface-hover",
-              )
-            }
-          >
-            Co-sign <span className="tabular-nums">{items.length}</span>
-          </NavLink>
-        </nav>
-        <Card className="p-0" data-testid={tid(S, "cosign-item")}>
-          <h2 className="px-5 pb-2 pt-5 text-h3">Waiting for co-signature</h2>
-          {queue.isLoading ? (
-            <div className="p-5">
-              <LoadingRows rows={4} />
-            </div>
-          ) : null}
-          {!queue.isLoading && !items.length ? (
-            <p className="px-5 pb-5 text-body text-ink-2">Nothing to co-sign.</p>
-          ) : null}
-          <ul>
-            {items.map((i) => (
-              <li key={i.note.id}>
-                <button
-                  type="button"
-                  onClick={() => v.open("note", i.note.id)}
-                  className={cn(
-                    "grid w-full gap-0.5 px-5 py-3 text-left hover:bg-surface-hover",
-                    selected?.note.id === i.note.id && "bg-pine-50",
-                  )}
-                >
-                  <b className="font-semibold">{i.note.patient.name}</b>
-                  <span className="text-small text-ink-2">
-                    {formatShortDate(i.note.dateOfService)} · {i.note.title} · {i.author}
-                  </span>
-                  <span className="text-small tabular-nums text-ink-2">
-                    Waiting {i.waitingHours < 1 ? "under an hour" : `${i.waitingHours} h`}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-        {selected ? <CosignDetail item={selected} /> : <span />}
-      </div>
-    </Page>
+    <InboxLayout counts={{ "inbox.cosign": items.length }}>
+      <Card className="p-0" data-testid={tid(S, "cosign-item")}>
+        <h2 className="px-5 pb-2 pt-5 text-h3">Waiting for co-signature</h2>
+        {queue.isLoading ? (
+          <div className="p-5">
+            <LoadingRows rows={4} />
+          </div>
+        ) : null}
+        {!queue.isLoading && !items.length ? (
+          <p className="px-5 pb-5 text-body text-ink-2">Nothing to co-sign.</p>
+        ) : null}
+        <ul>
+          {items.map((i) => (
+            <li key={i.note.id}>
+              <Pressable
+                type="button"
+                onClick={() => v.open("note", i.note.id)}
+                className={cn(
+                  "grid w-full gap-0.5 px-5 py-3 text-left hover:bg-surface-hover",
+                  selected?.note.id === i.note.id && "bg-pine-50",
+                )}
+              >
+                <b className="font-semibold">{i.note.patient.name}</b>
+                <span className="text-small text-ink-2">
+                  {formatShortDate(i.note.dateOfService)} · {i.note.title} · {i.author}
+                </span>
+                <span className="text-small tabular-nums text-ink-2">
+                  Waiting {i.waitingHours < 1 ? "under an hour" : `${i.waitingHours} h`}
+                </span>
+              </Pressable>
+            </li>
+          ))}
+        </ul>
+      </Card>
+      {selected ? <CosignDetail item={selected} /> : <span />}
+    </InboxLayout>
   );
 }
 

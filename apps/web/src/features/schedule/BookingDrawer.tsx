@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EligibilityChip } from "@/components/domain/Eligibility";
 import { PatientIdentity } from "@/features/patients/PatientBits";
 import { PatientPicker } from "@/features/patients/PatientPicker";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "schedule.booking-drawer";
 
@@ -353,7 +354,7 @@ function BookingForm({ onClose, defaultDate }: { onClose: () => void; defaultDat
                   const active =
                     slot?.start === s.start && slot.practitionerId === s.practitionerId;
                   return (
-                    <button
+                    <Pressable
                       key={s.start}
                       type="button"
                       data-testid={tid(S, "slot")}
@@ -374,7 +375,7 @@ function BookingForm({ onClose, defaultDate }: { onClose: () => void; defaultDat
                     >
                       {formatDayTitle(zonedParts(s.start).date).split(",")[0]}{" "}
                       {zonedParts(s.start).date.slice(8)} · {formatTime(s.start)}
-                    </button>
+                    </Pressable>
                   );
                 })}
               </div>

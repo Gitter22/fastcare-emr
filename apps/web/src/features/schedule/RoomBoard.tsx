@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, LoadingRows, PageHeader } from "@/components/ui/layout";
 import { Tag } from "@/components/ui/tag";
 import { SubNav } from "@/shell/patterns";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "schedule.room-board";
 const STATUS_TEXT = {
@@ -71,7 +72,7 @@ export function RoomBoardPage() {
             {appointment ? (
               <div className="grid gap-0.5">
                 {isBuilt("chart.summary") || isBuilt("chart.demographics") ? (
-                  <button
+                  <Pressable
                     type="button"
                     className="text-left text-body font-semibold hover:underline"
                     onClick={() =>
@@ -84,7 +85,7 @@ export function RoomBoardPage() {
                     data-testid={tid(S, "room-occupant")}
                   >
                     {appointment.patient.name}
-                  </button>
+                  </Pressable>
                 ) : (
                   <span className="font-semibold" data-testid={tid(S, "room-occupant")}>
                     {appointment.patient.name}

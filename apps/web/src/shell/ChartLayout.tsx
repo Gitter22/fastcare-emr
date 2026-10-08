@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState, LoadingRows, Page, PermissionDenied } from "@/components/ui/layout";
 import { Tag } from "@/components/ui/tag";
 import { useCharts } from "./charts";
+import { Pressable } from "@/components/ui/pressable";
 
 /**
  * pattern chart-context (ADR-001): chart tabs, the pinned identity banner (INV-ID-01: full name, DOB and MRN
@@ -178,7 +179,7 @@ export function ChartLayout({
               )}
               data-testid="chart-tab"
             >
-              <button
+              <Pressable
                 type="button"
                 role="tab"
                 aria-selected={active}
@@ -193,7 +194,7 @@ export function ChartLayout({
                 className="text-body"
               >
                 {c.label}
-              </button>
+              </Pressable>
               <Button
                 size="icon-sm"
                 variant="ghost"

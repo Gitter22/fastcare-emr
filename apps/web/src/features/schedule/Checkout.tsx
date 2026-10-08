@@ -33,6 +33,7 @@ import { Tag } from "@/components/ui/tag";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { AvsPreview, printAvs } from "@/features/encounter/AvsPage";
 import { ChartLayout } from "@/shell/ChartLayout";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "schedule.checkout";
 type PayMethod = "cash" | "check" | "terminal" | "none";
@@ -197,7 +198,7 @@ export function CheckoutPage() {
               {fu ? (
                 <div className="grid grid-cols-4 gap-3">
                   {suggested.map((s) => (
-                    <button
+                    <Pressable
                       key={s.start}
                       type="button"
                       aria-pressed={slot === s.start}
@@ -221,11 +222,11 @@ export function CheckoutPage() {
                       {sameTime(s) ? (
                         <span className="text-small text-ink-2">Same time as today</span>
                       ) : null}
-                    </button>
+                    </Pressable>
                   ))}
                   {slots.isLoading ? <LoadingRows rows={2} /> : null}
                   {isBuilt("schedule.booking-drawer") ? (
-                    <button
+                    <Pressable
                       type="button"
                       className="grid gap-0.5 bg-surface p-4 text-left shadow-[inset_0_0_0_1px_var(--color-line-strong)] hover:bg-surface-hover"
                       onClick={() =>
@@ -239,7 +240,7 @@ export function CheckoutPage() {
                     >
                       <b className="font-semibold">Other time…</b>
                       <span className="text-ink-2">Open calendar</span>
-                    </button>
+                    </Pressable>
                   ) : null}
                 </div>
               ) : null}

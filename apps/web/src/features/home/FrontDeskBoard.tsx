@@ -27,6 +27,7 @@ import { StatusChip } from "@/components/domain/StatusChip";
 import { EligibilityChip } from "@/components/domain/Eligibility";
 import { PatientLink } from "@/features/patients/PatientBits";
 import { ArriveDrawer } from "./ArriveDrawer";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "home.frontdesk-board";
 type Tile = "all" | "in-clinic" | "eligibility" | "forms" | "balances";
@@ -498,7 +499,7 @@ function StatTile({
   caution?: boolean;
 }) {
   return (
-    <button
+    <Pressable
       type="button"
       onClick={onClick}
       data-testid={tid(S, id)}
@@ -513,7 +514,7 @@ function StatTile({
         {value}
       </span>
       <span className="text-small text-ink">{hint}</span>
-    </button>
+    </Pressable>
   );
 }
 

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/menu";
 import { Tag } from "@/components/ui/tag";
 import { NoteView } from "@/features/encounter/NoteView";
+import { Pressable } from "@/components/ui/pressable";
 
 const S = "chart.timeline";
 const KINDS: Array<{ value: TimelineItem["kind"]; label: string }> = [
@@ -111,7 +112,7 @@ export function TimelinePage() {
                       i.kind === "encounter" && i.entityType === "ClinicalNote" && !i.restricted;
                     return (
                       <li key={i.id} className="border-b border-line last:border-0">
-                        <button
+                        <Pressable
                           type="button"
                           disabled={!openable}
                           onClick={() => v.open("note", i.entityId)}
@@ -140,7 +141,7 @@ export function TimelinePage() {
                             ) : null}
                           </span>
                           {i.status ? <Tag tone="outline">{i.status}</Tag> : <span />}
-                        </button>
+                        </Pressable>
                       </li>
                     );
                   })}

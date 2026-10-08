@@ -17,6 +17,7 @@ import type { ScreenId } from "@agile-emr/shared";
 import { useAuth, useMe } from "@/app/auth";
 import { homeByRole, inboxByRole, pathTo } from "@/app/routes";
 import { isBuilt } from "@/app/registry";
+import { inboxLanding } from "@/app/inboxFolders";
 import { useApi } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ import { Select } from "@/components/ui/select";
 import { CommandBar } from "./CommandBar";
 import { NotificationsTray } from "./Notifications";
 import { useCharts } from "./charts";
+import { Pressable } from "@/components/ui/pressable";
 
 /** pattern app-shell: left rail (nav.yaml#rail) and top bar (nav.yaml#topbar) around the content. */
 interface RailItem {
@@ -87,6 +89,7 @@ const RAIL: RailItem[] = [
 /** First built screen for a rail item: its role target, else the first built screen in the same module. */
 function railTarget(item: RailItem, role: string): ScreenId | null {
   const t = item.target(role);
+  if (item.id === "rail-inbox") return inboxLanding(role, t);
   return t && isBuilt(t) ? t : null;
 }
 
@@ -222,7 +225,7 @@ function Topbar({
           options={me.locations.map((l) => ({ value: l.id, label: l.name }))}
         />
       ) : null}
-      <button
+      <Pressable
         type="button"
         onClick={onCommand}
         data-testid="command-bar-trigger"
@@ -231,7 +234,7 @@ function Topbar({
         <Search size={16} strokeWidth={1.75} aria-hidden />
         <span className="flex-1 truncate">Search patients, screens, actions</span>
         <kbd className="bg-surface-muted px-1.5 text-caption text-ink">⌘K</kbd>
-      </button>
+      </Pressable>
       <div className="ml-auto flex items-center gap-2">
         {inboxTarget && isBuilt(inboxTarget) ? (
           <Button

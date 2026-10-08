@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/menu";
+import { Pressable } from "@/components/ui/pressable";
 
 /** Patient type-ahead (search box with results popover). Rows show DOB and MRN (INV-ID-01). */
 export function PatientPicker({
@@ -63,7 +64,7 @@ export function PatientPicker({
           <p className="p-3 text-body text-ink-2">No matches.</p>
         ) : null}
         {results.data?.data.map((p) => (
-          <button
+          <Pressable
             key={p.id}
             type="button"
             className="grid w-full gap-0.5 px-3 py-2 text-left hover:bg-surface-hover"
@@ -73,7 +74,7 @@ export function PatientPicker({
             <span className="text-small tabular-nums text-ink-2">
               DOB {formatDate(p.birthDate)} · MRN {p.mrn}
             </span>
-          </button>
+          </Pressable>
         ))}
       </PopoverContent>
     </Popover>

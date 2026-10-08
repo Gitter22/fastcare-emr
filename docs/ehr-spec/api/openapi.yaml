@@ -15089,7 +15089,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ServiceRequestCreate'
+              $ref: '#/components/schemas/ServiceRequestEntry'
       responses:
         '201':
           description: Created.
@@ -15204,7 +15204,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ServiceRequestUpdate'
+              $ref: '#/components/schemas/ServiceRequestEdit'
       responses:
         '200':
           description: OK.
@@ -51401,6 +51401,28 @@ components:
         - code
         - display
       description: Lab, imaging, procedure, referral and DME orders (US Core ServiceRequest)
+    ServiceRequestEdit:
+      allOf:
+        - $ref: '#/components/schemas/ServiceRequestUpdate'
+        - type: object
+          properties:
+            reasonConditionIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+    ServiceRequestEntry:
+      allOf:
+        - $ref: '#/components/schemas/ServiceRequestCreate'
+        - type: object
+          properties:
+            reasonConditionIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+          required:
+            - reasonConditionIds
     ServiceRequestReason:
       type: object
       properties:
@@ -51594,6 +51616,9 @@ components:
     SignOrdersRequest:
       type: object
       properties:
+        patientId:
+          type: string
+          format: uuid
         ids:
           type: array
           items:
@@ -51606,6 +51631,7 @@ components:
           items:
             type: string
       required:
+        - patientId
         - ids
     SignPreflight:
       type: object

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingRows } from "@/components/ui/layout";
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { Pressable } from "@/components/ui/pressable";
 
 /** global.notifications (drawer): critical results, escalations, interface alerts. Titles carry no PHI. */
 export function NotificationsTray({
@@ -41,7 +42,7 @@ export function NotificationsTray({
           {items.map((n) => {
             const critical = n.type === "CRITICAL_RESULT" || n.type === "TASK_ESCALATED";
             return (
-              <button
+              <Pressable
                 key={n.id}
                 type="button"
                 onClick={() => {
@@ -67,7 +68,7 @@ export function NotificationsTray({
                   {n.title}
                 </span>
                 <span className="text-small text-ink-2">{relativeTime(n.createdAt)}</span>
-              </button>
+              </Pressable>
             );
           })}
         </SheetBody>

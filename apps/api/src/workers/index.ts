@@ -9,6 +9,9 @@ import {
   sendReminders,
 } from "./sweeps.js";
 import { sweepRegistry } from "./registry.js";
+import { flagOverdueOrders } from "../modules/orders/tracking.js";
+import { escalateCriticalResults } from "../modules/results/ingest.js";
+import { runSimulatedLab } from "../modules/results/simulatedLab.js";
 
 /**
  * Repeatable background jobs on BullMQ (agile-emr's queue library) with the shared Redis. One queue, one job name
@@ -59,6 +62,28 @@ sweepRegistry.register("waitlist-offer-expiry", 10 * 60_000, async (log) => {
     (e, id) => log.error({ err: e, practiceId: id }, "waitlist expiry failed"),
   );
 });
+
+// INV-SAFE-07: orders past their expected-by date without a result.
+sweepRegistry.register("orders-overdue", 60 * 60_000, async (log) => {
+  await forEachPractice(
+    (tx, p) => flagOverdueOrders(tx, p.id).then(() => undefined),
+    (e, id) => log.error({ err: e, practiceId: id }, "overdue order sweep failed"),
+  );
+});
+// INV-SAFE-04: critical results not communicated in time escalate.
+sweepRegistry.register("critical-result-escalation", 5 * 60_000, async (log) => {
+  await forEachPractice(
+    (tx, p) => escalateCriticalResults(tx, p.id).then(() => undefined),
+    (e, id) => log.error({ err: e, practiceId: id }, "critical result escalation failed"),
+  );
+});
+if (getEnv().NODE_ENV === "development")
+  sweepRegistry.register("simulated-lab", 60_000, async (log) => {
+    await forEachPractice(
+      (tx, p) => runSimulatedLab(tx, p.id).then(() => undefined),
+      (e, id) => log.error({ err: e, practiceId: id }, "simulated lab failed"),
+    );
+  });
 
 export async function startWorkers(log: FastifyBaseLogger): Promise<void> {
   const queue = new Queue(QUEUE, { connection: connection() });

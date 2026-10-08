@@ -5286,6 +5286,14 @@ export interface ServiceRequestCreate {
   cancelledReason?: string | null;
 }
 
+export type ServiceRequestEdit = ServiceRequestUpdate & {
+  reasonConditionIds?: Array<string>;
+};
+
+export type ServiceRequestEntry = ServiceRequestCreate & {
+  reasonConditionIds: Array<string>;
+};
+
 /** Diagnosis linkage for orders (INV-SAFE-08) */
 export interface ServiceRequestReason {
   readonly id: string;
@@ -5359,6 +5367,7 @@ export interface SignNoteRequest {
 }
 
 export interface SignOrdersRequest {
+  patientId: string;
   ids: Array<string>;
   abnSigned?: boolean;
   acknowledgedWarnings?: Array<string>;
@@ -6531,6 +6540,8 @@ export interface SchemaTypes {
   SendReferralRequest: SendReferralRequest;
   ServiceRequest: ServiceRequest;
   ServiceRequestCreate: ServiceRequestCreate;
+  ServiceRequestEdit: ServiceRequestEdit;
+  ServiceRequestEntry: ServiceRequestEntry;
   ServiceRequestReason: ServiceRequestReason;
   ServiceRequestUpdate: ServiceRequestUpdate;
   ServiceRequestView: ServiceRequestView;
