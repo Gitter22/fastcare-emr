@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 /**
@@ -175,9 +177,19 @@ export type Env = z.infer<typeof envSchema>;
 
 let cached: Env | undefined;
 
+/**
+ * Local dev: `npm run dev:api` / `npm start` read the repo-root `.env` (apps/api/{src,dist}/env.* → ../../../.env).
+ * Variables already in the environment win, and the Docker image never contains `.env`, so containers are unaffected.
+ */
+function loadRootEnvFile() {
+  const file = fileURLToPath(new URL("../../../.env", import.meta.url));
+  if (existsSync(file)) process.loadEnvFile(file);
+}
+
 /** Lazily parsed so importing this module never throws at import time. */
 export function getEnv(): Env {
   if (!cached) {
+    loadRootEnvFile();
     cached = envSchema.parse(process.env);
   }
   return cached;
