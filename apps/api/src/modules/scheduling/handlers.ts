@@ -421,10 +421,12 @@ export const schedulingHandlers: HandlerMap = {
         locationId: a.locationId,
         status: "IN_PROGRESS",
         periodStart: new Date(),
+        chiefComplaint: a.reason ?? null,
         securityLabels: [],
         createdById: me.userId,
       },
-      update: { status: "IN_PROGRESS" },
+      // A pre-charted (PLANNED) encounter starts now; its chief complaint is kept if already written.
+      update: { status: "IN_PROGRESS", periodStart: new Date() },
     });
     return encounterDetail(ctx.db, enc.id);
   },

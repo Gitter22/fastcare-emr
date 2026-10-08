@@ -6,7 +6,9 @@ import { PASSWORD, TOTP_SECRET, asTenantOf, call, closeApp, signIn } from "./hel
 after(closeApp);
 
 test("INV-SEC-04: password alone never yields a session; MFA is required", async () => {
-  const login = await call("POST", "/auth/login", { body: { email: "frontdesk@example.com", password: PASSWORD } });
+  const login = await call("POST", "/auth/login", {
+    body: { email: "frontdesk@example.com", password: PASSWORD },
+  });
   assert.equal(login.status, 200);
   assert.equal(login.body.next, "mfa");
   assert.ok(login.body.challengeId);
@@ -16,26 +18,40 @@ test("INV-SEC-04: password alone never yields a session; MFA is required", async
 });
 
 test("wrong password is 401 invalid_credentials and is audited as LOGIN_FAILED", async () => {
-  const r = await call("POST", "/auth/login", { body: { email: "ma@example.com", password: "wrong-password-123" } });
+  const r = await call("POST", "/auth/login", {
+    body: { email: "ma@example.com", password: "wrong-password-123" },
+  });
   assert.equal(r.status, 401);
   assert.equal(r.body.code, "invalid_credentials");
-  const rows = await asTenantOf("ma@example.com", (tx) => tx.$queryRaw`SELECT count(*)::int AS n FROM "AuditEvent" WHERE action = 'LOGIN_FAILED' AND "operationId" = 'login'`);
+  const rows = await asTenantOf(
+    "ma@example.com",
+    (tx) =>
+      tx.$queryRaw`SELECT count(*)::int AS n FROM "AuditEvent" WHERE action = 'LOGIN_FAILED' AND "operationId" = 'login'`,
+  );
   assert.ok(rows[0].n >= 1);
   // Reset the counter so the shared seed user does not lock across runs.
   await signIn("ma@example.com");
 });
 
 test("unknown email gives the same 401 as a wrong password", async () => {
-  const r = await call("POST", "/auth/login", { body: { email: "nobody@example.com", password: "whatever-123456" } });
+  const r = await call("POST", "/auth/login", {
+    body: { email: "nobody@example.com", password: "whatever-123456" },
+  });
   assert.equal(r.status, 401);
   assert.equal(r.body.code, "invalid_credentials");
 });
 
 test("wrong MFA code is rejected; correct TOTP starts a session with a refresh cookie", async () => {
-  const login = await call("POST", "/auth/login", { body: { email: "provider@example.com", password: PASSWORD } });
-  const bad = await call("POST", "/auth/mfa/verify", { body: { challengeId: login.body.challengeId, code: "000000" } });
+  const login = await call("POST", "/auth/login", {
+    body: { email: "provider@example.com", password: PASSWORD },
+  });
+  const bad = await call("POST", "/auth/mfa/verify", {
+    body: { challengeId: login.body.challengeId, code: "000000" },
+  });
   assert.equal(bad.status, 401);
-  const ok = await call("POST", "/auth/mfa/verify", { body: { challengeId: login.body.challengeId, code: authenticator.generate(TOTP_SECRET) } });
+  const ok = await call("POST", "/auth/mfa/verify", {
+    body: { challengeId: login.body.challengeId, code: authenticator.generate(TOTP_SECRET) },
+  });
   assert.equal(ok.status, 200);
   assert.ok(ok.body.accessToken);
   assert.match(String(ok.headers["set-cookie"]), /emr_refresh=.*HttpOnly; SameSite=Strict/);

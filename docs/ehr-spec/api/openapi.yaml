@@ -8639,7 +8639,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MedicationStatementCreate'
+              $ref: '#/components/schemas/MedicationStatementEntry'
       responses:
         '201':
           description: Created.
@@ -38161,6 +38161,30 @@ components:
             $ref: '#/components/schemas/ServiceRequestView'
         stagedItems:
           type: integer
+        staged:
+          type: object
+          properties:
+            problems:
+              type: integer
+            medications:
+              type: integer
+            allergies:
+              type: integer
+          required:
+            - problems
+            - medications
+            - allergies
+        restrictedHidden:
+          type: integer
+        recentVisits:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClinicalNoteSummary'
+        todayAppointment:
+          $ref: '#/components/schemas/AppointmentView'
+        todayEncounterId:
+          type: string
+          format: uuid
       required:
         - banner
         - problems
@@ -38173,6 +38197,9 @@ components:
         - upcomingAppointments
         - openOrders
         - stagedItems
+        - staged
+        - restrictedHidden
+        - recentVisits
     CheckinStatus:
       type: string
       enum:
@@ -38689,11 +38716,19 @@ components:
               roomedAt:
                 type: string
                 format: date-time
+              encounterId:
+                type: string
+                format: uuid
+              protocols:
+                type: array
+                items:
+                  type: string
             required:
               - appointment
               - prechartReady
               - careGaps
               - pendingOrders
+              - protocols
       required:
         - date
         - rows
@@ -38886,6 +38921,8 @@ components:
         children:
           type: integer
         version:
+          type: string
+        category:
           type: string
       required:
         - system
@@ -44032,6 +44069,10 @@ components:
             - absoluteExpiresAt
         homeScreen:
           type: string
+        connectedGateways:
+          type: array
+          items:
+            type: string
       required:
         - user
         - practice
@@ -44042,6 +44083,7 @@ components:
         - canSign
         - session
         - homeScreen
+        - connectedGateways
     Measure:
       type: object
       properties:
@@ -44698,6 +44740,17 @@ components:
         - patientId
         - display
       description: What the patient actually takes (from any source) (exposed via US Core MedicationRequest intent=plan where required)
+    MedicationStatementEntry:
+      allOf:
+        - $ref: '#/components/schemas/MedicationStatementCreate'
+        - type: object
+          properties:
+            reportedBy:
+              type: string
+              enum:
+                - ENTERED
+                - PATIENT_REPORTED
+                - OUTSIDE_RECORD
     MedicationStatementStatus:
       type: string
       enum:
@@ -44765,6 +44818,9 @@ components:
               $ref: '#/components/schemas/MedicationRequest'
             source:
               $ref: '#/components/schemas/ProvenanceSource'
+            possibleDuplicateOf:
+              type: string
+              format: uuid
           required:
             - source
     MergeRequest:
@@ -49240,6 +49296,39 @@ components:
           type: integer
         overdueOrders:
           type: integer
+        readiness:
+          type: array
+          items:
+            type: object
+            properties:
+              appointmentId:
+                type: string
+                format: uuid
+              encounterId:
+                type: string
+                format: uuid
+              vitalsDone:
+                type: boolean
+              vitalAlert:
+                type: string
+              precharted:
+                type: boolean
+              pendedOrders:
+                type: integer
+              notes:
+                type: array
+                items:
+                  type: string
+            required:
+              - appointmentId
+              - vitalsDone
+              - precharted
+              - pendedOrders
+              - notes
+        minutesBehind:
+          type: integer
+        waitingLong:
+          type: integer
       required:
         - date
         - practitionerId
@@ -49250,6 +49339,9 @@ components:
         - rxRequests
         - messages
         - overdueOrders
+        - readiness
+        - minutesBehind
+        - waitingLong
     QrdaExportRequest:
       type: object
       properties:
@@ -50556,6 +50648,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Observation'
+        previousVitals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
         allergiesReviewedAt:
           type: string
           format: date-time
@@ -50593,6 +50689,7 @@ components:
         - encounterId
         - banner
         - vitals
+        - previousVitals
         - screenings
         - pocOrders
         - vaccinesDue
@@ -51478,6 +51575,9 @@ components:
       properties:
         version:
           type: integer
+        patientId:
+          type: string
+          format: uuid
         attest:
           type: boolean
         cosignerUserId:
@@ -51489,6 +51589,7 @@ components:
             type: string
       required:
         - version
+        - patientId
         - attest
     SignOrdersRequest:
       type: object
@@ -51551,11 +51652,16 @@ components:
           required:
             - userId
             - name
+        passed:
+          type: array
+          items:
+            type: string
       required:
         - canSign
         - blockers
         - warnings
         - requiresCosign
+        - passed
     SignPrescriptionRequest:
       type: object
       properties:

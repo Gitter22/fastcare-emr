@@ -65,26 +65,38 @@ function tsType(s, indent = "") {
 function objectType(s, indent) {
   const props = s.properties ?? {};
   const keys = Object.keys(props);
-  if (!keys.length) return s.additionalProperties === false ? "Record<string, never>" : "Record<string, unknown>";
+  if (!keys.length)
+    return s.additionalProperties === false ? "Record<string, never>" : "Record<string, unknown>";
   const req = new Set(s.required ?? []);
   const inner = indent + "  ";
   const lines = keys.map((k) => {
     const p = props[k];
-    const doc = p.description ? `${inner}/** ${String(p.description).replace(/\*\//g, "* /").replace(/\n/g, " ")} */\n` : "";
+    const doc = p.description
+      ? `${inner}/** ${String(p.description).replace(/\*\//g, "* /").replace(/\n/g, " ")} */\n`
+      : "";
     const ro = p.readOnly ? "readonly " : "";
     return `${doc}${inner}${ro}${ident(k)}${req.has(k) ? "" : "?"}: ${tsType(p, inner)};`;
   });
   return `{\n${lines.join("\n")}\n${indent}}`;
 }
 
-let types = header + "/* eslint-disable */\n\n/** File content (multipart upload or binary download). The web client passes a Blob/File. */\nexport type BinaryData = Uint8Array | ArrayBuffer | object;\n\n";
+let types =
+  header +
+  "/* eslint-disable */\n\n/** File content (multipart upload or binary download). The web client passes a Blob/File. */\nexport type BinaryData = Uint8Array | ArrayBuffer | object;\n\n";
 for (const [name, s] of Object.entries(schemas)) {
-  if (s.description) types += `/** ${String(s.description).replace(/\*\//g, "* /").replace(/\n/g, " ")} */\n`;
+  if (s.description)
+    types += `/** ${String(s.description).replace(/\*\//g, "* /").replace(/\n/g, " ")} */\n`;
   const t = tsType(s);
-  types += t.startsWith("{") ? `export interface ${name} ${t}\n\n` : `export type ${name} = ${t};\n\n`;
+  types += t.startsWith("{")
+    ? `export interface ${name} ${t}\n\n`
+    : `export type ${name} = ${t};\n\n`;
 }
 
-types += `/** Schema name -> type (used by the API's schema-driven serialiser). */\nexport interface SchemaTypes {\n${Object.keys(schemas).map((n) => `  ${n}: ${n};`).join("\n")}\n}\n`;
+types += `/** Schema name -> type (used by the API's schema-driven serialiser). */\nexport interface SchemaTypes {\n${Object.keys(
+  schemas,
+)
+  .map((n) => `  ${n}: ${n};`)
+  .join("\n")}\n}\n`;
 
 // ---------------------------------------------------------------- operations
 const paramRefs = openapi.components.parameters;
@@ -138,7 +150,7 @@ for (const [path, item] of Object.entries(openapi.paths)) {
 ops.sort((a, b) => a.id.localeCompare(b.id));
 
 const meta = ops.map(({ _params, _body, _response, ...m }) => m);
-let opsTs = header + "/* eslint-disable */\nimport type * as T from \"./api-types.js\";\n\n";
+let opsTs = header + '/* eslint-disable */\nimport type * as T from "./api-types.js";\n\n';
 opsTs += `export interface OperationMeta {
   id: string;
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -175,20 +187,29 @@ opsTs += "export interface OperationTypes {\n";
 for (const o of ops) {
   const pathT = o._params.filter((p) => p.in === "path");
   const queryT = o._params.filter((p) => p.in === "query");
-  const pp = pathT.length ? `{ ${pathT.map((p) => `${ident(p.name)}: string`).join("; ")} }` : "never";
+  const pp = pathT.length
+    ? `{ ${pathT.map((p) => `${ident(p.name)}: string`).join("; ")} }`
+    : "never";
   const qq = queryT.length
     ? `{ ${queryT.map((p) => `${ident(p.name)}${p.required ? "" : "?"}: ${tsType(p.schema).replace(/\b([A-Z]\w+)\b/g, (m) => (schemas[m] ? `T.${m}` : m))}`).join("; ")} }`
     : "never";
-  const qualify = (t) => t.replace(/(?<![\w."])([A-Z][A-Za-z0-9]+)(?![\w"])/g, (m) => (schemas[m] ? `T.${m}` : m));
+  const qualify = (t) =>
+    t.replace(/(?<![\w."])([A-Z][A-Za-z0-9]+)(?![\w"])/g, (m) => (schemas[m] ? `T.${m}` : m));
   const body = o._body ? qualify(tsType(o._body, "    ")) : "never";
-  const res = o._response ? qualify(tsType(o._response, "    ")) : o.responseType === "binary" ? "T.BinaryData" : "void";
+  const res = o._response
+    ? qualify(tsType(o._response, "    "))
+    : o.responseType === "binary"
+      ? "T.BinaryData"
+      : "void";
   opsTs += `  ${o.id}: {\n    params: ${pp};\n    query: ${qq};\n    body: ${body};\n    response: ${res};\n  };\n`;
 }
 opsTs += "}\n";
 
 // ---------------------------------------------------------------- states + roles
 const toEnum = (id) => id.toUpperCase().replace(/-/g, "_");
-let statesTs = header + `
+let statesTs =
+  header +
+  `
 export interface StateDef { id: string; enumValue: string; label: string }
 export interface TransitionDef { from: readonly string[]; to: string; by?: readonly string[]; guard?: string; invariants?: readonly string[] }
 export interface MachineDef { id: string; states: readonly StateDef[]; transitions: readonly TransitionDef[] }
@@ -198,7 +219,11 @@ const machines = {};
 for (const m of states.machines) {
   machines[m.id] = {
     id: m.id,
-    states: m.states.map((s) => ({ id: s.id, enumValue: s.id === "new" ? "" : toEnum(s.id), label: s.label })),
+    states: m.states.map((s) => ({
+      id: s.id,
+      enumValue: s.id === "new" ? "" : toEnum(s.id),
+      label: s.label,
+    })),
     transitions: m.transitions,
   };
 }
@@ -226,7 +251,9 @@ export function stateEnum(machine: MachineId, id: string): string {
 }
 `;
 
-let rolesTs = header + `
+let rolesTs =
+  header +
+  `
 export interface RoleDef { id: string; name: string; description: string; home: string; can_sign: readonly string[]; clinical_read: string }
 export const roles = ${JSON.stringify(Object.fromEntries(roles.roles.map((r) => [r.id, r])), null, 2)} as const satisfies Record<string, RoleDef>;
 export type RoleId = keyof typeof roles;
@@ -241,18 +268,35 @@ export const roleFromEnum = (r: string) => r.toLowerCase() as StaffRoleId;
 const screensSpec = yaml.load(readFileSync(join(specDir, "spec/screens.yaml"), "utf8")).screens;
 const modulesSpec = yaml.load(readFileSync(join(specDir, "spec/modules.yaml"), "utf8")).modules;
 const uiScreens = {};
-for (const f of ["auth", "home", "schedule", "patients", "chart", "encounter", "inbox", "billing", "reports", "telehealth", "admin", "portal"]) {
+for (const f of [
+  "auth",
+  "home",
+  "schedule",
+  "patients",
+  "chart",
+  "encounter",
+  "inbox",
+  "billing",
+  "reports",
+  "telehealth",
+  "admin",
+  "portal",
+]) {
   const doc = yaml.load(readFileSync(join(specDir, `spec/ui/${f}.yaml`), "utf8"));
   Object.assign(uiScreens, doc.screens ?? {});
 }
 const moduleOf = {};
-for (const m of modulesSpec) for (const g of m.groups) for (const sid of g.screens) moduleOf[sid] = { module: m.id, nav: m.nav, group: g.name };
+for (const m of modulesSpec)
+  for (const g of m.groups)
+    for (const sid of g.screens) moduleOf[sid] = { module: m.id, nav: m.nav, group: g.name };
 // Who may open a screen: its own roles, plus any role allowed to call EVERY read (GET) operation that serves it
 // (x-screens). Intersection, so one broad helper read never opens a restricted screen.
 const STAFF = ["frontdesk", "ma", "provider", "biller", "manager"];
 const accessRoles = {};
 for (const sc of yaml.load(readFileSync(join(specDir, "spec/screens.yaml"), "utf8")).screens) {
-  const reads = ops.filter((o) => o.method === "GET" && o.screens.includes(sc.id) && o.security.includes("staffAuth"));
+  const reads = ops.filter(
+    (o) => o.method === "GET" && o.screens.includes(sc.id) && o.security.includes("staffAuth"),
+  );
   if (!reads.length) continue;
   accessRoles[sc.id] = STAFF.filter((r) => reads.every((o) => !o.roles || o.roles.includes(r)));
 }
@@ -273,7 +317,9 @@ const catalog = screensSpec.map((sc) => {
     group: moduleOf[sc.id]?.group ?? null,
   };
 });
-const screensTs = header + `
+const screensTs =
+  header +
+  `
 export interface ScreenDef {
   id: string;
   name: string;
@@ -302,7 +348,11 @@ function strip(o) {
     for (const [k, v] of Object.entries(o)) {
       if (k.startsWith("x-") || k === "example" || k === "examples") continue;
       if (k === "$ref") r[k] = v.replace("#/components/schemas/", "schemas.json#/definitions/");
-      else r[k] = k === "properties" ? Object.fromEntries(Object.entries(v).map(([pk, pv]) => [pk, strip(pv)])) : strip(v);
+      else
+        r[k] =
+          k === "properties"
+            ? Object.fromEntries(Object.entries(v).map(([pk, pv]) => [pk, strip(pv)]))
+            : strip(v);
     }
     return r;
   }
@@ -318,18 +368,25 @@ const jsonSchemas = {
         params: o._params.some((p) => p.in === "path")
           ? {
               type: "object",
-              properties: Object.fromEntries(o._params.filter((p) => p.in === "path").map((p) => [p.name, strip(p.schema)])),
+              properties: Object.fromEntries(
+                o._params.filter((p) => p.in === "path").map((p) => [p.name, strip(p.schema)]),
+              ),
               required: o._params.filter((p) => p.in === "path").map((p) => p.name),
             }
           : null,
         querystring: o._params.some((p) => p.in === "query")
           ? {
               type: "object",
-              properties: Object.fromEntries(o._params.filter((p) => p.in === "query").map((p) => [p.name, strip(p.schema)])),
+              properties: Object.fromEntries(
+                o._params.filter((p) => p.in === "query").map((p) => [p.name, strip(p.schema)]),
+              ),
               required: o._params.filter((p) => p.in === "query" && p.required).map((p) => p.name),
             }
           : null,
-        body: o.bodyMedia === "application/json" || o.bodyMedia === "application/merge-patch+json" ? strip(o._body) : null,
+        body:
+          o.bodyMedia === "application/json" || o.bodyMedia === "application/merge-patch+json"
+            ? strip(o._body)
+            : null,
         response: o._response ? strip(o._response) : null,
       },
     ]),
@@ -338,7 +395,15 @@ const jsonSchemas = {
 
 // ---------------------------------------------------------------- schema doc tags (docs/09-data-model.md)
 const prismaSchema = readFileSync(join(root, "prisma/schema.prisma"), "utf8");
-const schemaTags = { tenant: [], appendOnly: [], versioned: [], fhir: {}, patientScoped: [], encrypted: {}, phi: {} };
+const schemaTags = {
+  tenant: [],
+  appendOnly: [],
+  versioned: [],
+  fhir: {},
+  patientScoped: [],
+  encrypted: {},
+  phi: {},
+};
 for (const m of prismaSchema.matchAll(/((?:\/\/\/.*\n)*)model (\w+) \{([\s\S]*?)\n\}/g)) {
   const [, tags, name, body] = m;
   if (tags.includes("@tenant")) schemaTags.tenant.push(name);
@@ -366,4 +431,6 @@ writeFileSync(join(sharedOut, "roles.ts"), rolesTs);
 writeFileSync(join(sharedOut, "screens.ts"), screensTs);
 writeFileSync(join(apiOut, "schemas.json"), JSON.stringify(jsonSchemas));
 writeFileSync(join(apiOut, "schema-tags.json"), JSON.stringify(schemaTags, null, 2));
-console.log(`codegen: ${Object.keys(schemas).length} schemas, ${ops.length} operations, ${states.machines.length} machines`);
+console.log(
+  `codegen: ${Object.keys(schemas).length} schemas, ${ops.length} operations, ${states.machines.length} machines`,
+);

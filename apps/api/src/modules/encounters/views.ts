@@ -2,7 +2,7 @@ import type { EncounterDetail } from "@agile-emr/shared";
 import type { Tx } from "../../db.js";
 import { toDto } from "../../platform/dto.js";
 import { buildBanner } from "../patients/banner.js";
-import { appointmentViews } from "../scheduling/views.js";
+import { allowedTransitions, appointmentViews } from "../scheduling/views.js";
 
 /**
  * EncounterDetail: the encounter workspace header and section counts. Sections owned by later slices (note,
@@ -33,6 +33,6 @@ export async function encounterDetail(tx: Tx, encounterId: string): Promise<Enco
     ...(appt ? { appointment: appt } : {}),
     patient: await buildBanner(tx, patient),
     ...sections,
-    allowedTransitions: [],
+    allowedTransitions: enc.appointment ? allowedTransitions(enc.appointment) : [],
   } as EncounterDetail;
 }

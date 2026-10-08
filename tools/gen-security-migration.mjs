@@ -31,7 +31,11 @@ const appendOnlyUpdatableColumns = {
 };
 
 // Tables whose rows legitimately exist without a tenant (pre-authentication events, network directory).
-const sharedNullTenant = { AuditEvent: "insert-only", ResourceVersion: "insert-only", Pharmacy: "read" };
+const sharedNullTenant = {
+  AuditEvent: "insert-only",
+  ResourceVersion: "insert-only",
+  Pharmacy: "read",
+};
 
 const q = (n) => `"${n}"`;
 const out = [];

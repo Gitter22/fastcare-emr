@@ -5,3 +5,4 @@ export * from "./contracts/roles.js";
 export * from "./money.js";
 export * from "./npi.js";
 export * from "./contracts/screens.js";
+export * from "./clinical.js";

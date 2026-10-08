@@ -9,6 +9,10 @@ for (const line of readFileSync(envFile, "utf8").split("\n")) {
   if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
 }
 process.env.NODE_ENV = "test";
+// Tests run against their own database and Redis db (tools/reset-local-db.sh --test), never the dev data.
+for (const k of ["DATABASE_URL", "APP_DATABASE_URL"])
+  process.env[k] = process.env[k].replace(/\/emr_v2(\?|$)/, "/emr_v2_test$1");
+process.env.REDIS_URL = `${process.env.REDIS_URL.replace(/\/\d*$/, "")}/1`;
 
 export const PASSWORD = "TestPassword123!";
 export const TOTP_SECRET = "MIPW6N3DPZVXGHJ7";
@@ -34,7 +38,11 @@ export async function call(method, url, { token, body, headers = {} } = {}) {
   const res = await app.inject({
     method,
     url: url.startsWith("/api") ? url : `/api/v1${url}`,
-    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...(body !== undefined ? { "content-type": "application/json" } : {}), ...headers },
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      ...headers,
+    },
     payload: body !== undefined ? JSON.stringify(body) : undefined,
   });
   let json;
@@ -49,11 +57,17 @@ export async function call(method, url, { token, body, headers = {} } = {}) {
 /** Full sign-in (password + TOTP). Returns the access token. */
 export async function signIn(email, { role } = {}) {
   const login = await call("POST", "/auth/login", { body: { email, password: PASSWORD } });
-  if (login.status !== 200) throw new Error(`login ${email}: ${login.status} ${JSON.stringify(login.body)}`);
+  if (login.status !== 200)
+    throw new Error(`login ${email}: ${login.status} ${JSON.stringify(login.body)}`);
   const verify = await call("POST", "/auth/mfa/verify", {
-    body: { challengeId: login.body.challengeId, factorId: login.body.defaultFactorId, code: authenticator.generate(TOTP_SECRET) },
+    body: {
+      challengeId: login.body.challengeId,
+      factorId: login.body.defaultFactorId,
+      code: authenticator.generate(TOTP_SECRET),
+    },
   });
-  if (verify.status !== 200) throw new Error(`mfa ${email}: ${verify.status} ${JSON.stringify(verify.body)}`);
+  if (verify.status !== 200)
+    throw new Error(`mfa ${email}: ${verify.status} ${JSON.stringify(verify.body)}`);
   let token = verify.body.accessToken;
   if (role) {
     const sw = await call("POST", "/auth/me/active-role", { token, body: { role } });
@@ -64,17 +78,22 @@ export async function signIn(email, { role } = {}) {
 
 /** Re-authenticate (step-up) for x-step-up operations. */
 export async function stepUp(token) {
-  const r = await call("POST", "/auth/step-up", { token, body: { password: PASSWORD, code: authenticator.generate(TOTP_SECRET), purpose: "test" } });
+  const r = await call("POST", "/auth/step-up", {
+    token,
+    body: { password: PASSWORD, code: authenticator.generate(TOTP_SECRET), purpose: "test" },
+  });
   if (r.status !== 200) throw new Error(`step-up: ${r.status} ${JSON.stringify(r.body)}`);
 }
 
-export const unique = (p = "t") => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+export const unique = (p = "t") =>
+  `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** Run fn(tx) as the app role inside the tenant of a seeded user (RLS applies, like a request). */
 export async function asTenantOf(email, fn) {
   const { prisma } = await import("../dist/db.js");
   const { withTenant } = await import("../dist/platform/tenant.js");
-  const rows = await prisma.$queryRaw`SELECT "practiceId" FROM find_staff_users_for_login(${email})`;
+  const rows =
+    await prisma.$queryRaw`SELECT "practiceId" FROM find_staff_users_for_login(${email})`;
   return withTenant(rows[0].practiceId, fn);
 }
 
@@ -89,7 +108,13 @@ export function newPatientBody(extra = {}) {
   const phone = `312-${String(200 + r(700))}-${String(r(10000)).padStart(4, "0")}`;
   const { patient, ...rest } = extra;
   return {
-    patient: { firstName: cap(word(6)), lastName: cap(word(8)), birthDate: dob, administrativeGender: r(2) ? "FEMALE" : "MALE", ...(patient ?? {}) },
+    patient: {
+      firstName: cap(word(6)),
+      lastName: cap(word(8)),
+      birthDate: dob,
+      administrativeGender: r(2) ? "FEMALE" : "MALE",
+      ...(patient ?? {}),
+    },
     contactPoints: [{ patientId: NIL, system: "PHONE", use: "MOBILE", value: phone }],
     ...rest,
   };

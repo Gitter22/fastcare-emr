@@ -145,7 +145,8 @@ export function RadioGroup<V extends string>({
 }) {
   return (
     <RadioPrimitive.Root
-      value={value}
+      // Always controlled: no answer yet is "" (nothing selected), never undefined.
+      value={value ?? ""}
       onValueChange={(v) => onValueChange(v as V)}
       aria-label={ariaLabel}
       data-testid={testId}

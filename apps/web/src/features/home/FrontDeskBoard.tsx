@@ -235,6 +235,16 @@ export function FrontDeskBoardPage() {
                 Resolve
               </Button>
             );
+          if (a.status === "CHECKOUT" && can("getCheckout") && isBuilt("schedule.checkout"))
+            return (
+              <Button
+                size="sm"
+                onClick={() => navigate(pathTo("schedule.checkout", { appointmentId: a.id }))}
+                data-testid={tid(S, "row-checkout")}
+              >
+                Checkout
+              </Button>
+            );
           if ((a.status === "BOOKED" || a.status === "CONFIRMED") && can("arriveAppointment"))
             return (
               <Button

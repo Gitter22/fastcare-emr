@@ -66,15 +66,38 @@ const NAV: Array<{
 export function ChartLayout({
   children,
   compactNav = false,
+  patientId: forPatient,
 }: {
   children: React.ReactNode;
   compactNav?: boolean;
+  /** For chart-context screens whose route has no :patientId (schedule.checkout). */
+  patientId?: string;
 }) {
-  const { patientId = "" } = useParams();
+  const params = useParams();
+  const patientId = forPatient ?? params.patientId ?? "";
   const { role, me } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const banner = useApi("getPatientBanner", { params: { patientId } });
+  // Nav counts reuse the summary query (same cache entry as the Summary screen).
+  const canSummary =
+    isBuilt("chart.summary") &&
+    (screens["chart.summary"].accessRoles as readonly string[]).includes(role ?? "");
+  const summary = useApi(
+    "getPatientSummary",
+    { params: { patientId } },
+    { enabled: canSummary && !compactNav },
+  );
+  const navCount = (screen: ScreenId): { text: string; isNew?: boolean } | null => {
+    const s = summary.data;
+    if (!s) return null;
+    const n = (count: number, staged: number) =>
+      staged ? { text: `${staged} new`, isNew: true } : count ? { text: String(count) } : null;
+    if (screen === "chart.problems") return n(s.problems.length, s.staged.problems);
+    if (screen === "chart.medications") return n(s.medications.length, s.staged.medications);
+    if (screen === "chart.allergies") return n(s.allergies.length, s.staged.allergies);
+    return null;
+  };
   const { charts, open, close, rememberPath, relabel, setMax } = useCharts();
 
   React.useEffect(() => {
@@ -324,7 +347,8 @@ export function ChartLayout({
                       )
                     }
                   >
-                    {it.label}
+                    <span className="flex-1">{it.label}</span>
+                    <NavCount count={navCount(it.screen)} />
                   </NavLink>
                 ))}
               </div>
@@ -334,6 +358,17 @@ export function ChartLayout({
         <div className="min-w-0">{children}</div>
       </div>
     </div>
+  );
+}
+
+function NavCount({ count }: { count: { text: string; isNew?: boolean } | null }) {
+  if (!count) return null;
+  return count.isNew ? (
+    <Tag tone="outline" className="outline-dashed">
+      {count.text}
+    </Tag>
+  ) : (
+    <span className="text-caption tabular-nums text-ink-2">{count.text}</span>
   );
 }
 

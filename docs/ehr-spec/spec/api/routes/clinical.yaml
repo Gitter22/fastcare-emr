@@ -17,7 +17,7 @@ ops:
 
   # Medications
   - {id: listMedicationStatements, m: GET, p: "/patients/{patientId}/medication-statements", sum: "Medication list with provenance and fill data; staged incoming items with duplicate detection", q: [status, stagingStatus], res: "list:MedicationStatementView", screens: [chart.medications, chart.summary, encounter.rooming, encounter.rx], flows: ["flow:checkin/04"]}
-  - {id: createMedicationStatement, m: POST, p: "/patients/{patientId}/medication-statements", sum: "Add a patient-reported or outside medication", body: "create:MedicationStatement", res: "created:MedicationStatement", screens: [chart.medications], audit: CREATE}
+  - {id: createMedicationStatement, m: POST, p: "/patients/{patientId}/medication-statements", sum: "Add a patient-reported or outside medication", body: MedicationStatementEntry, res: "created:MedicationStatement", screens: [chart.medications], audit: CREATE}
   - {id: updateMedicationStatement, m: PATCH, p: "/medication-statements/{medicationStatementId}", sum: "Change dose or mark not taking", body: "update:MedicationStatement", res: MedicationStatement, screens: [chart.medications], audit: UPDATE}
   - {id: reconcileMedicationStatement, m: POST, p: "/medication-statements/{medicationStatementId}/reconcile", sum: "Accept, merge into existing, edit-and-accept or reject a staged medication", body: ReconcileDecision, res: MedicationStatement, screens: [chart.medications, inbox.previsit-queue], audit: UPDATE, inv: [INV-DATA-01]}
   - {id: discontinueMedication, m: POST, p: "/medication-statements/{medicationStatementId}/discontinue", sum: "Discontinue with reason; optionally send CancelRx", body: DiscontinueRequest, res: MedicationStatement, screens: [chart.medications], integ: ErxGateway, audit: UPDATE}

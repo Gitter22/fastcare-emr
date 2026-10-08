@@ -88,6 +88,7 @@ Me:
   canSign: "{notes: bool, orders: bool, prescriptions: bool, controlledSubstances: bool}"
   session: {idleTimeoutSeconds: int, absoluteExpiresAt: datetime, stepUpValidUntil: datetime?}
   homeScreen: string
+  connectedGateways: "string[]"
 ActiveRoleRequest: {_phi: false, role: Role, locationId: uuid?}
 StepUpRequest: {_phi: false, password: password, factorId: uuid?, code: string?, webauthnAssertion: json?, purpose: string}
 StepUpResult: {_phi: false, validUntil: datetime, purpose: string}
@@ -159,7 +160,7 @@ FrontDeskBoard:
   alerts: "{kind: eligibility|forms|balance|unconfirmed, appointmentId: uuid, text: string}[]"
 ClinicalDayList:
   date: date
-  rows: "{appointment: AppointmentView, prechartReady: bool, careGaps: int, pendingOrders: int, roomedAt: datetime?}[]"
+  rows: "{appointment: AppointmentView, prechartReady: bool, careGaps: int, pendingOrders: int, roomedAt: datetime?, encounterId: uuid?, protocols: 'string[]'}[]"
 ProviderWorklist:
   date: date
   practitionerId: uuid
@@ -170,6 +171,9 @@ ProviderWorklist:
   rxRequests: int
   messages: int
   overdueOrders: int
+  readiness: "{appointmentId: uuid, encounterId: uuid?, vitalsDone: bool, vitalAlert: string?, precharted: bool, pendedOrders: int, notes: 'string[]'}[]"
+  minutesBehind: int
+  waitingLong: int
 RunningLateNotice: {practitionerId: uuid, minutes: int, notifyPatients: bool, channel: CommChannel?}
 RcmQueues:
   _phi: false
@@ -258,6 +262,11 @@ ChartSummary:
   upcomingAppointments: "AppointmentView[]"
   openOrders: "ServiceRequestView[]"
   stagedItems: int
+  staged: {problems: int, medications: int, allergies: int}
+  restrictedHidden: int
+  recentVisits: "ClinicalNoteSummary[]"
+  todayAppointment: AppointmentView?
+  todayEncounterId: uuid?
 TimelineItem:
   id: uuid
   at: datetime
@@ -390,6 +399,7 @@ RoomingView:
   encounterId: uuid
   banner: PatientBanner
   vitals: "Observation[]"
+  previousVitals: "Observation[]"
   allergiesReviewedAt: datetime?
   medicationsReviewedAt: datetime?
   screenings: "QuestionnaireResponse[]"
@@ -447,7 +457,8 @@ SignPreflight:
   warnings: "{code: string, text: string}[]"
   requiresCosign: bool
   cosigner: "{userId: uuid, name: string}?"
-SignNoteRequest: {version: int, attest: bool, cosignerUserId: uuid?, acknowledgedWarnings: "string[]?"}
+  passed: "string[]"
+SignNoteRequest: {version: int, patientId: uuid, attest: bool, cosignerUserId: uuid?, acknowledgedWarnings: "string[]?"}
 SignResult: {note: ClinicalNoteSummary, chargesCreated: int, tasksCreated: int, avsId: uuid?}
 AddendumCreate: {text: text, reason: text}
 EncounterDiagnosisCreate: {icd10Code: string, display: string?, rank: int?, addToProblemList: bool?, conditionId: uuid?}
@@ -478,7 +489,8 @@ ReconcileDecision:
   items: "{stagedId: uuid, action: accept|reject|merge, mergeIntoId: uuid?}[]"
   reviewedComplete: bool
 AllergyReviewRequest: {noKnownAllergies: bool?, reviewedAt: datetime}
-MedicationStatementView: {_base: MedicationStatement, lastFill: MedicationFill?, activeRequest: MedicationRequest?, source: ProvenanceSource}
+MedicationStatementEntry: {_base: MedicationStatementCreate, reportedBy: ENTERED|PATIENT_REPORTED|OUTSIDE_RECORD?}
+MedicationStatementView: {_base: MedicationStatement, lastFill: MedicationFill?, activeRequest: MedicationRequest?, source: ProvenanceSource, possibleDuplicateOf: uuid?}
 DiscontinueRequest: {reason: text, effective: date?, cancelAtPharmacy: bool?}
 MedicationFill: {filledAt: date, pharmacy: string, quantity: number, daysSupply: int, prescriber: string?, source: erx|pdmp|claims}
 ObservationTrend: {code: string, display: string, unit: string?, referenceRange: string?, points: "{at: datetime, value: number, flag: ResultFlag?, observationId: uuid}[]"}
@@ -757,7 +769,7 @@ PortalPreferences: {smsConsent: bool, emailConsent: bool, appointmentReminders: 
 SmartGrantView: {_phi: false, id: uuid, appName: string, scopes: "string[]", grantedAt: datetime, lastAccessAt: datetime?}
 
 # ---------- reference ----------
-CodeHit: {_phi: false, system: CodeSystem, code: string, display: string, billable: bool?, children: int?, version: string?}
+CodeHit: {_phi: false, system: CodeSystem, code: string, display: string, billable: bool?, children: int?, version: string?, category: string?}
 DrugConcept:
   _phi: false
   rxcui: string

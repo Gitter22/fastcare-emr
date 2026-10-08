@@ -1,3 +1,5 @@
+import { getEnv } from "../env.js";
+import { isStediConfigured } from "../gateways/clearinghouse/stediClient.js";
 import type { IntegrationHealth, IntegrationKind, Tx } from "../db.js";
 import { notifyRole } from "./notify.js";
 import { createTask } from "./tasks.js";
@@ -180,4 +182,21 @@ async function setHealth(
       priority: "HIGH",
     });
   }
+}
+
+/**
+ * Gateways that can reach their vendor now (Me.connectedGateways). The UI shows actions that need any other gateway
+ * disabled with the reason, instead of faking them. Messaging is split by channel because SMS and email are
+ * configured separately. Vendors without credentials here (e-prescribing, labs, registry, HIE, fax, video, card
+ * processing -- OPEN-Q2) are not connected until their slice wires them.
+ */
+export function connectedGateways(): string[] {
+  const env = getEnv();
+  const out = ["ReferenceDataGateway"];
+  if (isStediConfigured()) out.push("ClearinghouseGateway");
+  const test = env.NODE_ENV === "test";
+  if (test || (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER))
+    out.push("MessagingGateway:sms");
+  if (test || (env.GMAIL_USER && env.GMAIL_APP_PASSWORD)) out.push("MessagingGateway:email");
+  return out;
 }

@@ -20381,7 +20381,7 @@ export interface OperationTypes {
   createMedicationStatement: {
     params: { patientId: string };
     query: never;
-    body: T.MedicationStatementCreate;
+    body: T.MedicationStatementEntry;
     response: T.MedicationStatement;
   };
   createMessageThread: {

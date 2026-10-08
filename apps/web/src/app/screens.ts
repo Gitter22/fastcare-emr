@@ -18,6 +18,22 @@ import { RoomBoardPage } from "@/features/schedule/RoomBoard";
 import { WaitlistPage } from "@/features/schedule/Waitlist";
 import { RecallListPage } from "@/features/schedule/Recalls";
 import { DemographicsPage } from "@/features/chart/Demographics";
+import { ChartSummaryPage } from "@/features/chart/ChartSummary";
+import { ProblemsPage } from "@/features/chart/Problems";
+import { MedicationsPage } from "@/features/chart/Medications";
+import { AllergiesPage } from "@/features/chart/Allergies";
+import { VitalsPage } from "@/features/chart/Vitals";
+import { TimelinePage } from "@/features/chart/Timeline";
+import { PrechartPage } from "@/features/encounter/PrechartPage";
+import { RoomingPage } from "@/features/encounter/rooming/RoomingPage";
+import { NotePage } from "@/features/encounter/NotePage";
+import { DxCodingPage } from "@/features/encounter/DxCodingPage";
+import { AvsPage } from "@/features/encounter/AvsPage";
+import { SignPage } from "@/features/encounter/SignPage";
+import { ClinicalDayListPage } from "@/features/home/ClinicalDayList";
+import { ProviderWorklistPage } from "@/features/home/ProviderWorklist";
+import { CheckoutPage } from "@/features/schedule/Checkout";
+import { CosignInboxPage } from "@/features/inbox/CosignInbox";
 
 /** Built screens by spec id. Anything not listed is hidden from navigation (NAV-09). */
 export const publicScreens: Partial<Record<ScreenId, ComponentType>> = {
@@ -46,4 +62,20 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "schedule.waitlist": WaitlistPage,
   "schedule.recall-list": RecallListPage,
   "chart.demographics": DemographicsPage,
+  "chart.summary": ChartSummaryPage,
+  "chart.timeline": TimelinePage,
+  "chart.problems": ProblemsPage,
+  "chart.medications": MedicationsPage,
+  "chart.allergies": AllergiesPage,
+  "chart.vitals": VitalsPage,
+  "encounter.prechart": PrechartPage,
+  "encounter.rooming": RoomingPage,
+  "encounter.note": NotePage,
+  "encounter.dx-coding": DxCodingPage,
+  "encounter.avs": AvsPage,
+  "encounter.sign": SignPage,
+  "home.clinical-daylist": ClinicalDayListPage,
+  "home.provider-worklist": ProviderWorklistPage,
+  "schedule.checkout": CheckoutPage,
+  "inbox.cosign": CosignInboxPage,
 };

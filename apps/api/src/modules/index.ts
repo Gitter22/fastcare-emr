@@ -9,6 +9,19 @@ import { schedulingHandlers } from "./scheduling/handlers.js";
 import { frontDeskBillingHandlers } from "./billing/frontdesk.js";
 import { schedulingSetupHandlers } from "./admin/schedulingSetup.js";
 import { payerHandlers } from "./admin/payers.js";
+import { allergyHandlers } from "./clinical/allergies.js";
+import { conditionHandlers } from "./clinical/conditions.js";
+import { immunizationHandlers } from "./clinical/immunizations.js";
+import { medicationHandlers } from "./clinical/medications.js";
+import { observationHandlers } from "./clinical/observations.js";
+import { questionnaireHandlers } from "./clinical/questionnaires.js";
+import { referenceHandlers } from "./clinical/reference.js";
+import { summaryHandlers } from "./clinical/summary.js";
+import { avsHandlers } from "./encounters/avs.js";
+import { diagnosisHandlers } from "./encounters/diagnoses.js";
+import { encounterHandlers } from "./encounters/handlers.js";
+import { noteHandlers } from "./encounters/notes/handlers.js";
+import { clinicalWorkspaceHandlers } from "./workspace/clinical.js";
 
 /** Every module's operation handlers, keyed by operationId (api/openapi.yaml). */
 export const handlers: HandlerMap = {
@@ -22,4 +35,17 @@ export const handlers: HandlerMap = {
   ...frontDeskBillingHandlers,
   ...schedulingSetupHandlers,
   ...payerHandlers,
+  ...referenceHandlers,
+  ...conditionHandlers,
+  ...allergyHandlers,
+  ...medicationHandlers,
+  ...observationHandlers,
+  ...questionnaireHandlers,
+  ...immunizationHandlers,
+  ...summaryHandlers,
+  ...encounterHandlers,
+  ...diagnosisHandlers,
+  ...noteHandlers,
+  ...avsHandlers,
+  ...clinicalWorkspaceHandlers,
 };

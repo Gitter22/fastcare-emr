@@ -54,7 +54,10 @@ export function DateInput({
   const onType = (s: string) => {
     // Auto-insert slashes: 03141968 -> 03/14/1968.
     const digits = s.replace(/\D/g, "").slice(0, 8);
-    const formatted = s.includes("/")
+    // Slashes the user typed (8/6/2024) are kept; otherwise the digits are re-grouped as MM/DD/YYYY, so typing
+    // straight through after the first auto-slash still lands in the right place.
+    const userSlashes = /^\d{1,2}\/(\d{1,2}(\/\d{0,4})?)?$/.test(s) && !/^\d{2}\/\d{3,}/.test(s);
+    const formatted = userSlashes
       ? s
       : [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join("/");
     setText(formatted);

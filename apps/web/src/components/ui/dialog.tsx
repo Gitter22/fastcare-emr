@@ -160,6 +160,8 @@ export function ConfirmDialog(props: {
   onConfirm: () => void;
   testId?: string;
   children?: React.ReactNode;
+  /** Keeps the confirm button disabled until the dialog's own fields are complete. */
+  disabled?: boolean;
 }) {
   return (
     <AlertDialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -169,7 +171,11 @@ export function ConfirmDialog(props: {
         {props.children}
         <AlertDialogFooter>
           <AlertDialogCancel />
-          <AlertDialogAction danger={props.danger} onClick={props.onConfirm}>
+          <AlertDialogAction
+            danger={props.danger}
+            onClick={props.onConfirm}
+            disabled={props.disabled}
+          >
             {props.action}
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -44,6 +44,7 @@ import {
   usableFactors,
   verifyTotp,
 } from "./mfa.js";
+import { connectedGateways } from "../../platform/integrations.js";
 import { burnPasswordCheck, checkPassword, hashPassword, verifyPassword } from "./passwords.js";
 import {
   canSignFor,
@@ -640,6 +641,7 @@ export const authHandlers: HandlerMap = {
           : {}),
       },
       homeScreen: homeScreenFor(me.role),
+      connectedGateways: connectedGateways(),
     };
   },
 

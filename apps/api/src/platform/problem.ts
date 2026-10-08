@@ -2,13 +2,11 @@
  * RFC 9457 problem details with a stable `code` (api/openapi.yaml#/components/schemas/Problem). `detail` never
  * contains PHI (docs/10-hipaa-controls.md, API rule 4).
  */
+/** Problem.blockers item (api/openapi.yaml): what must be fixed, in plain words, and the invariant behind it. */
 export interface Blocker {
   code: string;
-  message: string;
-  /** Screen id (optionally #view) where the blocker is fixed, e.g. "encounter.dx-coding". */
-  link?: string;
-  resourceType?: string;
-  resourceId?: string;
+  text: string;
+  invariant?: string;
 }
 
 export interface FieldError {

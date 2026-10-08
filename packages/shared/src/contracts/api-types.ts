@@ -891,6 +891,15 @@ export interface ChartSummary {
   upcomingAppointments: Array<AppointmentView>;
   openOrders: Array<ServiceRequestView>;
   stagedItems: number;
+  staged: {
+    problems: number;
+    medications: number;
+    allergies: number;
+  };
+  restrictedHidden: number;
+  recentVisits: Array<ClinicalNoteSummary>;
+  todayAppointment?: AppointmentView;
+  todayEncounterId?: string;
 }
 
 export type CheckinStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
@@ -1060,6 +1069,8 @@ export interface ClinicalDayList {
     careGaps: number;
     pendingOrders: number;
     roomedAt?: string;
+    encounterId?: string;
+    protocols: Array<string>;
   }>;
 }
 
@@ -1117,6 +1128,7 @@ export interface CodeHit {
   billable?: boolean;
   children?: number;
   version?: string;
+  category?: string;
 }
 
 export type CodeSystem = "ICD10CM" | "SNOMEDCT" | "LOINC" | "CPT" | "HCPCS" | "CVX" | "MVX" | "RXNORM" | "NDC" | "POS" | "CARC" | "RARC" | "NUCC_TAXONOMY" | "UCUM" | "CDCREC" | "LANGUAGE" | "CMS_MEASURE" | "OTHER";
@@ -2793,6 +2805,7 @@ export interface Me {
     stepUpValidUntil?: string;
   };
   homeScreen: string;
+  connectedGateways: Array<string>;
 }
 
 /** eCQM / care-gap measure definitions */
@@ -3002,6 +3015,10 @@ export interface MedicationStatementCreate {
   prescriptionId?: string | null;
 }
 
+export type MedicationStatementEntry = MedicationStatementCreate & {
+  reportedBy?: "ENTERED" | "PATIENT_REPORTED" | "OUTSIDE_RECORD";
+};
+
 export type MedicationStatementStatus = "ACTIVE" | "COMPLETED" | "ENTERED_IN_ERROR" | "INTENDED" | "STOPPED" | "ON_HOLD" | "UNKNOWN" | "NOT_TAKEN";
 
 /** Merge-patch of MedicationStatement. Send If-Match with the current ETag. */
@@ -3024,6 +3041,7 @@ export type MedicationStatementView = MedicationStatement & {
   lastFill?: MedicationFill;
   activeRequest?: MedicationRequest;
   source: ProvenanceSource;
+  possibleDuplicateOf?: string;
 };
 
 export interface MergeRequest {
@@ -4563,6 +4581,17 @@ export interface ProviderWorklist {
   rxRequests: number;
   messages: number;
   overdueOrders: number;
+  readiness: Array<{
+    appointmentId: string;
+    encounterId?: string;
+    vitalsDone: boolean;
+    vitalAlert?: string;
+    precharted: boolean;
+    pendedOrders: number;
+    notes: Array<string>;
+  }>;
+  minutesBehind: number;
+  waitingLong: number;
 }
 
 export interface QrdaExportRequest {
@@ -5009,6 +5038,7 @@ export interface RoomingView {
   encounterId: string;
   banner: PatientBanner;
   vitals: Array<Observation>;
+  previousVitals: Array<Observation>;
   allergiesReviewedAt?: string;
   medicationsReviewedAt?: string;
   screenings: Array<QuestionnaireResponse>;
@@ -5322,6 +5352,7 @@ export type SexForClinicalUse = "FEMALE" | "MALE" | "SPECIFIED" | "UNKNOWN";
 
 export interface SignNoteRequest {
   version: number;
+  patientId: string;
   attest: boolean;
   cosignerUserId?: string;
   acknowledgedWarnings?: Array<string>;
@@ -5350,6 +5381,7 @@ export interface SignPreflight {
     userId: string;
     name: string;
   };
+  passed: Array<string>;
 }
 
 export interface SignPrescriptionRequest {
@@ -6298,6 +6330,7 @@ export interface SchemaTypes {
   MedicationRequestUpdate: MedicationRequestUpdate;
   MedicationStatement: MedicationStatement;
   MedicationStatementCreate: MedicationStatementCreate;
+  MedicationStatementEntry: MedicationStatementEntry;
   MedicationStatementStatus: MedicationStatementStatus;
   MedicationStatementUpdate: MedicationStatementUpdate;
   MedicationStatementView: MedicationStatementView;

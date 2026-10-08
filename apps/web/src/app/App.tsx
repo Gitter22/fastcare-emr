@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { screens, type ScreenId } from "@agile-emr/shared";
 import { ChartLayout } from "@/shell/ChartLayout";
+import { EncounterWorkspace } from "@/features/encounter/EncounterWorkspace";
 import { ApiError } from "@/lib/api/client";
 import { TooltipProvider } from "@/components/ui/menu";
 import { AppShell } from "@/shell/AppShell";
@@ -56,11 +57,18 @@ export function App() {
                       path={routeOf(id as ScreenId)}
                       element={
                         <ScreenGate id={id as ScreenId}>
-                          {CHART_PATTERNS.has(screens[id as ScreenId].pattern ?? "") ? (
+                          {CHART_PATTERNS.has(screens[id as ScreenId].pattern ?? "") &&
+                          routeOf(id as ScreenId).includes(":patientId") ? (
                             <ChartLayout
                               compactNav={screens[id as ScreenId].pattern === "encounter-workspace"}
                             >
-                              <Component />
+                              {screens[id as ScreenId].pattern === "encounter-workspace" ? (
+                                <EncounterWorkspace>
+                                  <Component />
+                                </EncounterWorkspace>
+                              ) : (
+                                <Component />
+                              )}
                             </ChartLayout>
                           ) : (
                             <Component />
