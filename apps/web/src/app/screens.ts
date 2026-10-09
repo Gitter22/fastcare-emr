@@ -39,6 +39,8 @@ import { ProviderWorklistPage } from "@/features/home/ProviderWorklist";
 import { CheckoutPage } from "@/features/schedule/Checkout";
 import { CosignInboxPage } from "@/features/inbox/CosignInbox";
 import { ResultsInboxPage } from "@/features/inbox/ResultsInbox";
+import { RxRequestsInboxPage } from "@/features/inbox/RxRequestsInbox";
+import { RxPage } from "@/features/encounter/rx/RxPage";
 import { CollectionPage } from "@/features/orders/Collection";
 import { ResultReconciliationPage } from "@/features/orders/ResultReconciliation";
 import { TrackingPage } from "@/features/orders/Tracking";
@@ -83,6 +85,7 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "encounter.rooming": RoomingPage,
   "encounter.note": NotePage,
   "encounter.orders": OrdersPage,
+  "encounter.rx": RxPage,
   "encounter.dx-coding": DxCodingPage,
   "encounter.avs": AvsPage,
   "encounter.sign": SignPage,
@@ -91,6 +94,7 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "schedule.checkout": CheckoutPage,
   "inbox.cosign": CosignInboxPage,
   "inbox.results": ResultsInboxPage,
+  "inbox.rx-requests": RxRequestsInboxPage,
   "orders.collection": CollectionPage,
   "orders.result-reconciliation": ResultReconciliationPage,
   "orders.tracking": TrackingPage,

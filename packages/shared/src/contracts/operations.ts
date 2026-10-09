@@ -598,7 +598,8 @@ export const operations = {
     "audit": "SIGN",
     "transitions": [
       "task:pended-to-provider->completed",
-      "task:open->completed"
+      "task:open->completed",
+      "prescription:draft->active"
     ],
     "stepUp": false,
     "phi": false,
@@ -911,7 +912,10 @@ export const operations = {
       "provider"
     ],
     "audit": "UPDATE",
-    "transitions": [],
+    "transitions": [
+      "prescription:draft->cancelled",
+      "prescription:active->cancelled"
+    ],
     "stepUp": false,
     "phi": false,
     "integration": "ErxGateway",
@@ -1273,7 +1277,8 @@ export const operations = {
       "INV-SAFE-05"
     ],
     "screens": [
-      "encounter.rx"
+      "encounter.rx",
+      "inbox.rx-requests"
     ],
     "flowSteps": [],
     "successStatus": 200,
@@ -2883,7 +2888,9 @@ export const operations = {
       "provider"
     ],
     "audit": "CREATE",
-    "transitions": [],
+    "transitions": [
+      "prescription:new->draft"
+    ],
     "stepUp": false,
     "phi": false,
     "integration": null,
@@ -3625,7 +3632,9 @@ export const operations = {
       "provider"
     ],
     "audit": "UPDATE",
-    "transitions": [],
+    "transitions": [
+      "prescription:draft->cancelled"
+    ],
     "stepUp": false,
     "phi": false,
     "integration": null,
@@ -3633,7 +3642,8 @@ export const operations = {
       "INV-SAFE-06"
     ],
     "screens": [
-      "encounter.rx"
+      "encounter.rx",
+      "inbox.rx-requests"
     ],
     "flowSteps": [],
     "successStatus": 200,
@@ -3897,7 +3907,8 @@ export const operations = {
     "audit": "SIGN",
     "transitions": [
       "task:pended-to-provider->completed",
-      "task:open->completed"
+      "task:open->completed",
+      "prescription:draft->cancelled"
     ],
     "stepUp": false,
     "phi": false,
@@ -3968,7 +3979,9 @@ export const operations = {
       "provider"
     ],
     "audit": "UPDATE",
-    "transitions": [],
+    "transitions": [
+      "prescription:active->cancelled"
+    ],
     "stepUp": false,
     "phi": false,
     "integration": "ErxGateway",
@@ -17580,7 +17593,9 @@ export const operations = {
       "provider"
     ],
     "audit": "SIGN",
-    "transitions": [],
+    "transitions": [
+      "prescription:draft->active"
+    ],
     "stepUp": "conditional",
     "phi": false,
     "integration": "ErxGateway",

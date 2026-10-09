@@ -28,6 +28,8 @@ import { collectionHandlers } from "./orders/collection.js";
 import { orderHandlers } from "./orders/handlers.js";
 import { trackingHandlers } from "./orders/tracking.js";
 import { resultHandlers } from "./results/handlers.js";
+import { prescribingHandlers } from "./prescribing/handlers.js";
+import { rxRequestHandlers } from "./prescribing/requests.js";
 
 /** Every module's operation handlers, keyed by operationId (api/openapi.yaml). */
 export const handlers: HandlerMap = {
@@ -60,4 +62,6 @@ export const handlers: HandlerMap = {
   ...collectionHandlers,
   ...trackingHandlers,
   ...resultHandlers,
+  ...prescribingHandlers,
+  ...rxRequestHandlers,
 };

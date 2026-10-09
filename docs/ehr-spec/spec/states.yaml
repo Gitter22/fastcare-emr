@@ -69,6 +69,22 @@ machines:
       - {from: [reviewed], to: resulted-final, guard: corrected result received}
       - {from: [pended, signed, sent], to: cancelled, by: [provider, ma]}
 
+  - id: prescription
+    states:
+      - {id: new, label: "—"}
+      - {id: draft, label: Draft}
+      - {id: active, label: Signed}
+      - {id: cancelled, label: Cancelled}
+      - {id: on-hold, label: On hold}
+      - {id: completed, label: Completed}
+      - {id: stopped, label: Stopped}
+      - {id: entered-in-error, label: Entered in error}
+    transitions:
+      - {from: [new], to: draft, by: [ma, provider]}
+      - {from: [draft], to: active, by: [provider], guard: DUR alerts decided; controlled substances need EPCS two-factor and a PDMP check or exception, invariants: [INV-SAFE-01, INV-SAFE-05, INV-SAFE-06, INV-ID-03]}
+      - {from: [draft], to: cancelled, by: [ma, provider]}
+      - {from: [active], to: cancelled, by: [provider], guard: CancelRx sent to the pharmacy}
+
   - id: claim
     states:
       - {id: new, label: "—"}

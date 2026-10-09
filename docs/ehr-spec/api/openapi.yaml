@@ -8823,12 +8823,16 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '502':
           $ref: '#/components/responses/BadGateway'
       x-screens:
         - chart.medications
+      x-transitions:
+        - prescription:active->cancelled
       x-roles:
         - ma
         - provider
@@ -22382,6 +22386,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
       x-screens:
@@ -22391,6 +22397,8 @@ paths:
         - inbox.results
       x-flow-steps:
         - flow:encounter/05
+      x-transitions:
+        - prescription:new->draft
       x-roles:
         - ma
         - provider
@@ -22559,6 +22567,7 @@ paths:
           $ref: '#/components/responses/BadGateway'
       x-screens:
         - encounter.rx
+        - inbox.rx-requests
       x-roles:
         - ma
         - provider
@@ -22609,10 +22618,15 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
       x-screens:
         - encounter.rx
+        - inbox.rx-requests
+      x-transitions:
+        - prescription:draft->cancelled
       x-roles:
         - provider
       x-audit: UPDATE
@@ -22759,6 +22773,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '502':
@@ -22768,6 +22784,8 @@ paths:
         - inbox.rx-requests
       x-flow-steps:
         - flow:encounter/05
+      x-transitions:
+        - prescription:draft->active
       x-roles:
         - provider
       x-audit: SIGN
@@ -22821,6 +22839,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '502':
@@ -22828,6 +22848,9 @@ paths:
       x-screens:
         - chart.medications
         - encounter.rx
+      x-transitions:
+        - prescription:draft->cancelled
+        - prescription:active->cancelled
       x-roles:
         - provider
       x-audit: UPDATE
@@ -23048,6 +23071,7 @@ paths:
       x-transitions:
         - task:pended-to-provider->completed
         - task:open->completed
+        - prescription:draft->active
       x-roles:
         - provider
       x-audit: SIGN
@@ -23107,6 +23131,7 @@ paths:
       x-transitions:
         - task:pended-to-provider->completed
         - task:open->completed
+        - prescription:draft->cancelled
       x-roles:
         - provider
       x-audit: SIGN
@@ -42929,7 +42954,7 @@ components:
           type:
             - object
             - 'null'
-          description: '[{patientId, serviceRequestId, score}]'
+          description: '{items: [{patientId, serviceRequestId, score}]}'
           readOnly: true
         matchStatus:
           $ref: '#/components/schemas/MatchStatus'
@@ -50803,6 +50828,12 @@ components:
                 type: string
             priorAuthRequired:
               type: boolean
+            estimatedCopay:
+              type: string
+              pattern: ^-?\d+\.\d{2}$
+              description: decimal amount, 2 places
+            payerName:
+              type: string
           required:
             - status
             - alternatives
@@ -50810,6 +50841,8 @@ components:
           type: boolean
         epcsRequired:
           type: boolean
+        formularyUnavailable:
+          type: string
       required:
         - alerts
         - pdmpRequired
@@ -50908,6 +50941,11 @@ components:
         note:
           type: string
           maxLength: 20000
+        acknowledgedAlertIds:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
         - decision
     RxRequestType:
@@ -50926,6 +50964,16 @@ components:
               $ref: '#/components/schemas/PatientSummary'
             medication:
               $ref: '#/components/schemas/MedicationRequest'
+            draft:
+              $ref: '#/components/schemas/MedicationRequest'
+            pharmacy:
+              $ref: '#/components/schemas/Pharmacy'
+            taskStatus:
+              $ref: '#/components/schemas/TaskStatus'
+            allowedTransitions:
+              type: array
+              items:
+                type: string
             lastVisit:
               type: string
               format: date
@@ -50937,6 +50985,7 @@ components:
                 type: string
           required:
             - patient
+            - allowedTransitions
             - protocolNotes
     ScheduleBlock:
       type: object
@@ -51691,6 +51740,9 @@ components:
     SignPrescriptionRequest:
       type: object
       properties:
+        patientId:
+          type: string
+          format: uuid
         ids:
           type: array
           items:
@@ -51710,6 +51762,7 @@ components:
             type: string
             format: uuid
       required:
+        - patientId
         - ids
     SignResult:
       type: object

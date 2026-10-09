@@ -2443,7 +2443,7 @@ export interface InboundResult {
   placerOrderNumber?: string | null;
   /** name, dob, sex, ids from the message */
   demographics: unknown;
-  /** [{patientId, serviceRequestId, score}] */
+  /** {items: [{patientId, serviceRequestId, score}]} */
   readonly candidates?: Record<string, unknown> | null;
   readonly matchStatus: MatchStatus;
   readonly matchedPatientId?: string | null;
@@ -5096,9 +5096,13 @@ export interface RxCheckResult {
     tier?: number;
     alternatives: Array<string>;
     priorAuthRequired?: boolean;
+    /** decimal amount, 2 places */
+    estimatedCopay?: string;
+    payerName?: string;
   };
   pdmpRequired: boolean;
   epcsRequired: boolean;
+  formularyUnavailable?: string;
 }
 
 /** Pharmacy renewal/change requests and portal refill requests (inbox.rx-requests) */
@@ -5128,6 +5132,7 @@ export interface RxRequestApproval {
   daysSupply?: number;
   denialReason?: string;
   note?: string;
+  acknowledgedAlertIds?: Array<string>;
 }
 
 export type RxRequestType = "RENEWAL" | "CHANGE" | "CANCEL_RESPONSE" | "PORTAL_REFILL";
@@ -5135,6 +5140,10 @@ export type RxRequestType = "RENEWAL" | "CHANGE" | "CANCEL_RESPONSE" | "PORTAL_R
 export type RxRequestView = RxRequest & {
   patient: PatientSummary;
   medication?: MedicationRequest;
+  draft?: MedicationRequest;
+  pharmacy?: Pharmacy;
+  taskStatus?: TaskStatus;
+  allowedTransitions: Array<string>;
   lastVisit?: string;
   protocolMet?: boolean;
   protocolNotes: Array<string>;
@@ -5394,6 +5403,7 @@ export interface SignPreflight {
 }
 
 export interface SignPrescriptionRequest {
+  patientId: string;
   ids: Array<string>;
   pharmacyId?: string;
   pdmpQueryId?: string;

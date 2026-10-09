@@ -556,19 +556,21 @@ AuthorizationView: {_base: Authorization, patient: PatientSummary, payerName: st
 # ---------- prescribing ----------
 RxCheckResult:
   alerts: "DurAlert[]"
-  formulary: "{status: preferred|on-formulary|non-formulary|unknown, tier: int?, alternatives: 'string[]', priorAuthRequired: bool?}?"
+  formulary: "{status: preferred|on-formulary|non-formulary|unknown, tier: int?, alternatives: 'string[]', priorAuthRequired: bool?, estimatedCopay: money?, payerName: string?}?"
   pdmpRequired: bool
   epcsRequired: bool
+  formularyUnavailable: string?
 DurDecision: {action: override|cancel, reason: string?}
 PdmpQueryRequest: {patientId: uuid, state: string, purpose: string}
 SignPrescriptionRequest:
+  patientId: uuid
   ids: "uuid[]"
   pharmacyId: uuid?
   pdmpQueryId: uuid?
   epcsToken: string?
   acknowledgedAlertIds: "uuid[]?"
-RxRequestView: {_base: RxRequest, patient: PatientSummary, medication: MedicationRequest?, lastVisit: date?, protocolMet: bool?, protocolNotes: "string[]"}
-RxRequestApproval: {decision: approve|deny|change|needs-visit, quantity: number?, refills: int?, daysSupply: int?, denialReason: string?, note: text?}
+RxRequestView: {_base: RxRequest, patient: PatientSummary, medication: MedicationRequest?, draft: MedicationRequest?, pharmacy: Pharmacy?, taskStatus: TaskStatus?, allowedTransitions: "string[]", lastVisit: date?, protocolMet: bool?, protocolNotes: "string[]"}
+RxRequestApproval: {decision: approve|deny|change|needs-visit, quantity: number?, refills: int?, daysSupply: int?, denialReason: string?, note: text?, acknowledgedAlertIds: "uuid[]?"}
 
 # ---------- inbox ----------
 TaskView: {_base: Task, patient: PatientSummary?, assigneeName: string?, poolName: string?, overdue: bool, comments: "TaskComment[]?"}

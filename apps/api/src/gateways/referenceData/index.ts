@@ -8,7 +8,11 @@ import {
   expandSnomed,
   searchPinned,
 } from "./allergens.js";
-import { DrugTerminologyUnavailableError, drugTerminologyProvider } from "./rxnav.js";
+import {
+  type DrugConceptData,
+  DrugTerminologyUnavailableError,
+  drugTerminologyProvider,
+} from "./rxnav.js";
 
 /**
  * ReferenceDataGateway (ADR-005): drug terminology (NLM RxNav) and SNOMED CT allergen subsets (terminology server).
@@ -159,3 +163,32 @@ export async function ingredientsOf(tx: Tx, rxcuis: string[]): Promise<Map<strin
   }
   return out;
 }
+
+/**
+ * A prescribable product with ingredients and DEA schedule (encounter.rx, DUR, EPCS). Cached for 6 hours; never
+ * served stale past that: a drug whose schedule can't be verified now can't be prescribed (fail closed, as in
+ * agile-emr). Ingredients are also stored in RxNormConcept for ingredientsOf. null = not a prescribable product.
+ */
+export async function getDrugConcept(tx: Tx, rxcui: string): Promise<DrugConceptData | null> {
+  const concept = await cached(`rxnav:concept:v1:${rxcui}`, 6 * 3600, () =>
+    drugTerminologyProvider.getConcept(rxcui),
+  );
+  if (concept)
+    await tx.rxNormConcept.upsert({
+      where: { rxcui },
+      create: {
+        rxcui,
+        name: concept.name,
+        tty: concept.tty,
+        deaSchedule: concept.deaSchedule,
+        ndcs: [],
+        ingredients: concept.ingredientRxcuis,
+      },
+      update: { deaSchedule: concept.deaSchedule, ingredients: concept.ingredientRxcuis },
+    });
+  return concept;
+}
+
+/** Controlled when scheduled, or when RxNorm carries no schedule at all (fail closed). */
+export const isControlledConcept = (c: Pick<DrugConceptData, "deaSchedule" | "scheduleKnown">) =>
+  !c.scheduleKnown || c.deaSchedule !== null;

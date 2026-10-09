@@ -435,6 +435,99 @@ export const machines = {
       }
     ]
   },
+  "prescription": {
+    "id": "prescription",
+    "states": [
+      {
+        "id": "new",
+        "enumValue": "",
+        "label": "—"
+      },
+      {
+        "id": "draft",
+        "enumValue": "DRAFT",
+        "label": "Draft"
+      },
+      {
+        "id": "active",
+        "enumValue": "ACTIVE",
+        "label": "Signed"
+      },
+      {
+        "id": "cancelled",
+        "enumValue": "CANCELLED",
+        "label": "Cancelled"
+      },
+      {
+        "id": "on-hold",
+        "enumValue": "ON_HOLD",
+        "label": "On hold"
+      },
+      {
+        "id": "completed",
+        "enumValue": "COMPLETED",
+        "label": "Completed"
+      },
+      {
+        "id": "stopped",
+        "enumValue": "STOPPED",
+        "label": "Stopped"
+      },
+      {
+        "id": "entered-in-error",
+        "enumValue": "ENTERED_IN_ERROR",
+        "label": "Entered in error"
+      }
+    ],
+    "transitions": [
+      {
+        "from": [
+          "new"
+        ],
+        "to": "draft",
+        "by": [
+          "ma",
+          "provider"
+        ]
+      },
+      {
+        "from": [
+          "draft"
+        ],
+        "to": "active",
+        "by": [
+          "provider"
+        ],
+        "guard": "DUR alerts decided; controlled substances need EPCS two-factor and a PDMP check or exception",
+        "invariants": [
+          "INV-SAFE-01",
+          "INV-SAFE-05",
+          "INV-SAFE-06",
+          "INV-ID-03"
+        ]
+      },
+      {
+        "from": [
+          "draft"
+        ],
+        "to": "cancelled",
+        "by": [
+          "ma",
+          "provider"
+        ]
+      },
+      {
+        "from": [
+          "active"
+        ],
+        "to": "cancelled",
+        "by": [
+          "provider"
+        ],
+        "guard": "CancelRx sent to the pharmacy"
+      }
+    ]
+  },
   "claim": {
     "id": "claim",
     "states": [

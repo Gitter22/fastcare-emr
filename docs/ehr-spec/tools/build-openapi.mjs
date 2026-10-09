@@ -429,7 +429,7 @@ for (const [sid, s] of Object.entries(ui.screens)) for (const x of walkScreen(si
   for (const t of [].concat(x.el.tr)) if (!trByScreen.get(sid)?.has(t)) err(`ui ${sid}/${x.el.id}: transition ${t} has no operation serving this screen`);
 }
 // status enums mirror states.yaml
-const enumFor = { appointment: "AppointmentStatus", note: "NoteStatus", order: "OrderStatus", claim: "ClaimStatus", task: "TaskStatus", referral: "ReferralStatus" };
+const enumFor = { appointment: "AppointmentStatus", note: "NoteStatus", order: "OrderStatus", claim: "ClaimStatus", task: "TaskStatus", referral: "ReferralStatus", prescription: "MedicationRequestStatus" };
 for (const m of machines) {
   const e = enums.get(enumFor[m.id]);
   if (!e) { err(`machine ${m.id}: no Prisma enum ${enumFor[m.id]}`); continue; }

@@ -352,4 +352,9 @@ export class RxNavDrugTerminologyProvider implements DrugTerminologyProvider {
   }
 }
 
-export const drugTerminologyProvider: DrugTerminologyProvider = new RxNavDrugTerminologyProvider();
+export let drugTerminologyProvider: DrugTerminologyProvider = new RxNavDrugTerminologyProvider();
+
+/** Tests swap in a fixture provider (no network); production always uses RxNav. */
+export function setDrugTerminologyProvider(p: DrugTerminologyProvider): void {
+  drugTerminologyProvider = p;
+}

@@ -2,7 +2,7 @@ import * as React from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { CoverageView, PatientDetail } from "@agile-emr/shared";
+import type { CoverageView, PatientDetail, Pharmacy } from "@agile-emr/shared";
 import { useAuth } from "@/app/auth";
 import { tid } from "@/app/routes";
 import { api, errorMessage } from "@/lib/api/client";
@@ -45,6 +45,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tag } from "@/components/ui/tag";
+import { Unavailable } from "@/components/ui/unavailable";
+import { Pressable } from "@/components/ui/pressable";
 import { EligibilityChip } from "@/components/domain/Eligibility";
 import {
   ADMIN_GENDER,
@@ -66,7 +68,8 @@ const label = (list: Array<{ value: string; label: string }>, v?: string | null)
 export function DemographicsPage() {
   const { patientId = "" } = useParams();
   const [params, setParams] = useSearchParams();
-  const { can } = useAuth();
+  const { can, me } = useAuth();
+  const [pharmacyOpen, setPharmacyOpen] = React.useState(false);
   const patient = useApi("getPatient", { params: { patientId } });
   const coverages = useApi("listCoverages", { params: { patientId } });
   const [editing, setEditing] = React.useState(false);
@@ -189,13 +192,23 @@ export function DemographicsPage() {
           <CardHeader
             title="Preferred pharmacy"
             actions={
-              <Button
-                size="sm"
-                disabled
-                title="Pharmacy search needs the e-prescribing network (ErxGateway, OPEN-Q2)"
-              >
-                Change
-              </Button>
+              me?.connectedGateways.includes("ErxGateway") ? (
+                can("updatePatient") ? (
+                  <Button
+                    size="sm"
+                    onClick={() => setPharmacyOpen(true)}
+                    data-testid={tid(S, "pharmacy-change")}
+                  >
+                    Change
+                  </Button>
+                ) : null
+              ) : (
+                <Unavailable reason="Pharmacy search needs e-prescribing, which isn't connected.">
+                  <Button size="sm" disabled data-testid={tid(S, "pharmacy-change")}>
+                    Change
+                  </Button>
+                </Unavailable>
+              )
             }
           />
           {p.preferredPharmacy ? (
@@ -203,9 +216,9 @@ export function DemographicsPage() {
           ) : (
             <p className="text-body text-ink">None on file.</p>
           )}
-          <p className="mt-2 text-small text-ink-2">
-            Pharmacy search connects with the e-prescribing network.
-          </p>
+          {pharmacyOpen ? (
+            <PharmacyDialog patient={p} onClose={() => setPharmacyOpen(false)} />
+          ) : null}
         </Card>
         <Card className="col-span-2" data-testid={tid(S, "demo-coverage")}>
           <CardHeader
@@ -601,5 +614,81 @@ function CoverageDrawer({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+const pharmacyCity = (p: Pharmacy) => {
+  const a = p.address as { city?: string; state?: string } | null | undefined;
+  return [a?.city, a?.state].filter(Boolean).join(", ");
+};
+
+function PharmacyDialog({ patient, onClose }: { patient: PatientDetail; onClose: () => void }) {
+  const [q, setQ] = React.useState("");
+  const [picked, setPicked] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const term = q.trim();
+  const search = useApi("searchPharmacies", { query: { q: term } }, { enabled: term.length >= 2 });
+  const results = term.length >= 2 ? (search.data ?? []) : [];
+  const save = useApiMutation("updatePatient", {
+    invalidates: ["getPatient"],
+    onSuccess: () => (toast("Preferred pharmacy updated."), onClose()),
+    onError: (e) => setError(errorMessage(e)),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="w-dialog-sm" data-testid={tid(S, "pharmacy-dialog")}>
+        <DialogHeader>
+          <DialogTitle>Change preferred pharmacy</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <FieldShell label="Search by name or ZIP" htmlFor="ph-q">
+            <Input id="ph-q" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+          </FieldShell>
+          {search.isLoading && term.length >= 2 ? <LoadingRows rows={2} /> : null}
+          {term.length >= 2 && !search.isLoading && !results.length ? (
+            <p className="text-body text-ink-2">No pharmacies match.</p>
+          ) : null}
+          <ul className="grid max-h-64 gap-0.5 overflow-auto">
+            {results.map((ph) => (
+              <li key={ph.id}>
+                <Pressable
+                  type="button"
+                  onClick={() => setPicked(ph.id)}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-surface-hover ${picked === ph.id ? "bg-pine-50 text-pine-700" : ""}`}
+                  data-testid={tid(S, "pharmacy-result")}
+                >
+                  <span className="grid">
+                    <b className="font-semibold">{ph.name}</b>
+                    <span className="text-small text-ink-2">{pharmacyCity(ph)}</span>
+                  </span>
+                  {ph.epcsEnabled ? <Tag tone="outline">EPCS</Tag> : null}
+                </Pressable>
+              </li>
+            ))}
+          </ul>
+          {error ? <Alert tone="caution">{error}</Alert> : null}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!picked || save.isPending}
+            onClick={() =>
+              picked &&
+              save.mutate({
+                params: { patientId: patient.id },
+                version: patient.version,
+                body: { preferredPharmacyId: picked },
+              })
+            }
+            data-testid={tid(S, "pharmacy-save")}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

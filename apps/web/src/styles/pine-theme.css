@@ -86,6 +86,7 @@
   --spacing-row-default: 44px;
   --spacing-sidebar: 248px;
   --spacing-dialog-sm: 440px;
+  --spacing-dialog-md: 640px;
 
   /* Shape and elevation */
   --radius-xs: 2px; /* checkbox only. rounded-none / rounded-full stay available */

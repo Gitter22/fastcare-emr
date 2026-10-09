@@ -10,6 +10,9 @@ import {
   unprocessable,
 } from "../../platform/problem.js";
 import { writeVersion } from "../../platform/versioning.js";
+import { assertTransition } from "../../platform/stateMachine.js";
+import { erxGateway } from "../../gateways/erx/index.js";
+import { sendCancel } from "../prescribing/erx.js";
 import { ingredientsOf } from "../../gateways/referenceData/index.js";
 import { reconcileStaged, recordProvenance, stagingFilter } from "./provenance.js";
 
@@ -210,11 +213,27 @@ export const medicationHandlers: HandlerMap = {
       });
     if (CLOSED.includes(m.status))
       throw conflict("already_stopped", "This medication is not active.");
-    // CancelRx goes to the pharmacy through ErxGateway, which is not connected yet (S4).
-    if (b.cancelAtPharmacy)
-      throw integrationUnavailable(
-        "Sending a cancel to the pharmacy needs e-prescribing, which isn't connected yet.",
-      );
+    // CancelRx to the pharmacy for a prescription we sent (ErxGateway, prescribing/erx.ts).
+    if (b.cancelAtPharmacy) {
+      const rx = m.prescriptionId
+        ? await ctx.db.medicationRequest.findUnique({ where: { id: m.prescriptionId } })
+        : null;
+      if (!rx || rx.status !== "ACTIVE" || !rx.erxMessageId)
+        throw conflict(
+          "not_sent_here",
+          "This medication wasn't e-prescribed from here. Call the pharmacy.",
+        );
+      if (!erxGateway())
+        throw integrationUnavailable(
+          "Sending a cancel to the pharmacy needs e-prescribing, which isn't connected.",
+        );
+      assertTransition("prescription", rx.status, "cancelled", ctx.staff().role);
+      const cancelled = await ctx.db.medicationRequest.update({
+        where: { id: rx.id },
+        data: { status: "CANCELLED", version: { increment: 1 } },
+      });
+      await sendCancel(ctx.db, cancelled, b.reason.trim());
+    }
     const row = await ctx.db.medicationStatement.update({
       where: { id: m.id },
       data: {
@@ -252,10 +271,5 @@ export const medicationHandlers: HandlerMap = {
     });
   },
 
-  async getMedicationFillHistory(ctx) {
-    await requirePatient(ctx, ctx.params.patientId);
-    throw integrationUnavailable(
-      "Fill history arrives through e-prescribing, which isn't connected yet.",
-    );
-  },
+  // getMedicationFillHistory lives in prescribing/handlers.ts (ErxGateway).
 };

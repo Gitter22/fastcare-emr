@@ -291,13 +291,13 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/patients/{patientId}/medication-statements` createMedicationStatement
 - `PATCH /api/v1/medication-statements/{medicationStatementId}` updateMedicationStatement
 - `POST /api/v1/medication-statements/{medicationStatementId}/reconcile` reconcileMedicationStatement
-- `POST /api/v1/medication-statements/{medicationStatementId}/discontinue` discontinueMedication — ⇄ ErxGateway
+- `POST /api/v1/medication-statements/{medicationStatementId}/discontinue` discontinueMedication — → prescription:active->cancelled ⇄ ErxGateway
 - `POST /api/v1/patients/{patientId}/medication-reconciliation` recordMedicationReconciliation
 - `GET /api/v1/patients/{patientId}/medication-fills` getMedicationFillHistory — ⇄ ErxGateway
 - `GET /api/v1/patients/{patientId}/banner` getPatientBanner
 - `GET /api/v1/patients/{patientId}/medication-requests` listPatientPrescriptions
-- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription
-- `POST /api/v1/medication-requests/{medicationRequestId}/cancel` cancelPrescription — ⇄ ErxGateway
+- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription — → prescription:new->draft
+- `POST /api/v1/medication-requests/{medicationRequestId}/cancel` cancelPrescription — → prescription:draft->cancelled, prescription:active->cancelled ⇄ ErxGateway
 - `GET /api/v1/reference/drugs` searchDrugs — ⇄ ReferenceDataGateway
 - `POST /api/v1/webhooks/logicoy` logicoyWebhook — → task:new->open ⇄ ErxGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 - `POST /api/v1/webhooks/hie` hieNotification — ⇄ HieGateway _(vendor callback; not called by the UI — updates data this screen shows)_
@@ -555,7 +555,7 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/encounters/{encounterId}/service-requests` createServiceRequest — → order:new->pended
 - `GET /api/v1/patients/{patientId}/banner` getPatientBanner
 - `GET /api/v1/encounters/{encounterId}/medication-requests` listEncounterPrescriptions
-- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription
+- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription — → prescription:new->draft
 - `POST /api/v1/appointments/{appointmentId}/start` startVisit — → appointment:ready-for-provider->with-provider, appointment:roomed->with-provider
 
 ### `encounter.orders` — Order entry
@@ -586,14 +586,14 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/authorizations/{authorizationId}/submit-epa` submitElectronicPriorAuth — ⇄ ErxGateway
 - `GET /api/v1/patients/{patientId}/banner` getPatientBanner
 - `GET /api/v1/encounters/{encounterId}/medication-requests` listEncounterPrescriptions
-- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription
+- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription — → prescription:new->draft
 - `PATCH /api/v1/medication-requests/{medicationRequestId}` updatePrescription
 - `POST /api/v1/medication-requests/{medicationRequestId}/checks` checkPrescription — ⇄ ErxGateway
-- `POST /api/v1/dur-alerts/{durAlertId}/decision` decideDurAlert
+- `POST /api/v1/dur-alerts/{durAlertId}/decision` decideDurAlert — → prescription:draft->cancelled
 - `POST /api/v1/patients/{patientId}/pdmp-queries` queryPdmp — ⇄ PdmpGateway
 - `GET /api/v1/pdmp-queries/{pdmpQueryId}/report` getPdmpReport
-- `POST /api/v1/medication-requests/{medicationRequestId}/sign` signPrescription — ⚑ ⇄ ErxGateway
-- `POST /api/v1/medication-requests/{medicationRequestId}/cancel` cancelPrescription — ⇄ ErxGateway
+- `POST /api/v1/medication-requests/{medicationRequestId}/sign` signPrescription — → prescription:draft->active ⚑ ⇄ ErxGateway
+- `POST /api/v1/medication-requests/{medicationRequestId}/cancel` cancelPrescription — → prescription:draft->cancelled, prescription:active->cancelled ⇄ ErxGateway
 - `GET /api/v1/reference/drugs` searchDrugs — ⇄ ReferenceDataGateway
 - `GET /api/v1/reference/drugs/{rxcui}` getDrug — ⇄ ReferenceDataGateway
 - `GET /api/v1/reference/pharmacies` searchPharmacies — ⇄ ErxGateway
@@ -666,19 +666,21 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/diagnostic-reports/review-bulk` reviewResultsBulk — → order:resulted-final->reviewed
 - `POST /api/v1/diagnostic-reports/{diagnosticReportId}/critical-contacts` recordCriticalContact
 - `POST /api/v1/referrals/{referralId}/close` closeReferral — → referral:consult-received->closed
-- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription
+- `POST /api/v1/encounters/{encounterId}/medication-requests` createPrescription — → prescription:new->draft
 - `GET /api/v1/workspace/counts` getInboxCounts
 - `POST /api/v1/webhooks/labs/{provider}` labWebhook — → order:sent->resulted-prelim, order:collected->resulted-prelim, order:sent->resulted-final, order:collected->resulted-final, order:resulted-prelim->resulted-final, order:reviewed->resulted-final ⇄ LabGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
 ### `inbox.rx-requests` — Rx renewal and change requests
 
 - `GET /api/v1/patients/{patientId}/medication-fills` getMedicationFillHistory — ⇄ ErxGateway
-- `POST /api/v1/medication-requests/{medicationRequestId}/sign` signPrescription — ⚑ ⇄ ErxGateway
+- `POST /api/v1/medication-requests/{medicationRequestId}/checks` checkPrescription — ⇄ ErxGateway
+- `POST /api/v1/dur-alerts/{durAlertId}/decision` decideDurAlert — → prescription:draft->cancelled
+- `POST /api/v1/medication-requests/{medicationRequestId}/sign` signPrescription — → prescription:draft->active ⚑ ⇄ ErxGateway
 - `GET /api/v1/inbox/rx-requests` listRxRequests
 - `GET /api/v1/rx-requests/{rxRequestId}` getRxRequest
 - `POST /api/v1/rx-requests/{rxRequestId}/pend` pendRxRequest — → task:open->pended-to-provider, task:in-progress->pended-to-provider
-- `POST /api/v1/rx-requests/{rxRequestId}/approve` approveRxRequest — → task:pended-to-provider->completed, task:open->completed ⇄ ErxGateway
-- `POST /api/v1/rx-requests/{rxRequestId}/deny` denyRxRequest — → task:pended-to-provider->completed, task:open->completed ⇄ ErxGateway
+- `POST /api/v1/rx-requests/{rxRequestId}/approve` approveRxRequest — → task:pended-to-provider->completed, task:open->completed, prescription:draft->active ⇄ ErxGateway
+- `POST /api/v1/rx-requests/{rxRequestId}/deny` denyRxRequest — → task:pended-to-provider->completed, task:open->completed, prescription:draft->cancelled ⇄ ErxGateway
 - `GET /api/v1/workspace/counts` getInboxCounts
 - `POST /api/v1/webhooks/logicoy` logicoyWebhook — → task:new->open ⇄ ErxGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
