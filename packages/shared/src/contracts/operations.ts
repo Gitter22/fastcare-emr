@@ -17849,7 +17849,12 @@ export const operations = {
     "audit": "CREATE",
     "transitions": [
       "claim:submitted->accepted",
-      "claim:submitted->rejected"
+      "claim:submitted->rejected",
+      "claim:accepted->paid",
+      "claim:appealed->paid",
+      "claim:accepted->partially-paid",
+      "claim:accepted->denied",
+      "claim:appealed->denied"
     ],
     "stepUp": false,
     "phi": true,
@@ -18163,7 +18168,9 @@ export const operations = {
       "manager"
     ],
     "audit": "UPDATE",
-    "transitions": [],
+    "transitions": [
+      "claim:rejected->closed"
+    ],
     "stepUp": false,
     "phi": false,
     "integration": null,
@@ -18559,7 +18566,7 @@ export const operations = {
     "flowSteps": [],
     "successStatus": 200,
     "responseType": "json",
-    "bodyMedia": "application/merge-patch+json",
+    "bodyMedia": "application/json",
     "bodyRequired": true,
     "pathParams": [
       "chargeItemId"
@@ -20012,7 +20019,7 @@ export interface OperationTypes {
   addChargeItem: {
     params: { encounterId: string };
     query: never;
-    body: T.ChargeItemCreate;
+    body: T.ChargeItemEntry;
     response: T.ChargeItem;
   };
   addDeaRegistration: {
@@ -20456,7 +20463,7 @@ export interface OperationTypes {
   createPaymentPlan: {
     params: { patientId: string };
     query: never;
-    body: T.PaymentPlanCreate;
+    body: T.PaymentPlanRequest;
     response: T.PaymentPlan;
   };
   createPortalThread: {
@@ -23372,7 +23379,7 @@ export interface OperationTypes {
   updateChargeItem: {
     params: { chargeItemId: string };
     query: never;
-    body: T.ChargeItemUpdate;
+    body: T.ChargeItemEdit;
     response: T.ChargeItem;
   };
   updateClaim: {

@@ -1,3 +1,4 @@
+import { releaseOnSign } from "../../rcm/charges.js";
 import type { ClinicalNoteSummary, CosignItem } from "@agile-emr/shared";
 import type { ClinicalNote, Prisma } from "../../../db.js";
 import { limitOf, page, toDto, toDtos } from "../../../platform/dto.js";
@@ -425,7 +426,9 @@ export const noteHandlers: HandlerMap = {
       warnings: b.acknowledgedWarnings ?? [],
     });
     const [summary] = await noteSummaries(ctx.db, [row]);
-    return { note: summary!, chargesCreated: 0, tasksCreated, avsId: avs.id };
+    // flow:rcm/01: a signed note releases clean charges to a claim; the rest wait in charge review.
+    const chargesCreated = to === "signed" ? await releaseOnSign(ctx.db, enc.id, me.userId) : 0;
+    return { note: summary!, chargesCreated, tasksCreated, avsId: avs.id };
   },
 
   async cosignNote(ctx) {
@@ -453,7 +456,8 @@ export const noteHandlers: HandlerMap = {
     await writeVersion(ctx.db, row.practiceId, "ClinicalNote", row, me.userId, "co-signed");
     await completeTasksFor(ctx.db, "ClinicalNote", note.id, ["COSIGN"], me.userId);
     const [summary] = await noteSummaries(ctx.db, [row]);
-    return { note: summary!, chargesCreated: 0, tasksCreated: 0 };
+    const chargesCreated = await releaseOnSign(ctx.db, note.encounterId, me.userId);
+    return { note: summary!, chargesCreated, tasksCreated: 0 };
   },
 
   async returnNoteToAuthor(ctx) {

@@ -44,6 +44,15 @@ import { RxPage } from "@/features/encounter/rx/RxPage";
 import { CollectionPage } from "@/features/orders/Collection";
 import { ResultReconciliationPage } from "@/features/orders/ResultReconciliation";
 import { TrackingPage } from "@/features/orders/Tracking";
+import { ChargesPage } from "@/features/encounter/ChargesPage";
+import { ChargeReviewPage } from "@/features/billing/ChargeReview";
+import { ClaimsPage } from "@/features/billing/Claims";
+import { RejectionsPage } from "@/features/billing/Rejections";
+import { EraPostingPage } from "@/features/billing/EraPosting";
+import { DenialsPage } from "@/features/billing/Denials";
+import { PatientAccountPage } from "@/features/billing/PatientAccount";
+import { StatementsPage } from "@/features/billing/Statements";
+import { DayClosePage } from "@/features/billing/DayClose";
 
 /** Built screens by spec id. Anything not listed is hidden from navigation (NAV-09). */
 export const publicScreens: Partial<Record<ScreenId, ComponentType>> = {
@@ -98,4 +107,13 @@ export const staffScreens: Partial<Record<ScreenId, ComponentType>> = {
   "orders.collection": CollectionPage,
   "orders.result-reconciliation": ResultReconciliationPage,
   "orders.tracking": TrackingPage,
+  "encounter.charges": ChargesPage,
+  "billing.charge-review": ChargeReviewPage,
+  "billing.claims": ClaimsPage,
+  "billing.rejections": RejectionsPage,
+  "billing.era-posting": EraPostingPage,
+  "billing.denials": DenialsPage,
+  "billing.patient-account": PatientAccountPage,
+  "billing.statements": StatementsPage,
+  "billing.day-close": DayClosePage,
 };

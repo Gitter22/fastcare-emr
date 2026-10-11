@@ -815,7 +815,7 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `GET /api/v1/coverages/{coverageId}/eligibility-checks` listEligibilityChecks
 - `GET /api/v1/eligibility-checks/{eligibilityCheckId}` getEligibilityCheck
 - `GET /api/v1/jobs/{jobId}` getJob
-- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
+- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected, claim:accepted->paid, claim:appealed->paid, claim:accepted->partially-paid, claim:accepted->denied, claim:appealed->denied ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
 ### `billing.estimates` — Estimates
 
@@ -859,19 +859,19 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/claims/{claimId}/close` closeClaim — → claim:paid->closed, claim:partially-paid->closed, claim:denied->closed
 - `POST /api/v1/claims/{claimId}/status-inquiry` checkClaimStatus — ⇄ ClearinghouseGateway
 - `GET /api/v1/jobs/{jobId}` getJob
-- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
+- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected, claim:accepted->paid, claim:appealed->paid, claim:accepted->partially-paid, claim:accepted->denied, claim:appealed->denied ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
 ### `billing.rejections` — Clearinghouse rejections
 
 - `GET /api/v1/claims/{claimId}` getClaim
 - `PATCH /api/v1/claims/{claimId}` updateClaim
 - `POST /api/v1/claims/{claimId}/resubmit` resubmitClaim — → claim:rejected->submitted, claim:denied->submitted ⇄ ClearinghouseGateway
-- `POST /api/v1/claims/{claimId}/transfer-to-patient` transferClaimToPatient
+- `POST /api/v1/claims/{claimId}/transfer-to-patient` transferClaimToPatient — → claim:rejected->closed
 - `GET /api/v1/claims/rejections` listRejections
 - `GET /api/v1/patients/{patientId}/coverages` listCoverages
 - `PATCH /api/v1/coverages/{coverageId}` updateCoverage
 - `POST /api/v1/coverages/{coverageId}/eligibility-checks` checkEligibility — ⇄ ClearinghouseGateway
-- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
+- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected, claim:accepted->paid, claim:appealed->paid, claim:accepted->partially-paid, claim:accepted->denied, claim:appealed->denied ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
 ### `billing.era-posting` — ERA posting
 
@@ -883,7 +883,7 @@ For each screen: the operations it calls (vendor callbacks that change its data 
 - `POST /api/v1/provider-adjustments/{providerLevelAdjustmentId}/post` postProviderAdjustment
 - `POST /api/v1/remittances/{remittanceId}/post` postRemittance — → claim:accepted->paid, claim:appealed->paid, claim:accepted->partially-paid, claim:accepted->denied, claim:appealed->denied
 - `GET /api/v1/reference/adjustment-codes` searchAdjustmentCodes
-- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
+- `POST /api/v1/webhooks/stedi` stediWebhook — → claim:submitted->accepted, claim:submitted->rejected, claim:accepted->paid, claim:appealed->paid, claim:accepted->partially-paid, claim:accepted->denied, claim:appealed->denied ⇄ ClearinghouseGateway _(vendor callback; not called by the UI — updates data this screen shows)_
 
 ### `billing.denials` — Denials and appeals
 

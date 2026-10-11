@@ -679,6 +679,19 @@ export const machines = {
       },
       {
         "from": [
+          "rejected"
+        ],
+        "to": "closed",
+        "by": [
+          "biller"
+        ],
+        "guard": "balance transferred to patient",
+        "invariants": [
+          "INV-FIN-01"
+        ]
+      },
+      {
+        "from": [
           "paid",
           "partially-paid",
           "denied"

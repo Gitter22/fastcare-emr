@@ -22,7 +22,7 @@ import { formatMoney } from "@agile-emr/shared";
 const date = (s: string | null | undefined) =>
   s ? new Date(`${s.slice(0, 10)}T00:00:00Z`) : s === null ? null : undefined;
 
-async function coverageView(ctx: Ctx, id: string) {
+export async function coverageView(ctx: Pick<Ctx, "db">, id: string) {
   const c = await ctx.db.coverage.findUniqueOrThrow({
     where: { id },
     include: { payer: true, eligibilityChecks: { orderBy: { requestedAt: "desc" }, take: 1 } },
@@ -321,6 +321,10 @@ export const frontDeskBillingHandlers: HandlerMap = {
     const enc = b.appointmentId
       ? await ctx.db.encounter.findUnique({ where: { appointmentId: b.appointmentId } })
       : null;
+    // The drawer the money went into (billing.day-close); balance payments without a visit have none.
+    const appt = b.appointmentId
+      ? await ctx.db.appointment.findUnique({ where: { id: b.appointmentId } })
+      : null;
     const payment = await takePayment(ctx.db, {
       practiceId: ctx.practiceId!,
       patientId,
@@ -332,6 +336,7 @@ export const frontDeskBillingHandlers: HandlerMap = {
       appointmentId: b.appointmentId,
       encounterId: enc?.id ?? null,
       channel: "front-desk",
+      locationId: appt?.locationId ?? null,
       takenById: ctx.staff().userId,
       idempotencyKey: b.idempotencyKey,
     });

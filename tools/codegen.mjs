@@ -38,6 +38,8 @@ function tsType(s, indent = "") {
   if (s.oneOf) return s.oneOf.map((x) => tsType(x, indent)).join(" | ");
   if (s.anyOf) return s.anyOf.map((x) => tsType(x, indent)).join(" | ");
   if (s.allOf) return s.allOf.map((x) => tsType(x, indent)).join(" & ");
+  // Optional Json column: any JSON at runtime (arrays included); typed as a loose record so reads stay checked.
+  if (s["x-json"] === "nullable") return "Record<string, unknown> | null";
   const types = Array.isArray(s.type) ? s.type : [s.type];
   return types
     .map((t) => {

@@ -1,5 +1,5 @@
 import { getEnv } from "../env.js";
-import { isStediConfigured } from "../gateways/clearinghouse/stediClient.js";
+import { isClearinghouseConnected } from "../gateways/clearinghouse/index.js";
 import { isErxConnected } from "../gateways/erx/index.js";
 import { isLabConnected } from "../gateways/lab/index.js";
 import { isPdmpConnected } from "../gateways/pdmp/index.js";
@@ -207,13 +207,16 @@ async function setHealth(
 export function connectedGateways(): string[] {
   const env = getEnv();
   const out = ["ReferenceDataGateway"];
-  if (isStediConfigured()) out.push("ClearinghouseGateway");
+  // Stedi when configured; the simulated clearinghouse outside production (gateways/clearinghouse).
+  if (isClearinghouseConnected()) out.push("ClearinghouseGateway");
   // Simulated lab outside production (gateways/lab); a contracted vendor replaces it.
   if (isLabConnected()) out.push("LabGateway");
   // Simulated pharmacy network and state PDMP outside production (gateways/erx, gateways/pdmp); LogiCoy and the
   // state PDMP replace them once contracted.
   if (isErxConnected()) out.push("ErxGateway");
   if (isPdmpConnected()) out.push("PdmpGateway");
+  // Card processing: only the fake processor exists (OPEN-Q2); it counts as connected outside production.
+  if (env.NODE_ENV !== "production") out.push("PaymentGateway");
   const test = env.NODE_ENV === "test";
   if (test || (env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER))
     out.push("MessagingGateway:sms");

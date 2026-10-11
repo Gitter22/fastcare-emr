@@ -77,7 +77,9 @@ function modelSchema(name, mode) {
     if (mode === "update" && (f.name === "patientId" || f.name === "encounterId")) continue; // re-pointing a record to another patient is a merge, not an edit
     let s = scalar(f);
     if (f.isList) s = { type: "array", items: s };
-    if (!f.isRequired) s = s.$ref ? { oneOf: [s, { type: "null" }] } : { ...s, type: [s.type ?? "object", "null"].filter(Boolean) };
+    // Optional Json columns accept any JSON (arrays included, e.g. Payment.appliedTo); other optionals add null.
+    if (!f.isRequired && !Object.keys(s).length) s = { "x-json": "nullable" };
+    else if (!f.isRequired) s = s.$ref ? { oneOf: [s, { type: "null" }] } : { ...s, type: [s.type ?? "object", "null"].filter(Boolean) };
     const d = stripTags(f.documentation);
     if (d) s.description = d;
     if (t.has("@phi")) s["x-phi"] = true;

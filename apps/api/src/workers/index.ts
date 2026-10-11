@@ -12,6 +12,8 @@ import { sweepRegistry } from "./registry.js";
 import { flagOverdueOrders } from "../modules/orders/tracking.js";
 import { escalateCriticalResults } from "../modules/results/ingest.js";
 import { runSimulatedLab } from "../modules/results/simulatedLab.js";
+import { runClaimBatch, runSimulatedClearinghouse } from "../modules/rcm/inbound.js";
+import { runPaymentPlanAutopay } from "../modules/rcm/accounts.js";
 
 /**
  * Repeatable background jobs on BullMQ (agile-emr's queue library) with the shared Redis. One queue, one job name
@@ -77,6 +79,27 @@ sweepRegistry.register("critical-result-escalation", 5 * 60_000, async (log) => 
     (e, id) => log.error({ err: e, practiceId: id }, "critical result escalation failed"),
   );
 });
+// flow:rcm/03: ready claims go to the clearinghouse in batches.
+sweepRegistry.register("claims-batch", 30 * 60_000, async (log) => {
+  await forEachPractice(
+    (tx, p) => runClaimBatch(tx, p.id).then(() => undefined),
+    (e, id) => log.error({ err: e, practiceId: id }, "claim batch failed"),
+  );
+});
+// flow:rcm/08: payment-plan installments on autopay.
+sweepRegistry.register("payment-plan-autopay", 60 * 60_000, async (log) => {
+  await forEachPractice(
+    (tx, p) => runPaymentPlanAutopay(tx, p.id).then(() => undefined),
+    (e, id) => log.error({ err: e, practiceId: id }, "payment plan autopay failed"),
+  );
+});
+if (getEnv().NODE_ENV === "development")
+  sweepRegistry.register("simulated-clearinghouse", 60_000, async (log) => {
+    await forEachPractice(
+      (tx, p) => runSimulatedClearinghouse(tx, p.id).then(() => undefined),
+      (e, id) => log.error({ err: e, practiceId: id }, "simulated clearinghouse failed"),
+    );
+  });
 if (getEnv().NODE_ENV === "development")
   sweepRegistry.register("simulated-lab", 60_000, async (log) => {
     await forEachPractice(

@@ -28,6 +28,7 @@ import { seedDemoPractice } from "./seed/practice.js";
 import { seedClinical } from "./seed/clinical.js";
 import { seedOrders } from "./seed/orders.js";
 import { seedPrescribing } from "./seed/prescribing.js";
+import { seedBilling } from "./seed/billing.js";
 import { ensureDemoDay, seedScheduling } from "./seed/schedule.js";
 
 const prisma = new PrismaClient();
@@ -55,6 +56,7 @@ async function main() {
     await seedClinical(prisma, p.id);
     await seedOrders(prisma, p.id);
     await seedPrescribing(prisma, p.id);
+    await seedBilling(prisma, p.id);
   }
 }
 

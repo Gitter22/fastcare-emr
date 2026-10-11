@@ -1,0 +1,37 @@
+# system	code	category	mue	description (practice-written short descriptors; NOT AMA CPT text -- OPEN-Q23)
+CPT	99202	em-new	1	Office visit, new patient, straightforward MDM
+CPT	99203	em-new	1	Office visit, new patient, low MDM
+CPT	99204	em-new	1	Office visit, new patient, moderate MDM
+CPT	99205	em-new	1	Office visit, new patient, high MDM
+CPT	99211	em-est	1	Office visit, established, minimal (nurse visit)
+CPT	99212	em-est	1	Office visit, established, straightforward MDM
+CPT	99213	em-est	1	Office visit, established, low MDM
+CPT	99214	em-est	1	Office visit, established, moderate MDM
+CPT	99215	em-est	1	Office visit, established, high MDM
+CPT	99385	preventive	1	Preventive visit, new patient, 18-39 years
+CPT	99386	preventive	1	Preventive visit, new patient, 40-64 years
+CPT	99395	preventive	1	Preventive visit, established, 18-39 years
+CPT	99396	preventive	1	Preventive visit, established, 40-64 years
+CPT	99397	preventive	1	Preventive visit, established, 65 years and over
+CPT	90471	admin	1	Immunization administration, 1 vaccine
+CPT	90472	admin		Immunization administration, each additional vaccine
+CPT	90686	vaccine		Influenza vaccine, quadrivalent, preservative-free
+CPT	90715	vaccine		Tdap vaccine, 7 years and older
+CPT	90750	vaccine		Zoster vaccine, recombinant
+CPT	96372	admin		Therapeutic injection, subcutaneous or intramuscular
+CPT	36415	lab	2	Venipuncture
+CPT	81002	lab		Urinalysis, dipstick, non-automated, without microscopy
+CPT	82962	lab		Glucose, blood, by glucose monitoring device
+CPT	83036	lab		Hemoglobin A1c
+CPT	87880	lab		Strep A antigen, rapid
+CPT	87804	lab		Influenza antigen, rapid
+CPT	93000	procedure	1	Electrocardiogram, 12-lead, with interpretation and report
+CPT	96127	screening		Brief emotional/behavioral assessment, scored instrument
+CPT	69210	procedure	1	Removal of impacted cerumen, one ear
+CPT	17110	procedure	1	Destruction of benign lesions (e.g. warts), up to 14
+CPT	20610	procedure		Arthrocentesis or injection, major joint
+HCPCS	G0438	preventive	1	Annual wellness visit, initial
+HCPCS	G0439	preventive	1	Annual wellness visit, subsequent
+HCPCS	G0444	screening	1	Annual depression screening, 5-15 minutes
+HCPCS	J3420	drug		Injection, vitamin B-12 cyanocobalamin, up to 1000 mcg
+HCPCS	J1030	drug		Injection, methylprednisolone acetate, 40 mg

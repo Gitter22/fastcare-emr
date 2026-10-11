@@ -6576,10 +6576,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
       x-screens:
         - billing.rejections
+      x-transitions:
+        - claim:rejected->closed
       x-roles:
         - biller
         - manager
@@ -7830,7 +7834,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PaymentPlanCreate'
+              $ref: '#/components/schemas/PaymentPlanRequest'
       responses:
         '201':
           description: Created.
@@ -13191,7 +13195,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChargeItemCreate'
+              $ref: '#/components/schemas/ChargeItemEntry'
       responses:
         '201':
           description: Created.
@@ -13292,9 +13296,9 @@ paths:
       requestBody:
         required: true
         content:
-          application/merge-patch+json:
+          application/json:
             schema:
-              $ref: '#/components/schemas/ChargeItemUpdate'
+              $ref: '#/components/schemas/ChargeItemEdit'
       responses:
         '200':
           description: OK.
@@ -27158,6 +27162,11 @@ paths:
       x-transitions:
         - claim:submitted->accepted
         - claim:submitted->rejected
+        - claim:accepted->paid
+        - claim:appealed->paid
+        - claim:accepted->partially-paid
+        - claim:accepted->denied
+        - claim:appealed->denied
       x-audit: CREATE
       x-invariants:
         - INV-FIN-05
@@ -36004,9 +36013,7 @@ components:
           type: string
           x-phi: true
         sourceRefs:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: links to transcript spans
         model:
           type: string
@@ -36116,9 +36123,7 @@ components:
         verificationStatus:
           $ref: '#/components/schemas/VerificationStatus'
         reactions:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '[{manifestation, severity}]'
           x-phi: true
         onsetDate:
@@ -36193,9 +36198,7 @@ components:
         verificationStatus:
           $ref: '#/components/schemas/VerificationStatus'
         reactions:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '[{manifestation, severity}]'
           x-phi: true
         onsetDate:
@@ -36232,9 +36235,7 @@ components:
         verificationStatus:
           $ref: '#/components/schemas/VerificationStatus'
         reactions:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '[{manifestation, severity}]'
           x-phi: true
         onsetDate:
@@ -37896,9 +37897,7 @@ components:
           $ref: '#/components/schemas/ChargeStatus'
           readOnly: true
         holdReasons:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: coding edits [{rule, message, severity}]
           readOnly: true
         holdNote:
@@ -37949,100 +37948,60 @@ components:
       x-fhir-resource: ChargeItem
       x-versioned: true
       x-tenant: true
-    ChargeItemCreate:
+    ChargeItemEdit:
       type: object
       properties:
-        patientId:
-          type: string
-          format: uuid
-        encounterId:
-          type:
-            - string
-            - 'null'
-          format: uuid
-        codeSystem:
-          $ref: '#/components/schemas/CodeSystem'
-          description: CPT, HCPCS
         code:
-          type: string
-        description:
           type: string
         modifiers:
           type: array
           items:
             type: string
         units:
-          type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
+          type: number
         dxConditionIds:
           type: array
           items:
             type: string
             format: uuid
-          description: ordered diagnosis pointers (INV-FIN-03)
         fee:
           type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
-        serviceDate:
-          type: string
-          format: date
-        renderingPractitionerId:
-          type: string
-          format: uuid
+          pattern: ^-?\d+\.\d{2}$
+          description: decimal amount, 2 places
         holdNote:
-          type:
-            - string
-            - 'null'
+          type: string
+          maxLength: 20000
+    ChargeItemEntry:
+      type: object
+      description: >-
+        addChargeItem body. Description, fee, service date, rendering provider and patient come from the encounter and the practice fee
+        schedule.
+      properties:
+        codeSystem:
+          type: string
+          enum:
+            - CPT
+            - HCPCS
+        code:
+          type: string
+        modifiers:
+          type: array
+          items:
+            type: string
+        units:
+          type: number
+        dxConditionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        fee:
+          type: string
+          pattern: ^-?\d+\.\d{2}$
+          description: decimal amount, 2 places
       required:
-        - patientId
-        - codeSystem
         - code
-        - description
-        - fee
-        - serviceDate
-        - renderingPractitionerId
-      description: Billable line from an encounter. Released to claims on note sign (flow:rcm/01)
-    ChargeItemUpdate:
-      type: object
-      properties:
-        codeSystem:
-          $ref: '#/components/schemas/CodeSystem'
-          description: CPT, HCPCS
-        code:
-          type: string
-        description:
-          type: string
-        modifiers:
-          type: array
-          items:
-            type: string
-        units:
-          type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
-        dxConditionIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: ordered diagnosis pointers (INV-FIN-03)
-        fee:
-          type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
-        serviceDate:
-          type: string
-          format: date
-        renderingPractitionerId:
-          type: string
-          format: uuid
-        holdNote:
-          type:
-            - string
-            - 'null'
-      description: Merge-patch of ChargeItem. Send If-Match with the current ETag.
+        - dxConditionIds
     ChargeLagReport:
       type: object
       x-phi: false
@@ -38102,7 +38061,6 @@ components:
               - text
       required:
         - charges
-        - note
         - edits
     ChargeReviewRow:
       type: object
@@ -38454,6 +38412,7 @@ components:
         frequencyCode:
           type: string
           enum:
+            - '1'
             - '7'
             - '8'
         changes: {}
@@ -38472,6 +38431,10 @@ components:
         - $ref: '#/components/schemas/Claim'
         - type: object
           properties:
+            patient:
+              $ref: '#/components/schemas/PatientSummary'
+            payerName:
+              type: string
             lines:
               type: array
               items:
@@ -38529,9 +38492,7 @@ components:
             - string
             - 'null'
         raw:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         interfaceMessageId:
           type:
             - string
@@ -39425,9 +39386,7 @@ components:
         status:
           $ref: '#/components/schemas/ConsentStatus'
         scope:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: e.g. Part 2 recipients and purpose; proxy scope
         signedAt:
           type:
@@ -39495,9 +39454,7 @@ components:
         status:
           $ref: '#/components/schemas/ConsentStatus'
         scope:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: e.g. Part 2 recipients and purpose; proxy scope
         signedAt:
           type:
@@ -39646,9 +39603,7 @@ components:
             type: string
           description: note, order, prescription; with conditions in criteria
         criteria:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: 'e.g. {"newPatient": true, "controlled": true}'
         state:
           type:
@@ -39681,9 +39636,7 @@ components:
             type: string
           description: note, order, prescription; with conditions in criteria
         criteria:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: 'e.g. {"newPatient": true, "controlled": true}'
         state:
           type:
@@ -39711,9 +39664,7 @@ components:
             type: string
           description: note, order, prescription; with conditions in criteria
         criteria:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: 'e.g. {"newPatient": true, "controlled": true}'
         state:
           type:
@@ -40310,9 +40261,7 @@ components:
           description: totals by user and method
           readOnly: true
         counted:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: counts entered at close
         depositTotal:
           type:
@@ -41136,9 +41085,7 @@ components:
           type: string
           x-phi: true
         evidence:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: allergy id or interacting drug
         outcome:
           type: string
@@ -41268,9 +41215,7 @@ components:
             - 'null'
           readOnly: true
         benefits:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: parsed 271 benefit segments
           readOnly: true
         errorMessage:
@@ -42545,9 +42490,7 @@ components:
         status:
           $ref: '#/components/schemas/GoalStatus'
         target:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '{measure LOINC, detail, dueDate}'
         updatedAt:
           type: string
@@ -42575,9 +42518,7 @@ components:
         status:
           $ref: '#/components/schemas/GoalStatus'
         target:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '{measure LOINC, detail, dueDate}'
       required:
         - patientId
@@ -42600,9 +42541,7 @@ components:
         status:
           $ref: '#/components/schemas/GoalStatus'
         target:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '{measure LOINC, detail, dueDate}'
       description: Merge-patch of Goal. Send If-Match with the current ETag.
     HealthStatus:
@@ -42951,9 +42890,7 @@ components:
           description: name, dob, sex, ids from the message
           x-phi: true
         candidates:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '{items: [{patientId, serviceRequestId, score}]}'
           readOnly: true
         matchStatus:
@@ -43115,9 +43052,7 @@ components:
             - 'null'
           readOnly: true
         patientCandidates:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '[{patientId, score, matchedOn}]'
           readOnly: true
         foreignPages:
@@ -43633,9 +43568,7 @@ components:
             - string
             - 'null'
         aoeQuestions:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         active:
           type: boolean
       required:
@@ -43811,9 +43744,7 @@ components:
             - string
             - 'null'
         hours:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: weekly opening hours
         active:
           type: boolean
@@ -43879,9 +43810,7 @@ components:
             - string
             - 'null'
         hours:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: weekly opening hours
         active:
           type: boolean
@@ -43927,9 +43856,7 @@ components:
             - string
             - 'null'
         hours:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: weekly opening hours
         active:
           type: boolean
@@ -44358,9 +44285,7 @@ components:
             - string
             - 'null'
         formularyStatus:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: 'RTBC result: tier, copay, alternatives, PA required'
           readOnly: true
         erxStatus:
@@ -45495,9 +45420,7 @@ components:
             - boolean
             - 'null'
         components:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: e.g. BP systolic/diastolic
           x-phi: true
         referenceRangeLow:
@@ -45654,9 +45577,7 @@ components:
             - boolean
             - 'null'
         components:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: e.g. BP systolic/diastolic
           x-phi: true
         referenceRangeLow:
@@ -46092,9 +46013,7 @@ components:
             - 'null'
           x-phi: true
         previousNames:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         birthDate:
           type: string
@@ -46598,9 +46517,7 @@ components:
             - 'null'
           x-phi: true
         previousNames:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         birthDate:
           type: string
@@ -46998,9 +46915,7 @@ components:
             - 'null'
           x-phi: true
         previousNames:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         birthDate:
           type: string
@@ -47128,9 +47043,7 @@ components:
         appealDays:
           type: integer
         claimRules:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: modifier, auth and referral requirements
         portalUrl:
           type:
@@ -47181,9 +47094,7 @@ components:
         appealDays:
           type: integer
         claimRules:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: modifier, auth and referral requirements
         portalUrl:
           type:
@@ -47315,9 +47226,7 @@ components:
         appealDays:
           type: integer
         claimRules:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: modifier, auth and referral requirements
         portalUrl:
           type:
@@ -47364,9 +47273,7 @@ components:
             - string
             - 'null'
         appliedTo:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '[{encounterId, amount}]'
         channel:
           type: string
@@ -47586,35 +47493,24 @@ components:
         - missedCount
         - createdAt
       x-tenant: true
-    PaymentPlanCreate:
+    PaymentPlanRequest:
       type: object
       properties:
-        patientId:
-          type: string
-          format: uuid
         totalAmount:
           type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
+          pattern: ^-?\d+\.\d{2}$
+          description: decimal amount, 2 places
         months:
           type: integer
-        monthlyAmount:
-          type: string
-          pattern: ^-?\d+(\.\d+)?$
-          description: decimal
         firstPaymentOn:
           type: string
           format: date
         paymentMethodId:
           type: string
           format: uuid
-        status:
-          $ref: '#/components/schemas/PlanStatus'
       required:
-        - patientId
         - totalAmount
         - months
-        - monthlyAmount
         - firstPaymentOn
         - paymentMethodId
     PaymentStatus:
@@ -49459,9 +49355,7 @@ components:
             type: string
           description: portal, kiosk, tablet, staff
         scoring:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         status:
           type: string
           description: draft, active, retired
@@ -49506,9 +49400,7 @@ components:
             type: string
           description: portal, kiosk, tablet, staff
         scoring:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         status:
           type: string
           description: draft, active, retired
@@ -49630,9 +49522,7 @@ components:
             type: string
           description: portal, kiosk, tablet, staff
         scoring:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         status:
           type: string
           description: draft, active, retired
@@ -50059,15 +49949,21 @@ components:
           type: string
         text:
           type: string
+        field:
+          type: string
         rejectedAt:
           type: string
           format: date-time
+        filingDeadline:
+          type: string
+          format: date
       required:
         - claim
         - source
         - code
         - text
         - rejectedAt
+        - filingDeadline
     RelatedPerson:
       type: object
       properties:
@@ -50114,9 +50010,7 @@ components:
           x-phi: true
           x-encrypted: true
         address:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         active:
           type: boolean
@@ -50171,9 +50065,7 @@ components:
           x-phi: true
           x-encrypted: true
         address:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         active:
           type: boolean
@@ -50218,9 +50110,7 @@ components:
           x-phi: true
           x-encrypted: true
         address:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         active:
           type: boolean
@@ -50869,9 +50759,7 @@ components:
             - 'null'
           format: uuid
         requestedChange:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           x-phi: true
         pharmacyId:
           type:
@@ -50879,9 +50767,7 @@ components:
             - 'null'
           format: uuid
         protocolResult:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: '{pass, reasons[]}'
           readOnly: true
         responseStatus:
@@ -51270,9 +51156,7 @@ components:
         collectionMode:
           $ref: '#/components/schemas/CollectionMode'
         aoeAnswers:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: ask-at-order-entry answers
           x-phi: true
         expectedBy:
@@ -51418,9 +51302,7 @@ components:
         collectionMode:
           $ref: '#/components/schemas/CollectionMode'
         aoeAnswers:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: ask-at-order-entry answers
           x-phi: true
         expectedBy:
@@ -51525,9 +51407,7 @@ components:
         collectionMode:
           $ref: '#/components/schemas/CollectionMode'
         aoeAnswers:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: ask-at-order-entry answers
           x-phi: true
         expectedBy:
@@ -52760,13 +52640,9 @@ components:
           format: date-time
           readOnly: true
         deviceCheck:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
         participants:
-          type:
-            - object
-            - 'null'
+          x-json: nullable
           description: interpreter, caregiver
         audioOnlyFrom:
           type:

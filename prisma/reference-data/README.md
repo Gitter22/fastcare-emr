@@ -88,3 +88,10 @@ reference a valid code and the Phase 0 migration backfills existing rows to
 from this file. To refresh after a CMS update, add a new migration that
 upserts the changed rows (and sets `isActive = false` for retired codes);
 do not edit the applied one.
+
+## `procedure_codes.tsv` / `adjustment_codes.tsv` — CPT/HCPCS and CARC/RARC (curated, S5)
+
+Not official files. CPT descriptors are AMA-licensed, so the CPT rows carry short practice-written descriptors (no AMA
+text) for common primary-care codes, with the units-per-day limit (MUE) where the edit engine uses one. CARC/RARC
+rows are a small abridged subset of the X12 lists used by ERA posting and denials. Replace both with licensed/full
+imports (`importCodeSystem`) when available — OPEN-Q23.

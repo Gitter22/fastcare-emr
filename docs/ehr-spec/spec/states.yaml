@@ -110,6 +110,7 @@ machines:
       - {from: [accepted, appealed], to: denied, invariants: [INV-FIN-05]}
       - {from: [denied, partially-paid], to: appealed, by: [biller]}
       - {from: [denied], to: submitted, by: [biller], guard: corrected claim}
+      - {from: [rejected], to: closed, by: [biller], guard: balance transferred to patient, invariants: [INV-FIN-01]}
       - {from: [paid, partially-paid, denied], to: closed, by: [biller], guard: zero insurance balance or approved write-off}
 
   - id: task

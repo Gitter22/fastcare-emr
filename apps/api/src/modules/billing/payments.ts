@@ -23,6 +23,8 @@ export interface TakePaymentInput {
   locationId?: string | null;
   takenById?: string | null;
   idempotencyKey: string;
+  /** Overrides the default [{encounterId, amount}] allocation (e.g. payment-plan installments). */
+  appliedTo?: Array<Record<string, string | number>>;
 }
 
 export async function takePayment(tx: Tx, input: TakePaymentInput) {
@@ -80,9 +82,11 @@ export async function takePayment(tx: Tx, input: TakePaymentInput) {
       status: outcome.ok ? "SUCCEEDED" : "FAILED",
       processorRef: outcome.processorRef ?? `idem:${input.idempotencyKey}`,
       checkNumber: input.checkNumber ?? null,
-      appliedTo: input.encounterId
-        ? [{ encounterId: input.encounterId, amount: centsToMoney(cents) }]
-        : undefined,
+      appliedTo:
+        input.appliedTo ??
+        (input.encounterId
+          ? [{ encounterId: input.encounterId, amount: centsToMoney(cents) }]
+          : undefined),
       channel: input.channel,
       locationId: input.locationId ?? null,
       takenById: input.takenById ?? null,

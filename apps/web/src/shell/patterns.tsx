@@ -9,9 +9,9 @@ import { RouteTabs } from "@/components/ui/tabs";
 import { screens } from "@agile-emr/shared";
 
 /** Sub-navigation blocks from nav.yaml, filtered to built screens the role may open (NAV-09). */
-type NavEntry = { id: string; label: string; screen: ScreenId };
+export type NavEntry = { id: string; label: string; screen: ScreenId };
 
-function visible(entries: NavEntry[], role: string | null) {
+export function visible(entries: NavEntry[], role: string | null) {
   return entries.filter(
     (e) =>
       isBuilt(e.screen) &&

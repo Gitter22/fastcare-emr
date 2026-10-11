@@ -22,6 +22,7 @@ interface Templates {
   "new-portal-item": { practiceName: string; link: string };
   "statement-ready": { practiceName: string; link: string };
   "payment-receipt": { practiceName: string; amount: string };
+  "payment-plan-created": { practiceName: string; amount: string; months: number; link: string };
   "consent-request": { practiceName: string; link: string };
   "checkin-reminder": { practiceName: string; link: string };
   "telehealth-link": { practiceName: string; when: string; link: string };
@@ -96,6 +97,10 @@ const render: { [K in TemplateKey]: (p: Templates[K]) => { subject: string; body
   "payment-receipt": (p) => ({
     subject: `${p.practiceName} payment received`,
     body: `${p.practiceName}: we received your payment of ${p.amount}. Thank you.`,
+  }),
+  "payment-plan-created": (p) => ({
+    subject: `${p.practiceName} payment plan`,
+    body: `${p.practiceName}: your payment plan is set up (${p.months} monthly payments of ${p.amount}). Details: ${p.link}`,
   }),
   "consent-request": (p) => ({
     subject: `${p.practiceName} forms to sign`,

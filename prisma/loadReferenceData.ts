@@ -134,6 +134,33 @@ export async function loadReferenceData(prisma: PrismaClient): Promise<void> {
         attributes: { description },
       })),
   );
+  // CPT/HCPCS and CARC/RARC: curated subsets until the licensed/full lists are imported (OPEN-Q23).
+  const proc = readTsv("procedure_codes.tsv").filter((r) => !r[0]!.startsWith("#"));
+  for (const system of ["CPT", "HCPCS"])
+    await upsertSystem(
+      prisma,
+      system,
+      "Curated subset 2026-10",
+      proc
+        .filter((r) => r[0] === system)
+        .map(([, code, category, mue, display]) => ({
+          code: code!,
+          display: display!,
+          billable: true,
+          attributes: { category, ...(mue ? { mue: Number(mue) } : {}) },
+        })),
+    );
+  const adj = readTsv("adjustment_codes.tsv").filter((r) => !r[0]!.startsWith("#"));
+  for (const system of ["CARC", "RARC"])
+    await upsertSystem(
+      prisma,
+      system,
+      "Curated subset 2026-10",
+      adj
+        .filter((r) => r[0] === system)
+        .map(([, code, display]) => ({ code: code!, display: display! })),
+    );
+  console.log(`Reference data: CPT/HCPCS ${proc.length}, CARC/RARC ${adj.length}`);
   console.log(
     `Reference data: ICD-10-CM ${icd.total} (${icd.changed} changed, ${icd.retired} retired), CVX ${cvx.total}, LOINC ${loinc.total}, POS ${pos.total}`,
   );

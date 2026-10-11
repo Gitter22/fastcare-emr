@@ -470,6 +470,15 @@ EncounterCharges:
   emSuggestion: EmSuggestion?
   holds: "{code: string, text: string}[]"
   readyForClaim: bool
+ChargeItemEntry:
+  _: "addChargeItem body. Description, fee, service date, rendering provider and patient come from the encounter and the practice fee schedule."
+  codeSystem: CPT|HCPCS?
+  code: string
+  modifiers: "string[]?"
+  units: number?
+  dxConditionIds: "uuid[]"
+  fee: money?
+ChargeItemEdit: {code: string?, modifiers: "string[]?", units: number?, dxConditionIds: "uuid[]?", fee: money?, holdNote: text?}
 EmLevelInput: {basis: mdm|time, totalMinutes: int?, problems: low|moderate|high?, data: minimal|limited|moderate|extensive?, risk: minimal|low|moderate|high?, newPatient: bool}
 EmSuggestion: {code: string, basis: mdm|time, rationale: "string[]", alternatives: "string[]"}
 CdsCard:
@@ -608,11 +617,13 @@ PaymentCreateRequest:
 RefundRequest: {amount: money, reason: text, toOriginalMethod: bool}
 PaymentMethodCreateRequest: {_phi: false, hostedFieldsToken: string, autopay: bool?, consentToCardOnFile: bool}
 ChargeReviewRow: {encounterId: uuid, patient: PatientSummary, dateOfService: date, practitioner: string, total: money, holds: "string[]", ageDays: int}
-ChargeReviewDetail: {charges: EncounterCharges, note: ClinicalNoteSummary, coverage: CoverageView?, edits: "{code: string, severity: error|warning, text: string, lineId: uuid?}[]"}
+ChargeReviewDetail: {charges: EncounterCharges, note: ClinicalNoteSummary?, coverage: CoverageView?, edits: "{code: string, severity: error|warning, text: string, lineId: uuid?}[]"}
 ClaimSummary: {id: uuid, number: string, status: ClaimStatus, patient: PatientSummary, payerName: string, dateOfService: date, billed: money, paid: money, balance: money, ageDays: int, lastEventAt: datetime}
 ClaimPipeline: {_phi: false, buckets: "{status: ClaimStatus, count: int, amount: money}[]"}
 ClaimDetail:
   _base: Claim
+  patient: PatientSummary?
+  payerName: string?
   lines: "ClaimLine[]"
   events: "ClaimEvent[]"
   denials: "Denial[]"
@@ -620,8 +631,8 @@ ClaimDetail:
   ledger: "LedgerEntry[]"
   allowedTransitions: "string[]"
 ClaimSubmitRequest: {ids: "uuid[]", scrubOnly: bool?}
-ClaimCorrection: {frequencyCode: "7|8", changes: json, reason: text, version: int}
-RejectionRow: {claim: ClaimSummary, source: 999|277CA, code: string, text: string, rejectedAt: datetime}
+ClaimCorrection: {frequencyCode: "1|7|8", changes: json, reason: text, version: int}
+RejectionRow: {claim: ClaimSummary, source: 999|277CA, code: string, text: string, field: string?, rejectedAt: datetime, filingDeadline: date}
 RemittanceSummary: {id: uuid, payerName: string, checkNumber: string, paidAt: date, amount: money, status: RemittanceStatus, claims: int, exceptions: int}
 RemittanceDetail: {_base: Remittance, claimPayments: "{payment: RemittanceClaimPayment, claim: ClaimSummary?, adjustments: 'RemittanceAdjustment[]'}[]", providerLevelAdjustments: 'ProviderLevelAdjustment[]'}
 ClaimRefRequest: {claimId: uuid}
@@ -755,6 +766,7 @@ PortalBilling:
   paymentPlan: PaymentPlan?
   autopay: bool
 PortalPaymentRequest: {amount: money, paymentMethodId: uuid?, hostedFieldsToken: string?, savePaymentMethod: bool?, idempotencyKey: string}
+PaymentPlanRequest: {totalAmount: money, months: int, firstPaymentOn: date, paymentMethodId: uuid}
 PortalPaymentPlanRequest: {months: int, paymentMethodId: uuid, startDate: date}
 PortalProfile:
   name: string

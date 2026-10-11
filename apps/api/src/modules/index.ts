@@ -30,6 +30,15 @@ import { trackingHandlers } from "./orders/tracking.js";
 import { resultHandlers } from "./results/handlers.js";
 import { prescribingHandlers } from "./prescribing/handlers.js";
 import { rxRequestHandlers } from "./prescribing/requests.js";
+import { accountHandlers } from "./rcm/accounts.js";
+import { chargeHandlers } from "./rcm/charges.js";
+import { chargeReviewHandlers } from "./rcm/chargeReview.js";
+import { claimHandlers } from "./rcm/claims.js";
+import { dayCloseHandlers } from "./rcm/dayClose.js";
+import { denialHandlers } from "./rcm/denials.js";
+import { inboundHandlers } from "./rcm/inbound.js";
+import { billingReferenceHandlers } from "./rcm/reference.js";
+import { remittanceHandlers } from "./rcm/remittance.js";
 
 /** Every module's operation handlers, keyed by operationId (api/openapi.yaml). */
 export const handlers: HandlerMap = {
@@ -64,4 +73,13 @@ export const handlers: HandlerMap = {
   ...resultHandlers,
   ...prescribingHandlers,
   ...rxRequestHandlers,
+  ...chargeHandlers,
+  ...chargeReviewHandlers,
+  ...claimHandlers,
+  ...remittanceHandlers,
+  ...denialHandlers,
+  ...accountHandlers,
+  ...dayCloseHandlers,
+  ...billingReferenceHandlers,
+  ...inboundHandlers,
 };

@@ -806,42 +806,25 @@ export interface ChargeItem {
   readonly createdById?: string | null;
 }
 
-/** Billable line from an encounter. Released to claims on note sign (flow:rcm/01) */
-export interface ChargeItemCreate {
-  patientId: string;
-  encounterId?: string | null;
-  /** CPT, HCPCS */
-  codeSystem: CodeSystem;
-  code: string;
-  description: string;
+export interface ChargeItemEdit {
+  code?: string;
   modifiers?: Array<string>;
-  /** decimal */
-  units?: string;
-  /** ordered diagnosis pointers (INV-FIN-03) */
+  units?: number;
   dxConditionIds?: Array<string>;
-  /** decimal */
-  fee: string;
-  serviceDate: string;
-  renderingPractitionerId: string;
-  holdNote?: string | null;
+  /** decimal amount, 2 places */
+  fee?: string;
+  holdNote?: string;
 }
 
-/** Merge-patch of ChargeItem. Send If-Match with the current ETag. */
-export interface ChargeItemUpdate {
-  /** CPT, HCPCS */
-  codeSystem?: CodeSystem;
-  code?: string;
-  description?: string;
+/** addChargeItem body. Description, fee, service date, rendering provider and patient come from the encounter and the practice fee schedule. */
+export interface ChargeItemEntry {
+  codeSystem?: "CPT" | "HCPCS";
+  code: string;
   modifiers?: Array<string>;
-  /** decimal */
-  units?: string;
-  /** ordered diagnosis pointers (INV-FIN-03) */
-  dxConditionIds?: Array<string>;
-  /** decimal */
+  units?: number;
+  dxConditionIds: Array<string>;
+  /** decimal amount, 2 places */
   fee?: string;
-  serviceDate?: string;
-  renderingPractitionerId?: string;
-  holdNote?: string | null;
 }
 
 export interface ChargeLagReport {
@@ -856,7 +839,7 @@ export interface ChargeLagReport {
 
 export interface ChargeReviewDetail {
   charges: EncounterCharges;
-  note: ClinicalNoteSummary;
+  note?: ClinicalNoteSummary;
   coverage?: CoverageView;
   edits: Array<{
     code: string;
@@ -975,13 +958,15 @@ export interface Claim {
 }
 
 export interface ClaimCorrection {
-  frequencyCode: "7" | "8";
+  frequencyCode: "1" | "7" | "8";
   changes: unknown;
   reason: string;
   version: number;
 }
 
 export type ClaimDetail = Claim & {
+  patient?: PatientSummary;
+  payerName?: string;
   lines: Array<ClaimLine>;
   events: Array<ClaimEvent>;
   denials: Array<Denial>;
@@ -3964,16 +3949,12 @@ export interface PaymentPlan {
   readonly createdAt: string;
 }
 
-export interface PaymentPlanCreate {
-  patientId: string;
-  /** decimal */
+export interface PaymentPlanRequest {
+  /** decimal amount, 2 places */
   totalAmount: string;
   months: number;
-  /** decimal */
-  monthlyAmount: string;
   firstPaymentOn: string;
   paymentMethodId: string;
-  status?: PlanStatus;
 }
 
 export type PaymentStatus = "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED" | "VOIDED";
@@ -4832,7 +4813,9 @@ export interface RejectionRow {
   source: "999" | "277CA";
   code: string;
   text: string;
+  field?: string;
   rejectedAt: string;
+  filingDeadline: string;
 }
 
 /** Guarantor, emergency contact, proxy, parent/guardian (US Core RelatedPerson) */
@@ -6158,8 +6141,8 @@ export interface SchemaTypes {
   ChallengeRef: ChallengeRef;
   ChannelRequest: ChannelRequest;
   ChargeItem: ChargeItem;
-  ChargeItemCreate: ChargeItemCreate;
-  ChargeItemUpdate: ChargeItemUpdate;
+  ChargeItemEdit: ChargeItemEdit;
+  ChargeItemEntry: ChargeItemEntry;
   ChargeLagReport: ChargeLagReport;
   ChargeReviewDetail: ChargeReviewDetail;
   ChargeReviewRow: ChargeReviewRow;
@@ -6433,7 +6416,7 @@ export interface SchemaTypes {
   PaymentMethodCreateRequest: PaymentMethodCreateRequest;
   PaymentMethodType: PaymentMethodType;
   PaymentPlan: PaymentPlan;
-  PaymentPlanCreate: PaymentPlanCreate;
+  PaymentPlanRequest: PaymentPlanRequest;
   PaymentStatus: PaymentStatus;
   PdmpQuery: PdmpQuery;
   PdmpQueryRequest: PdmpQueryRequest;
